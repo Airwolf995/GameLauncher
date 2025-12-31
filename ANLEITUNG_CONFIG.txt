@@ -1,0 +1,95 @@
+--------------------------------------------------------------------------------
+                     GAME LAUNCHER - KONFIGURATION & INFO
+--------------------------------------------------------------------------------
+
+Diese Datei erklärt dir, wie die "game_launcher_config.json" funktioniert und
+wie du Spiele manuell oder per Link (URI) hinzufügst.
+
+--------------------------------------------------------------------------------
+1. AUFBAU DER CONFIG DATEI
+--------------------------------------------------------------------------------
+Die Datei ist im JSON-Format. Wichtig ist, dass die Struktur (Klammern und Kommas)
+erhalten bleibt. Sie liegt immer im selben Ordner wie die GameLauncher.exe.
+
+Haupt-Sektionen:
+- "steam_library_paths": Liste deiner Steam-Ordner (wird für Autoscan benutzt).
+- "epic_library_paths": Liste deiner Epic-Manifest-Ordner (Autoscan).
+- "manual_games": Liste deiner eigenen Spiele (EXE oder Links).
+- "favorites": Liste der favorisierten Spiele.
+- "ui_settings": Einstellungen für das Aussehen (wird meist über das Menü gesteuert).
+
+--------------------------------------------------------------------------------
+2. MANUELLE SPIELE HINZUFÜGEN (EXE)
+--------------------------------------------------------------------------------
+Am einfachsten geht das über den Button "+ Spiel" im Launcher selbst.
+Wenn du es aber per Hand in die Datei schreiben willst:
+
+    {
+        "id": "mein_spiel_1",           <-- Eindeutige ID
+        "name": "Mein Spiel",           <-- Name im Launcher
+        "platform": "PC",               <-- Plattform (PC, Xbox, etc.)
+        "path": "C:/Spiele/Game.exe",   <-- Pfad zur EXE
+        "args": "",                     <-- Startargumente (optional)
+        "source": "Manuell",
+        "launch_type": "exe",           <-- "exe" oder "uri"
+        "is_manual": true,
+        "image_url": ""                 <-- Pfad zum Cover Bild (optional)
+    }
+
+NEU: Du kannst jetzt auch Cover automatisch suchen lassen! Klicke beim Hinzufügen
+einfach auf den "Suche" Button (Lupen-Icon) neben dem Namen.
+Dafür brauchst du einen (kostenlosen) API Key von SteamGridDB.
+
+--------------------------------------------------------------------------------
+3. LAUNCHER LINKS (BATTLE.NET, ETC.)
+--------------------------------------------------------------------------------
+Für Spiele, die nicht automatisch gefunden werden (z.B. Battle.net), sieht der Eintrag so aus:
+
+    {
+        "id": "wow",
+        "name": "World of Warcraft",
+        "platform": "Battle.net",
+        "path": "battlenet://WoW",
+        "args": "",
+        "source": "Battle.net",
+        "launch_type": "uri",           <-- WICHTIG: "uri" statt "exe"
+        "is_manual": true,
+        "image_url": ""
+    }
+
+TIPP: Du kannst diese Links auch direkt im Launcher beim "+ Spiel" Button in das
+Feld "Pfad" kopieren! Der Launcher erkennt das automatisch.
+
+--------------------------------------------------------------------------------
+4. UI EINSTELLUNGEN
+--------------------------------------------------------------------------------
+Diese Werte kannst du bequem über das "Zahnrad"-Symbol im Launcher ändern.
+In der Config sieht das so aus:
+
+    "ui_settings": {
+        "card_size": "Mittel",          <-- Größe der Kacheln (Klein, Mittel, Groß)
+        "view_mode": "Karten",          <-- Ansicht (Karten oder Liste)
+        "animations_enabled": true,     <-- Animationen an/aus
+        "font_scale": 1.0,              <-- Schriftgröße (0.8 bis 1.4)
+        "background_image": "C:/...",   <-- Pfad zum Hintergrundbild
+        "steamgriddb_api_key": "..."    <-- Dein Key für automatische Cover
+    }
+
+--------------------------------------------------------------------------------
+5. EPIC GAMES "AUTOMATISCH" FINDEN
+--------------------------------------------------------------------------------
+Damit der Launcher deine Epic Games Spiele automatisch findet (nicht manuell!), 
+musst du den Pfad zu den Manifest-Dateien angeben.
+
+Standard-Pfad:
+"C:/ProgramData/Epic/EpicGamesLauncher/Data/Manifests"
+
+Wie finde ich diesen Pfad?
+Der Ordner "ProgramData" ist standardmäßig versteckt. So kommst du trotzdem hin:
+1. Drücke [Windows-Taste + R] auf deiner Tastatur.
+2. Gib %ProgramData% ein und drücke Enter.
+3. Navigiere zu: Epic -> EpicGamesLauncher -> Data -> Manifests.
+4. Kopiere den Pfad aus der Adresszeile oben.
+
+Füge diesen Pfad dann in der "game_launcher_config.json" unter "epic_library_paths" ein.
+(Wichtig: Backslashes \ durch Slashes / ersetzen!)
