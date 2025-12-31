@@ -2,7 +2,8 @@
 
 Ein moderner, schlanker Game Launcher, der deine Spiele von Steam, Epic Games und GOG an einem zentralen Ort bündelt.
 
-![Game Launcher Screenshot](https://via.placeholder.com/800x450.png?text=Game+Launcher+Logo+oder+Screenshot) <!-- Hier kannst du später ein echtes Bild einfügen -->
+![Game Launcher Screenshot]<img width="1332" height="832" alt="image" src="https://github.com/user-attachments/assets/7b5feb22-57d1-4a59-9055-fc266b9c2ca9" />
+
 
 ## ✨ Features
 - **Plattformübergreifend:** Erkennt automatisch Spiele von Steam, Epic Games und GOG Galaxy.
