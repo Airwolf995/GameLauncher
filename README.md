@@ -34,4 +34,4 @@ Detaillierte Informationen zur Konfiguration und zum Hinzufügen von Spielen fin
 Die Software wird "wie besehen" (as is) zur Verfügung gestellt, ohne jegliche Gewährleistung oder Haftung für Schäden, die durch die Nutzung der Software entstehen könnten. Die Nutzung erfolgt auf eigene Gefahr.
 
 ---
-*Entwickelt von Airwolf99*
+*Entwickelt von Airwolf995*
