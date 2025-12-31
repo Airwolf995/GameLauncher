@@ -9,7 +9,10 @@ wie du Spiele manuell oder per Link (URI) hinzufügst.
 1. AUFBAU DER CONFIG DATEI
 --------------------------------------------------------------------------------
 Die Datei ist im JSON-Format. Wichtig ist, dass die Struktur (Klammern und Kommas)
-erhalten bleibt. Sie liegt immer im selben Ordner wie die GameLauncher.exe.
+erhalten bleibt. 
+
+**WICHTIG:** Die Datei liegt in deinem Dokumente-Ordner:
+`Dokumente\GameLauncher\game_launcher_config.json`
 
 Haupt-Sektionen:
 - "steam_library_paths": Liste deiner Steam-Ordner (wird für Autoscan benutzt).
@@ -72,7 +75,9 @@ In der Config sieht das so aus:
         "animations_enabled": true,     <-- Animationen an/aus
         "font_scale": 1.0,              <-- Schriftgröße (0.8 bis 1.4)
         "background_image": "C:/...",   <-- Pfad zum Hintergrundbild
-        "steamgriddb_api_key": "..."    <-- Dein Key für automatische Cover
+        "steamgriddb_api_key": "...",   <-- Dein Key für automatische Cover
+        "minimize_on_game_start": true, <-- Launcher minimieren beim Spielstart
+        "auto_check_updates": true      <-- Automatisch nach Updates suchen
     }
 
 --------------------------------------------------------------------------------
