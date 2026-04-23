@@ -8,10 +8,12 @@ Ein moderner, schlanker Game Launcher, der deine Spiele von Steam, Epic Games un
 ## ✨ Features
 - **Plattformübergreifend:** Erkennt automatisch Spiele von Steam, Epic Games und GOG Galaxy.
 - **Manuelle Spiele:** Füge eigene EXE-Dateien oder URI-Links (z.B. Battle.net) hinzu.
-- **Playtime Tracking:** Behalte deine Spielzeit im Blick (lokale Erfassung).
-- **Modernes Design:** Dark-Mode UI mit anpassbaren Farbakzenten und Hintergrundbildern.
+- **System-Overlay (HUD):** Auf Knopfdruck (Alt+G) siehst du im Spiel aktuelle FPS, CPU-, RAM- & GPU-Auslastung sowie deine Spielzeit.
+- **Playtime Tracking:** Behalte deine Spielzeit im Blick (lokale, sekundengenaue Erfassung).
+- **Tags & Kategorien:** Organisiere deine Bibliothek mit eigenen Tags und smarten Filterfunktionen.
+- **Modernes Design:** Dynamisches Dark-Mode UI mit anpassbaren Farbakzenten und automatischem Cover-Download.
 - **Auto-Updates:** Integriertes Update-System für neue Funktionen und Fixes.
-- **Privacy First:** Keine Datenerfassung, kein Senden von Bibliotheken oder Spielverhalten an Server.
+- **Privacy First:** Weitestgehend lokale Datenverarbeitung. Keine Telemetrie, kein Senden von Spielverhalten an Entwickler-Server (Details siehe `PRIVACY.md`).
 
 ## 🚀 Installation & Download
 Du findest den aktuellsten Installer unter den **[GitHub Releases](https://github.com/Airwolf995/GameLauncher/releases)**.
