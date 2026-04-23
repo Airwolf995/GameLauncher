@@ -21,6 +21,11 @@ Wenn du die Funktion "Cover suchen" nutzt, wird der Name des Spiels und dein per
 - **Dienstanbieter:** SteamGridDB.
 - **Zweck:** Abrufen von Cover-Bildern für deine Bibliothek.
 
+### c) Steam / Valve (Metadaten-Abruf)
+Um zusätzliche Informationen (wie Beschreibungen, Entwickler, Genres und Erscheinungsdatum) für Steam-Spiele in deiner Bibliothek anzuzeigen, ruft die Anwendung Daten über die öffentliche Steam-API ab. Hierbei wird technisch bedingt deine IP-Adresse an Valve übertragen.
+- **Dienstanbieter:** Valve Corporation, USA.
+- **Zweck:** Abrufen von Spieldetails und Metadaten für die Bibliothek.
+
 ## 3. Playtime Tracking
 Die Erfassung der Spielzeit erfolgt rein lokal durch das Überwachen der Prozess-IDs der gestarteten Spiele. Diese Daten verlassen niemals deinen PC.
 
