@@ -34,4 +34,4 @@ Dieses Repository dient der Bereitstellung von Dokumentation und Installationsda
 
 
 ---
-*Stand: 31. Dezember 2025*
+*Stand: 23. April 2026*
