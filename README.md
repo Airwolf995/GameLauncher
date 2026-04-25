@@ -8,8 +8,8 @@ Ein moderner, schlanker Game Launcher, der deine Spiele von Steam, Epic Games un
 ## ✨ Features
 - **Plattformübergreifend:** Erkennt automatisch Spiele von Steam, Epic Games und GOG Galaxy.
 - **Manuelle Spiele:** Füge eigene EXE-Dateien oder URI-Links (z.B. Battle.net) hinzu.
-- **System-Overlay (HUD):** Auf Knopfdruck (Alt+G) siehst du im Spiel aktuelle FPS, CPU-, RAM- & GPU-Auslastung sowie deine Spielzeit.
-- **Playtime Tracking:** Behalte deine Spielzeit im Blick (lokale, sekundengenaue Erfassung).
+- **System-Overlay (HUD):** Auf Knopfdruck (Alt+G) siehst du im Spiel aktuelle Hardware-Daten (CPU, GPU, RAM, VRAM) sowie deine aktuelle Sitzungsdauer.
+- **Playtime Tracking:** Behalte deine Spielzeit im Blick (lokale Erfassung deiner gesamten Spielzeit).
 - **Tags & Kategorien:** Organisiere deine Bibliothek mit eigenen Tags und smarten Filterfunktionen.
 - **Modernes Design:** Dynamisches Dark-Mode UI mit anpassbaren Farbakzenten und automatischem Cover-Download.
 - **Auto-Updates:** Integriertes Update-System für neue Funktionen und Fixes.
