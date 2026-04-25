@@ -14,87 +14,74 @@ erhalten bleibt.
 **WICHTIG:** Die Datei liegt in deinem Dokumente-Ordner:
 `Dokumente\GameLauncher\game_launcher_config.json`
 
-Haupt-Sektionen:
-- "steam_library_paths": Liste deiner Steam-Ordner (wird für Autoscan benutzt).
-- "epic_library_paths": Liste deiner Epic-Manifest-Ordner (Autoscan).
-- "manual_games": Liste deiner eigenen Spiele (EXE oder Links).
-- "favorites": Liste der favorisierten Spiele.
-- "ui_settings": Einstellungen für das Aussehen (wird meist über das Menü gesteuert).
+Haupt-Sektionen (Top-Level):
+- "steam_library_paths": Liste zusätzlicher Steam-Ordner.
+- "epic_library_paths": Liste deiner Epic-Manifest-Ordner.
+- "manual_games": Deine eigenen Spiele (EXE oder Links).
+- "favorites": IDs deiner Favoriten (HashSet).
+- "hidden_games": IDs deiner ausgeblendeten Spiele.
+- "theme": Akzentfarbe ("Blau", "Rot", "Grün", "Orange", "Lila", "Pink", "Dunkel").
+- "ignored_processes": Namen von EXEs, die vom Playtime-Tracking ignoriert werden.
+- "ui_settings": Detail-Einstellungen für das Interface.
 
 --------------------------------------------------------------------------------
 2. MANUELLE SPIELE HINZUFÜGEN (EXE)
 --------------------------------------------------------------------------------
-Am einfachsten geht das über den Button "+ Spiel" im Launcher selbst.
-Wenn du es aber per Hand in die Datei schreiben willst:
+Beispiel für einen Eintrag in "manual_games":
 
     {
         "id": "mein_spiel_1",           <-- Eindeutige ID
         "name": "Mein Spiel",           <-- Name im Launcher
-        "platform": "PC",               <-- Plattform (PC, Xbox, etc.)
-        "path": "C:/Spiele/Game.exe",   <-- Pfad zur EXE
-        "args": "",                     <-- Startargumente (optional)
-        "source": "Manuell",
+        "platform": "PC",               <-- Plattform (z.B. "PC", "Xbox")
+        "path": "C:/Spiele/Game.exe",   <-- Pfad (benutze / statt \)
+        "args": "",                     <-- Startargumente
         "launch_type": "exe",           <-- "exe" oder "uri"
         "is_manual": true,
-        "image_url": ""                 <-- Pfad zum Cover Bild (optional)
+        "image_url": "",                <-- Pfad zum Cover
+        "executable_name": "Game.exe"   <-- Der Prozess, der für Spielzeit zählt
     }
 
-NEU: Du kannst jetzt auch Cover automatisch suchen lassen! Klicke beim Hinzufügen
-einfach auf den "Suche" Button (Lupen-Icon) neben dem Namen.
-Dafür brauchst du einen (kostenlosen) API Key von SteamGridDB.
+PROFI-TIPP: Wenn ein Spiel einen eigenen Launcher startet, trage bei 
+"executable_name" den Namen der eigentlichen Spiele-EXE ein, damit die 
+Spielzeit korrekt gemessen wird.
 
 --------------------------------------------------------------------------------
 3. LAUNCHER LINKS (BATTLE.NET, ETC.)
 --------------------------------------------------------------------------------
-Für Spiele, die nicht automatisch gefunden werden (z.B. Battle.net), sieht der Eintrag so aus:
+Für Launcher-Links (URI) wie "battlenet://WoW":
 
     {
         "id": "wow",
         "name": "World of Warcraft",
-        "platform": "Battle.net",
         "path": "battlenet://WoW",
-        "args": "",
-        "source": "Battle.net",
-        "launch_type": "uri",           <-- WICHTIG: "uri" statt "exe"
-        "is_manual": true,
-        "image_url": ""
-    }
-
-TIPP: Du kannst diese Links auch direkt im Launcher beim "+ Spiel" Button in das
-Feld "Pfad" kopieren! Der Launcher erkennt das automatisch.
-
---------------------------------------------------------------------------------
-4. UI EINSTELLUNGEN
---------------------------------------------------------------------------------
-Diese Werte kannst du bequem über das "Zahnrad"-Symbol im Launcher ändern.
-In der Config sieht das so aus:
-
-    "ui_settings": {
-        "card_size": "Mittel",          <-- Größe der Kacheln (Klein, Mittel, Groß)
-        "view_mode": "Karten",          <-- Ansicht (Karten oder Liste)
-        "animations_enabled": true,     <-- Animationen an/aus
-        "font_scale": 1.0,              <-- Schriftgröße (0.8 bis 1.4)
-        "background_image": "C:/...",   <-- Pfad zum Hintergrundbild
-        "steamgriddb_api_key": "...",   <-- Dein Key für automatische Cover
-        "minimize_on_game_start": true, <-- Launcher minimieren beim Spielstart
-        "auto_check_updates": true      <-- Automatisch nach Updates suchen
+        "launch_type": "uri",           <-- WICHTIG
+        "is_manual": true
     }
 
 --------------------------------------------------------------------------------
-5. EPIC GAMES "AUTOMATISCH" FINDEN
+4. UI & SYSTEM EINSTELLUNGEN
 --------------------------------------------------------------------------------
-Damit der Launcher deine Epic Games Spiele automatisch findet (nicht manuell!), 
-musst du den Pfad zu den Manifest-Dateien angeben.
+Wichtige Felder in "ui_settings":
 
-Standard-Pfad:
-"C:/ProgramData/Epic/EpicGamesLauncher/Data/Manifests"
+- "card_size": "Klein", "Mittel" oder "Groß".
+- "view_mode": "Karten" oder "Liste".
+- "animations_enabled": Schaltet UI-Animationen ein/aus (true/false).
+- "font_scale": Skalierung (0.8 bis 1.4).
+- "minimize_to_tray": Minimiert in den System-Tray beim Schließen.
+- "minimize_on_game_start": Minimiert den Launcher beim Spielstart.
+- "close_on_game_start": Beendet den Launcher beim Spielstart.
+- "overlay_hotkey_alt": Aktiviert die Alt-Taste für das Overlay.
+- "overlay_hotkey_key": Die Taste (z.B. "G").
+- "auto_check_updates": Automatische Update-Prüfung beim Start.
 
-Wie finde ich diesen Pfad?
-Der Ordner "ProgramData" ist standardmäßig versteckt. So kommst du trotzdem hin:
-1. Drücke [Windows-Taste + R] auf deiner Tastatur.
-2. Gib %ProgramData% ein und drücke Enter.
-3. Navigiere zu: Epic -> EpicGamesLauncher -> Data -> Manifests.
-4. Kopiere den Pfad aus der Adresszeile oben.
+HINWEIS ZUM API-KEY: Der SteamGridDB API-Key kann aus Sicherheitsgründen nur direkt im 
+Programm (Einstellungen) eingegeben werden. Er wird dort verschlüsselt gespeichert.
 
-Füge diesen Pfad dann in der "game_launcher_config.json" unter "epic_library_paths" ein.
-(Wichtig: Backslashes \ durch Slashes / ersetzen!)
+--------------------------------------------------------------------------------
+5. TIPPS & TRICKS
+--------------------------------------------------------------------------------
+- AUTOMATIK: Steam und GOG werden über die Windows-Registry automatisch gefunden.
+- REFRESH: Klicke oben rechts auf 🔄, um alle Änderungen sofort zu laden.
+- FALLBACK: Wenn die Config fehlerhaft ist, kannst du sie löschen; der Launcher
+  erstellt beim nächsten Start eine neue Standard-Datei.
+--------------------------------------------------------------------------------
