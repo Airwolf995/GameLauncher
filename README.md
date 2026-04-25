@@ -2,7 +2,7 @@
 
 Ein moderner, schlanker Game Launcher, der deine Spiele von Steam, Epic Games und GOG an einem zentralen Ort bündelt.
 
-<img width="1334" height="830" alt="Screenshot 2026-04-25 041432" src="https://github.com/user-attachments/assets/ced03b9b-e1c8-4a34-afb6-84f872faef3b" />
+<img width="1329" height="825" alt="Screenshot 2026-04-25 041543" src="https://github.com/user-attachments/assets/02a71a6e-1c56-4bb4-a8a2-bb1d1dc2c9d5" />
 
 
 ## ✨ Features
