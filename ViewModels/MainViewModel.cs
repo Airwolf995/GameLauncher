@@ -17,7 +17,7 @@ namespace GameLauncher.ViewModels
     {
         private readonly GameManager _gameManager;
         private ObservableCollection<Game> _games;
-        private ICollectionView _gamesView;
+        private ICollectionView _gamesView = null!;
         private string _searchText = "";
         private string _selectedFilter = "Alle";
         private GameSortMode _selectedSort = GameSortMode.Name;
@@ -40,10 +40,7 @@ namespace GameLauncher.ViewModels
             _gameManager = gameManager ?? throw new ArgumentNullException(nameof(gameManager));
             _games = new ObservableCollection<Game>();
             
-            // Setup CollectionView
-            _gamesView = CollectionViewSource.GetDefaultView(_games);
-            _gamesView.Filter = FilterGames;
-            _gamesView.SortDescriptions.Add(new SortDescription("Name", ListSortDirection.Ascending));
+            ConfigureGamesView();
 
             // Commands
             LoadGamesCommand = new RelayCommand(async _ => await LoadGamesAsync());
@@ -104,6 +101,7 @@ namespace GameLauncher.ViewModels
             KeyValuePair.Create(GameSortMode.Name, "Name"),
             KeyValuePair.Create(GameSortMode.Favorites, "Favoriten"),
             KeyValuePair.Create(GameSortMode.LastPlayed, "Zuletzt gespielt"),
+            KeyValuePair.Create(GameSortMode.PlayTime, "Spielzeit"),
         };
 
         public GameSortMode SelectedSort
@@ -145,12 +143,7 @@ namespace GameLauncher.ViewModels
                         _games.Add(game);
                     }
                     
-                    // We must recreate the View for the updated collection
-                    _gamesView = CollectionViewSource.GetDefaultView(_games);
-                    _gamesView.Filter = FilterGames;
-                    
-                    // Re-apply Sort
-                    ApplySort(); // This methods relies on _selectedSort property
+                    ConfigureGamesView();
 
                     PopulateFilterOptions();
 
@@ -250,6 +243,7 @@ namespace GameLauncher.ViewModels
         private void ApplySort()
         {
             _gamesView.SortDescriptions.Clear();
+            ConfigureLiveSorting();
 
             switch (_selectedSort)
             {
@@ -262,6 +256,52 @@ namespace GameLauncher.ViewModels
                     break;
                 case GameSortMode.LastPlayed:
                     _gamesView.SortDescriptions.Add(new SortDescription("LastPlayed", ListSortDirection.Descending));
+                    _gamesView.SortDescriptions.Add(new SortDescription("Name", ListSortDirection.Ascending));
+                    break;
+                case GameSortMode.PlayTime:
+                    _gamesView.SortDescriptions.Add(new SortDescription("PlayTime", ListSortDirection.Descending));
+                    _gamesView.SortDescriptions.Add(new SortDescription("Name", ListSortDirection.Ascending));
+                    break;
+            }
+        }
+
+        private void ConfigureGamesView()
+        {
+            _gamesView = CollectionViewSource.GetDefaultView(_games);
+            _gamesView.Filter = FilterGames;
+            ApplySort();
+        }
+
+        private void ConfigureLiveSorting()
+        {
+            if (_gamesView is not ICollectionViewLiveShaping liveShaping)
+            {
+                return;
+            }
+
+            if (liveShaping.CanChangeLiveSorting)
+            {
+                liveShaping.IsLiveSorting = true;
+            }
+
+            liveShaping.LiveSortingProperties.Clear();
+
+            switch (_selectedSort)
+            {
+                case GameSortMode.Name:
+                    liveShaping.LiveSortingProperties.Add(nameof(Game.Name));
+                    break;
+                case GameSortMode.Favorites:
+                    liveShaping.LiveSortingProperties.Add(nameof(Game.IsFavorite));
+                    liveShaping.LiveSortingProperties.Add(nameof(Game.Name));
+                    break;
+                case GameSortMode.LastPlayed:
+                    liveShaping.LiveSortingProperties.Add(nameof(Game.LastPlayed));
+                    liveShaping.LiveSortingProperties.Add(nameof(Game.Name));
+                    break;
+                case GameSortMode.PlayTime:
+                    liveShaping.LiveSortingProperties.Add(nameof(Game.PlayTime));
+                    liveShaping.LiveSortingProperties.Add(nameof(Game.Name));
                     break;
             }
         }

@@ -20,6 +20,7 @@ namespace GameLauncher.Models
     {
         Name,
         Favorites,
-        LastPlayed
+        LastPlayed,
+        PlayTime
     }
 }
