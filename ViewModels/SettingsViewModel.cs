@@ -446,6 +446,8 @@ namespace GameLauncher.ViewModels
             {
                 CardSize = CardSize,
                 ViewMode = ViewMode,
+                LibrarySortMode = current.LibrarySortMode,
+                LibraryFilter = current.LibraryFilter,
                 AnimationsEnabled = AnimationsEnabled,
                 FontScale = FontScale,
                 BackgroundImage = _backgroundImage,
@@ -469,6 +471,8 @@ namespace GameLauncher.ViewModels
             {
                 CardSizeString = settings.CardSizeString,
                 ViewModeString = settings.ViewModeString,
+                LibrarySortModeString = settings.LibrarySortModeString,
+                LibraryFilter = settings.LibraryFilter,
                 AnimationsEnabled = settings.AnimationsEnabled,
                 FontScale = settings.FontScale,
                 BackgroundImage = settings.BackgroundImage,

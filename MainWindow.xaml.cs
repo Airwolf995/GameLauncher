@@ -5,12 +5,14 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Input;
 using System.Collections.Generic;
 using System.Threading;
+using System.Windows.Threading;
 using GameLauncher.Models;
 using GameLauncher.Core;
 
@@ -341,6 +343,51 @@ namespace GameLauncher
                 container?.Focus();
             }
             return true;
+        }
+
+        private void ComboBox_DropDownOpened(object sender, EventArgs e)
+        {
+            if (sender is not ComboBox comboBox)
+            {
+                return;
+            }
+
+            Dispatcher.BeginInvoke(
+                new Action(() => AlignComboBoxDropDown(comboBox)),
+                DispatcherPriority.Loaded);
+        }
+
+        private static void AlignComboBoxDropDown(ComboBox comboBox)
+        {
+            if (comboBox.SelectedIndex < 0)
+            {
+                return;
+            }
+
+            if (comboBox.Template.FindName("Popup", comboBox) is not Popup popup || popup.Child is not DependencyObject popupChild)
+            {
+                return;
+            }
+
+            var scrollViewer = FindVisualChild<ScrollViewer>(popupChild);
+            if (scrollViewer == null)
+            {
+                return;
+            }
+
+            comboBox.UpdateLayout();
+
+            int anchorIndex = Math.Max(0, comboBox.SelectedIndex - 1);
+            if (comboBox.ItemContainerGenerator.ContainerFromIndex(anchorIndex) is not ComboBoxItem anchorItem)
+            {
+                return;
+            }
+
+            var top = anchorItem.TransformToAncestor(scrollViewer).Transform(new Point(0, 0)).Y;
+            if (Math.Abs(top) > 0.5)
+            {
+                scrollViewer.ScrollToVerticalOffset(Math.Max(0, scrollViewer.VerticalOffset + top));
+            }
         }
 
         private static T? FindAncestor<T>(DependencyObject current) where T : DependencyObject

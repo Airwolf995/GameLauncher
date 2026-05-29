@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json.Serialization;
 using GameLauncher.Services;
 
@@ -48,6 +49,24 @@ namespace GameLauncher.Models
                 _ => "Karten"
             };
         }
+
+        [JsonPropertyName("library_sort_mode")]
+        public string LibrarySortModeString { get; set; } = "Name";
+
+        /// <summary>
+        /// Typsicherer Zugriff auf den Sortiermodus der Bibliothek.
+        /// </summary>
+        [JsonIgnore]
+        public GameSortMode LibrarySortMode
+        {
+            get => Enum.TryParse<GameSortMode>(LibrarySortModeString, ignoreCase: true, out var mode)
+                ? mode
+                : GameSortMode.Name;
+            set => LibrarySortModeString = value.ToString();
+        }
+
+        [JsonPropertyName("library_filter")]
+        public string LibraryFilter { get; set; } = "Alle";
         
         [JsonPropertyName("animations_enabled")]
         public bool AnimationsEnabled { get; set; } = true;

@@ -118,7 +118,10 @@
                                             Background="#252526"
                                             BorderThickness="1" 
                                             BorderBrush="#3E3E42"/>
-                                    <ScrollViewer Margin="4,6,4,6" SnapsToDevicePixels="True">
+                                    <ScrollViewer Margin="4,6,4,6"
+                                                  SnapsToDevicePixels="True"
+                                                  CanContentScroll="False"
+                                                  VerticalScrollBarVisibility="Auto">
                                         <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained" />
                                     </ScrollViewer>
                                 </Grid>
@@ -255,6 +258,7 @@
                                   ItemsSource="{Binding SortOptions}"
                                   SelectedValuePath="Key"
                                   DisplayMemberPath="Value"
+                                  DropDownOpened="ComboBox_DropDownOpened"
                                   SelectedValue="{Binding SelectedSort}" 
                                   FontSize="13" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -264,6 +268,7 @@
                         <TextBlock Text="Filter:" Foreground="#888888" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
                         <ComboBox x:Name="FilterBox" Width="150" Padding="8,6" 
                                   ItemsSource="{Binding FilterOptions}"
+                                  DropDownOpened="ComboBox_DropDownOpened"
                                   SelectedItem="{Binding SelectedFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                   ItemContainerStyle="{StaticResource MainComboBoxItemStyle}"
                                   FontSize="13" MaxDropDownHeight="400" VerticalAlignment="Center">

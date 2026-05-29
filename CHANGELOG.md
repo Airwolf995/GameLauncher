@@ -13,6 +13,7 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 - Framework-Upgrade: Das TargetFramework wurde auf `net8.0-windows10.0.19041.0` aktualisiert, um moderne Windows-spezifische APIs und WinRT/UWP-Schnittstellen (z. B. für den Windows-Paketmanager) nutzen zu können.
 - **Einstellungen**: Änderungen im Einstellungsfenster werden nur noch als Live-Vorschau angewendet und erst beim Klick auf „Fertig" dauerhaft in die Konfiguration geschrieben.
 - **Einstellungen**: Beim Öffnen der Einstellungen wird keine automatische Bibliothekssuche mehr gestartet; die Pfadfelder zeigen nur gespeicherte bzw. manuell eingetragene Pfade an.
+- **Bibliothekszustand**: Die zuletzt gewählte Sortierung und der aktive Filter der Spielebibliothek werden nun in den `UISettings` gespeichert und beim nächsten Start automatisch wiederhergestellt.
 - **Startup & Bibliothek**: Das Hauptfenster rendert früher, Cover-Bilder werden beim Laden der Spieleliste asynchron nachgeladen und die Startanimation der Karten bleibt mit reduzierter Verzögerung erhalten.
 - **Startup & Cover-Cache**: Die Bibliothek zeigt beim Start zunächst einen Ladezustand, lädt Cover-Bilder vor der ersten Kachel-Animation gezielt vor und hält sie nur temporär in einem Startup-Cache, bis die sichtbaren Startkarten vollständig eingeblendet sind.
 - **Overlay**: Hardware-Monitoring für das Overlay wird erst beim ersten Öffnen des Overlays initialisiert, um den App-Start zu entlasten.
@@ -25,6 +26,7 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 - **Speicherlecks & Aufräumarbeiten**: `ConfigService` und `GameManager` implementieren nun `IDisposable`. Der interne Speichertimer wird beim Beenden sauber freigegeben und etwaige ausstehende Speichervorgänge werden beim Schließen sofort ausgeführt.
 - **Verwaiste Bilder**: Beim Wechseln eines Cover-Bildes über „Bild ändern…“ wird das alte Bild nun automatisch aus dem `images/`-Ordner gelöscht, sofern es nicht noch von einem anderen Spiel verwendet wird.
 - **Filter-Trennstrich**: Der visuelle Trennstrich (`──────────`) im Filter-Dropdown kann nun auch per Tastaturnavigation nicht mehr versehentlich ausgewählt werden.
+- **Bibliotheks-Suche**: Die Suche berücksichtigt nun neben dem Spielnamen auch Tags, sodass Spiele direkt über Schlagwörter gefunden werden können.
 - **Filter-Dropdown**: Das Filter-Menü bleibt beim erneuten Öffnen stabil und springt nicht mehr beim Bewegen des Mauszeigers in der Liste.
 
 ## [1.6.4] - 2026-05-21

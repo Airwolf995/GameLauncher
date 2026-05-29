@@ -20,6 +20,7 @@ namespace GameLauncher.ViewModels
         private ICollectionView _gamesView = null!;
         private string _searchText = "";
         private string _selectedFilter = "Alle";
+        private string _preferredFilter = "Alle";
         private GameSortMode _selectedSort = GameSortMode.Name;
         private System.Threading.Timer? _filterDebounce;
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
@@ -39,6 +40,7 @@ namespace GameLauncher.ViewModels
         {
             _gameManager = gameManager ?? throw new ArgumentNullException(nameof(gameManager));
             _games = new ObservableCollection<Game>();
+            LoadLibraryViewSettings();
             
             ConfigureGamesView();
 
@@ -87,8 +89,10 @@ namespace GameLauncher.ViewModels
                 if (val == "──────────") return;
                 if (SetProperty(ref _selectedFilter, val))
                 {
+                    _preferredFilter = val;
                     _gamesView.Refresh();
                     UpdateStatusText();
+                    SaveLibraryViewSettings();
                 }
             }
         }
@@ -112,6 +116,7 @@ namespace GameLauncher.ViewModels
                 if (SetProperty(ref _selectedSort, value))
                 {
                     ApplySort();
+                    SaveLibraryViewSettings();
                 }
             }
         }
@@ -184,7 +189,10 @@ namespace GameLauncher.ViewModels
             // Text Filter
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
-                 if (!game.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase)) return false;
+                bool matchesName = game.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase);
+                bool matchesTag = game.Tags.Any(tag => tag.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
+
+                if (!matchesName && !matchesTag) return false;
             }
 
             // Category Filter
@@ -306,6 +314,22 @@ namespace GameLauncher.ViewModels
             }
         }
 
+        private void LoadLibraryViewSettings()
+        {
+            var uiSettings = _gameManager.GetConfig().UISettings;
+            _selectedSort = uiSettings.LibrarySortMode;
+            _selectedFilter = string.IsNullOrWhiteSpace(uiSettings.LibraryFilter) ? "Alle" : uiSettings.LibraryFilter;
+            _preferredFilter = _selectedFilter;
+        }
+
+        private void SaveLibraryViewSettings()
+        {
+            var uiSettings = _gameManager.GetConfig().UISettings;
+            uiSettings.LibrarySortMode = _selectedSort;
+            uiSettings.LibraryFilter = _preferredFilter;
+            _gameManager.SaveConfig();
+        }
+
 
 
         private void UpdateStatusText()
@@ -334,7 +358,7 @@ namespace GameLauncher.ViewModels
         {
             new Action(() =>
             {
-                var currentFilter = _selectedFilter;
+                var desiredFilter = string.IsNullOrWhiteSpace(_preferredFilter) ? "Alle" : _preferredFilter;
                 
                 var newOptions = new ObservableCollection<string>
                 {
@@ -362,13 +386,18 @@ namespace GameLauncher.ViewModels
                 
                 FilterOptions = newOptions;
 
-                // Restore selection and notify UI so the combobox doesn't appear empty
-                if (!FilterOptions.Contains(currentFilter))
+                // Restore the saved filter when it becomes available after loading tags/games.
+                var activeFilter = FilterOptions.Contains(desiredFilter)
+                    ? desiredFilter
+                    : "Alle";
+
+                if (_selectedFilter != activeFilter)
                 {
-                    currentFilter = "Alle";
+                    _selectedFilter = activeFilter;
+                    _gamesView.Refresh();
+                    UpdateStatusText();
                 }
-                
-                _selectedFilter = currentFilter;
+
                 OnPropertyChanged(nameof(SelectedFilter));
             }).RunOnUI();
         }
