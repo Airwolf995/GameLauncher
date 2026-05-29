@@ -30,3 +30,4 @@ dotnet build .\GameLauncher.csproj -c Release
 - Keine wilden Eingriffe in bestehende UX/Design ohne Absprache.
 - Änderungen an Status/Overlay immer gegen Binding prüfen.
 - Neue Dateien bevorzugt unter `Services/`, `ViewModels/`, `Models/`.
+- Pushes nur auf `main`, nicht auf `master`.
