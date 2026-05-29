@@ -1,0 +1,153 @@
+<Window x:Class="GameLauncher.AddGameWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Spiel hinzufügen" Icon="pack://application:,,,/game.ico" Height="320" Width="480"
+        Background="#1E1E1E" Foreground="White"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    
+    <Window.Resources>
+        <!-- Modern TextBox -->
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#3E3E42"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="5">
+                            <ScrollViewer x:Name="PART_ContentHost"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#555555"/>
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern Base Button Template -->
+        <Style x:Key="ModernWindowButton" TargetType="Button">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="15,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" 
+                                Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Primary Accent Button -->
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernWindowButton}">
+            <Setter Property="Background" Value="{DynamicResource AccentColor}"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Opacity" Value="0.85"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Opacity" Value="0.7"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.5"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Secondary Button -->
+        <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ModernWindowButton}">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="BorderBrush" Value="#3E3E42"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#3E3E42"/>
+                    <Setter Property="BorderBrush" Value="#555555"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#1A1A1C"/>
+                    <Setter Property="BorderBrush" Value="#2D2D30"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.5"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="25">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- Header -->
+            <RowDefinition Height="Auto"/> <!-- Name -->
+            <RowDefinition Height="Auto"/> <!-- Path -->
+            <RowDefinition Height="*"/>    <!-- Args -->
+            <RowDefinition Height="Auto"/> <!-- Buttons -->
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Text="Neues Spiel hinzufügen" FontSize="20" FontWeight="Bold" Foreground="White" Margin="0,0,0,20"/>
+
+        <!-- Name -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,15">
+            <TextBlock Text="NAME" FontSize="11" FontWeight="SemiBold" Foreground="#888888" Margin="0,0,0,5"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="NameBox" Tag="Name des Spiels" Margin="0,0,10,0"/>
+                <Button x:Name="SearchCoverButton" Grid.Column="1" Content="Cover suchen" Style="{StaticResource SecondaryButton}" Click="SearchCover_Click" Width="110"/>
+            </Grid>
+        </StackPanel>
+
+        <!-- Path -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,15">
+            <TextBlock Text="PFAD / URI" FontSize="11" FontWeight="SemiBold" Foreground="#888888" Margin="0,0,0,5"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="PathBox" Tag="C:\Spiele\Game.exe" Margin="0,0,10,0"/>
+                <Button Grid.Column="1" Content="..." Style="{StaticResource SecondaryButton}" Click="Browse_Click" Width="40" ToolTip="Datei suchen"/>
+            </Grid>
+        </StackPanel>
+
+        <!-- Args -->
+        <StackPanel Grid.Row="3" Margin="0,0,0,15">
+            <TextBlock Text="START-ARGUMENTE (OPTIONAL)" FontSize="11" FontWeight="SemiBold" Foreground="#888888" Margin="0,0,0,5"/>
+            <TextBox x:Name="ArgsBox" Tag="-console -novid"/>
+        </StackPanel>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Abbrechen" Style="{StaticResource SecondaryButton}" Click="Cancel_Click" Margin="0,0,10,0" Width="110"/>
+            <Button Content="Speichern" Style="{StaticResource PrimaryButton}" Click="Save_Click" Width="110"/>
+        </StackPanel>
+    </Grid>
+</Window>

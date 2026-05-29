@@ -1,0 +1,867 @@
+using System;
+using System.Threading.Tasks;
+using System.ComponentModel;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
+using System.Windows.Input;
+using System.Collections.Generic;
+using System.Threading;
+using GameLauncher.Models;
+using GameLauncher.Core;
+
+namespace GameLauncher
+{
+    using GameLauncher.ViewModels;
+
+    public partial class MainWindow : Window
+    {
+        private GameManager _gameManager = null!;
+        private MainViewModel _viewModel = null!;
+        private DataTemplate? _originalCardTemplate; // Store original XAML template
+        
+        private Services.PlayTimeService _playTimeService = null!;
+        private Services.UISettingsService _uiSettingsService = null!;
+        private Services.MainWindow.IGameCardLayoutService _gameCardLayoutService = null!;
+        private Services.MainWindow.ITrayController _trayController = null!;
+        private Services.MainWindow.IFpsCounter _fpsCounter = null!;
+        private Services.MainWindow.IOverlayController _overlayController = null!;
+        private Services.MainWindow.IStatusMessageService _statusMessageService = null!;
+        private Services.MainWindow.IUpdateCoordinator _updateCoordinator = null!;
+        private Services.MainWindow.AnimationService _animationService = null!;
+        private UiSettingsSnapshot? _lastAppliedUiSettings;
+        private bool _releaseStartupImageCacheAfterAnimation;
+        private bool _startupImageCacheTrackingActive;
+        private bool _startupAnimationCompleted;
+        private int _startupImageBindingsRemaining;
+        private CancellationTokenSource? _startupImageCacheReleaseCts;
+        private readonly HashSet<Image> _startupBoundImages = new();
+
+        public static readonly DependencyProperty IsStartupActiveProperty =
+            DependencyProperty.Register("IsStartupActive", typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
+
+        public bool IsStartupActive
+        {
+            get => (bool)GetValue(IsStartupActiveProperty);
+            set => SetValue(IsStartupActiveProperty, value);
+        }
+
+        public static readonly DependencyProperty IsInitialLoadingProperty =
+            DependencyProperty.Register("IsInitialLoading", typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
+
+        public bool IsInitialLoading
+        {
+            get => (bool)GetValue(IsInitialLoadingProperty);
+            set => SetValue(IsInitialLoadingProperty, value);
+        }
+
+        public static readonly DependencyProperty AreAnimationsEnabledProperty =
+            DependencyProperty.Register("AreAnimationsEnabled", typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
+
+        public bool AreAnimationsEnabled
+        {
+            get => (bool)GetValue(AreAnimationsEnabledProperty);
+            set => SetValue(AreAnimationsEnabledProperty, value);
+        }
+
+        public MainWindow()
+        {
+            InitializeComponent();
+            
+            // Enable Dark Title Bar
+            SourceInitialized += (s, e) => Services.DarkModeHelper.EnableDarkTitleBar(this);
+
+            try 
+            {
+                _gameManager = new GameManager();
+                _viewModel = new MainViewModel(_gameManager);
+                DataContext = _viewModel;
+
+                _gameManager.GamesUpdated += OnGamesUpdatedInWindow;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("GameManager Init Failed", ex);
+                MessageBox.Show($"GameManager Init Error: {ex.Message}", "Error");
+            }
+            
+            // Save original card template and style for restoration
+            _originalCardTemplate = GameListControl.ItemTemplate;
+
+            ContentRendered += MainWindow_ContentRendered;
+
+            _uiSettingsService = new Services.UISettingsService();
+            _gameCardLayoutService = new Services.MainWindow.GameCardLayoutService(_uiSettingsService);
+            _animationService = new Services.MainWindow.AnimationService();
+            _trayController = new Services.MainWindow.TrayController();
+            _fpsCounter = new Services.MainWindow.FpsCounter();
+            _overlayController = new Services.MainWindow.OverlayController();
+            _statusMessageService = new Services.MainWindow.StatusMessageService(
+                message =>
+                {
+                    if (_viewModel != null)
+                    {
+                        new Action(() => _viewModel.StatusText = message).RunOnUI();
+                    }
+                },
+                () =>
+                {
+                    if (_viewModel != null)
+                    {
+                        new Action(() => _viewModel.RefreshStatusText()).RunOnUI();
+                    }
+                });
+            _updateCoordinator = new Services.MainWindow.UpdateCoordinator("Airwolf995/GameLauncher");
+
+            ApplySavedTheme();
+
+            // FpsCounter bedarfsgesteuert: nur aktiv wenn Fenster sichtbar
+            StateChanged += MainWindow_StateChanged;
+        }
+
+        private void InitOverlay()
+        {
+            _overlayController.Initialize(this, _playTimeService);
+        }
+
+
+
+        private void OnGamesUpdatedInWindow(object? sender, EventArgs e)
+        {
+            // Trigger visual refresh (animation/stats) when data updates
+            new Action(() => RefreshList(instant: true)).RunOnUI();
+        }
+
+        private void InitPlayTimeService()
+        {
+            _playTimeService = new Services.PlayTimeService(_gameManager, _viewModel.Games);
+            _playTimeService.PlayTimeUpdated += OnPlayTimeUpdated;
+            _playTimeService.Start();
+        }
+
+        private void OnPlayTimeUpdated(object? sender, Game game)
+        {
+            // Game implements INotifyPropertyChanged — bindings update automatically.
+            // No explicit Dispatcher.Invoke needed.
+        }
+
+        private void InitFpsCounter()
+        {
+            _fpsCounter.Start(fps => new Action(() => FpsText.Text = $"FPS: {fps}").RunOnUI());
+        }
+
+        private void MainWindow_StateChanged(object? sender, EventArgs e)
+        {
+            if (WindowState == WindowState.Minimized)
+            {
+                (_fpsCounter as Services.MainWindow.FpsCounter)?.Stop();
+            }
+            else
+            {
+                (_fpsCounter as Services.MainWindow.FpsCounter)?.Resume();
+            }
+        }
+
+        private void InitTrayIcon()
+        {
+            _trayController.Initialize(RestoreFromTray, ExitApplication);
+        }
+
+        private void RestoreFromTray()
+        {
+            Show();
+            WindowState = WindowState.Normal;
+            Activate();
+            _trayController.HideTrayIcon();
+        }
+
+        private bool _isExiting = false;
+
+        internal static bool ShouldMinimizeToTrayOnClose(bool isExiting, bool minimizeToTray) =>
+            !isExiting && minimizeToTray;
+
+        private void BeginExit()
+        {
+            _isExiting = true;
+        }
+
+        private void ExitApplication()
+        {
+            BeginExit();
+            _trayController?.Dispose();
+            Application.Current.Shutdown();
+        }
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            // Force immediate save of any pending changes before closing
+            var gameManager = _gameManager;
+            var config = gameManager?.GetConfig();
+            if (gameManager != null && config != null)
+            {
+                gameManager.SaveConfigImmediate(config);
+            }
+             
+            if (ShouldMinimizeToTrayOnClose(_isExiting, config?.UISettings.MinimizeToTray ?? false))
+            {
+                e.Cancel = true;
+                Hide();
+                _trayController?.ShowTrayIcon();
+                _trayController?.ShowBalloon("Minimiert", "Der Launcher läuft im Hintergrund weiter.", Constants.Timings.TrayBalloonDurationMs);
+            }
+            else
+            {
+                if (_gameManager != null) _gameManager.GamesUpdated -= OnGamesUpdatedInWindow;
+                if (_playTimeService != null) _playTimeService.PlayTimeUpdated -= OnPlayTimeUpdated;
+
+                _playTimeService?.Dispose();
+                _overlayController?.Dispose();
+                _trayController?.Dispose();
+                _fpsCounter?.Dispose();
+                _statusMessageService?.Dispose();
+                _viewModel?.Dispose();
+                _gameManager?.Dispose();
+                base.OnClosing(e);
+            }
+        }
+
+
+        private async void MainWindow_ContentRendered(object? sender, EventArgs e)
+        {
+            ContentRendered -= MainWindow_ContentRendered;
+
+            try
+            {
+                InitTrayIcon();
+                InitFpsCounter();
+                InitPlayTimeService();
+                InitOverlay();
+
+                // Check if it's the first start to show the Wizard
+                if (_gameManager.GetConfig().UISettings.FirstStart)
+                {
+                    var wizard = new SetupWizardWindow(_gameManager);
+                    wizard.ShowDialog();
+                }
+
+                // Apply UI Settings
+                ApplyUISettings();
+
+                // Load Games via ViewModel
+                IsInitialLoading = true;
+                await _viewModel.LoadGamesAsync();
+                try
+                {
+                    await BitmapCacheConverter.PreloadAsync(
+                        _viewModel.Games.Select(game => game.ImageUrl));
+                    _releaseStartupImageCacheAfterAnimation = true;
+                }
+                catch (Exception ex)
+                {
+                    _releaseStartupImageCacheAfterAnimation = false;
+                    ResetStartupImageCacheTracking();
+                    Logger.Error("Image preload failed. Continuing startup without preloaded covers.", ex);
+                }
+                IsInitialLoading = false;
+                
+                // Show the initial library with the configured startup animation.
+                RefreshList(instant: false);
+                
+                // Check for updates (if enabled in settings)
+                var settings = _gameManager?.GetConfig()?.UISettings;
+                if (settings?.AutoCheckUpdates ?? true)
+                {
+                    _ = CheckForUpdatesAsync();
+                }
+                
+                
+                Logger.Log("MainWindow loaded and ready.");
+            }
+
+            catch (Exception ex)
+            {
+                 IsInitialLoading = false;
+                 Logger.Error("Error loading games in MainWindow", ex);
+                 MessageBox.Show($"Load Error: {ex.Message}", "Error");
+            }
+
+        }
+
+        private void ApplySavedTheme()
+        {
+            string savedTheme = _gameManager.GetConfig().Theme;
+            if (string.IsNullOrEmpty(savedTheme))
+            {
+                return;
+            }
+
+            string colorCode = Constants.UI.GetColorCodeForTheme(savedTheme);
+            _uiSettingsService.ApplyTheme(colorCode);
+        }
+
+
+
+
+
+        private bool NavigateList(int direction)
+        {
+            if (GameListControl.Items.Count == 0) return false;
+
+            int currentIndex = GameListControl.SelectedIndex;
+            if (currentIndex == -1) currentIndex = 0;
+
+            int newIndex = currentIndex;
+            int columns = (int)(GameListControl.ActualWidth / 420); 
+            if (columns < 1) columns = 1;
+
+            switch (direction)
+            {
+                case 1: newIndex++; break; // Right
+                case -1: newIndex--; break; // Left
+                case 2: newIndex += columns; break; // Down
+                case -2: newIndex -= columns; break; // Up
+            }
+
+            // Boundary Check for UP (Escaping to Header)
+            if (newIndex < 0 && direction == -2) return false;
+
+            // Clamp
+            if (newIndex < 0) newIndex = 0;
+            if (newIndex >= GameListControl.Items.Count) newIndex = GameListControl.Items.Count - 1;
+
+            if (newIndex != currentIndex)
+            {
+                GameListControl.SelectedIndex = newIndex;
+                GameListControl.ScrollIntoView(GameListControl.Items[newIndex]);
+                var container = GameListControl.ItemContainerGenerator.ContainerFromIndex(newIndex) as ListBoxItem;
+                container?.Focus();
+            }
+            return true;
+        }
+
+        private static T? FindAncestor<T>(DependencyObject current) where T : DependencyObject
+        {
+            do
+            {
+                if (current is T typedCurrent) return typedCurrent;
+                current = VisualTreeHelper.GetParent(current);
+            }
+            while (current != null);
+            return null;
+        }
+
+        private void RefreshList(bool instant = true)
+        {
+            // Re-animate items when list is refreshed/filtered
+            Dispatcher.BeginInvoke(new Action(() => {
+                AnimateItemsStaggered(instant);
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
+        
+        // Fix for ClearSearch_Click build error
+        private void ClearSearch_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.SearchText = string.Empty;
+        }
+
+
+        #region Event Handlers
+        // Event handlers for Search/Filter/Sort Removed - Handled by ViewModel
+
+        private void Settings_Click(object sender, RoutedEventArgs e)
+        {
+            var settings = new SettingsWindow(_gameManager, _uiSettingsService.ApplyTheme, ApplyUISettingsPreview);
+            settings.Owner = this;
+            if (settings.ShowDialog() == true)
+            {
+                // Apply UI settings immediately without restart
+                ApplyUISettings();
+            }
+        }
+
+
+
+        private void ApplyUISettings()
+        {
+            ApplyUISettings(_gameManager.GetConfig().UISettings, registerHotkey: true, writeLog: true);
+        }
+
+        private void ApplyUISettingsPreview(UISettings uiSettings)
+        {
+            ApplyUISettings(uiSettings, registerHotkey: false, writeLog: false);
+        }
+
+        private void ApplyUISettings(UISettings uiSettings, bool registerHotkey, bool writeLog)
+        {
+            var snapshot = UiSettingsSnapshot.From(uiSettings);
+            if (_lastAppliedUiSettings == snapshot)
+            {
+                return;
+            }
+
+            var previous = _lastAppliedUiSettings;
+            
+            if (previous == null || previous.CardSize != snapshot.CardSize)
+            {
+                ApplyCardSize(uiSettings.CardSize, false);
+            }
+            
+            if (previous == null ||
+                previous.ViewMode != snapshot.ViewMode ||
+                previous.CardSize != snapshot.CardSize)
+            {
+                ApplyViewMode(uiSettings.ViewMode, uiSettings.CardSize, false);
+            }
+            
+            if (previous == null || previous.AnimationsEnabled != snapshot.AnimationsEnabled)
+            {
+                ApplyAnimations(uiSettings.AnimationsEnabled, writeLog);
+            }
+            
+            if (previous == null || Math.Abs(previous.FontScale - snapshot.FontScale) > 0.0001)
+            {
+                _uiSettingsService.ApplyFontScale(uiSettings.FontScale, this.Content as Grid, writeLog);
+            }
+            
+            if (previous == null || !string.Equals(previous.BackgroundImage, snapshot.BackgroundImage, StringComparison.Ordinal))
+            {
+                _uiSettingsService.ApplyBackgroundImage(uiSettings.BackgroundImage, BackgroundImage);
+            }
+            
+            if (writeLog)
+            {
+                Logger.Log($"UI Settings applied: CardSize={uiSettings.CardSize}, ViewMode={uiSettings.ViewMode}, Animations={uiSettings.AnimationsEnabled}, FontScale={uiSettings.FontScale}");
+            }
+
+            if (registerHotkey && IsLoaded)
+            {
+                _overlayController.RegisterHotkey(this, uiSettings);
+            }
+
+            _lastAppliedUiSettings = snapshot;
+        }
+
+        private void ApplyCardSize(Models.CardSize size, bool refresh = true)
+        {
+            _gameCardLayoutService.ApplyCardSize(GameListControl, Resources, size, refresh);
+        }
+
+        private void ApplyViewMode(Models.ViewMode mode, Models.CardSize size, bool refresh = true)
+        {
+            var action = _gameCardLayoutService.ApplyViewMode(
+                GameListControl,
+                Resources,
+                mode,
+                _originalCardTemplate,
+                size,
+                refresh);
+
+            if (action == Services.MainWindow.ViewModeAnimationAction.Animate)
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    AnimateItemsStaggered();
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            }
+            else if (action == Services.MainWindow.ViewModeAnimationAction.AnimateInstant)
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    AnimateItemsStaggered(true);
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            }
+        }
+
+        private void ApplyAnimations(bool enabled, bool writeLog = true)
+        {
+            // Toggle the dependency property so XAML triggers can react
+            this.AreAnimationsEnabled = enabled;
+            if (writeLog)
+            {
+                Logger.Log($"Animations {(enabled ? "enabled" : "disabled")}");
+            }
+        }
+
+        private sealed record UiSettingsSnapshot(
+            Models.CardSize CardSize,
+            Models.ViewMode ViewMode,
+            bool AnimationsEnabled,
+            double FontScale,
+            string BackgroundImage,
+            bool OverlayHotkeyCtrl,
+            bool OverlayHotkeyAlt,
+            bool OverlayHotkeyShift,
+            bool OverlayHotkeyWin,
+            string OverlayHotkeyKey)
+        {
+            public static UiSettingsSnapshot From(UISettings settings) =>
+                new(
+                    settings.CardSize,
+                    settings.ViewMode,
+                    settings.AnimationsEnabled,
+                    settings.FontScale,
+                    settings.BackgroundImage ?? "",
+                    settings.OverlayHotkeyCtrl,
+                    settings.OverlayHotkeyAlt,
+                    settings.OverlayHotkeyShift,
+                    settings.OverlayHotkeyWin,
+                    settings.OverlayHotkeyKey ?? "");
+        }
+
+        private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T typedChild)
+                    return typedChild;
+                
+                var result = FindVisualChild<T>(child);
+                if (result != null)
+                    return result;
+            }
+            return null;
+        }
+
+        private void GameImage_TargetUpdated(object sender, DataTransferEventArgs e)
+        {
+            if (sender is not Image image)
+            {
+                return;
+            }
+
+            if (image.Source == null)
+            {
+                image.Opacity = 0;
+                return;
+            }
+
+            TrackStartupImageBinding(image);
+
+            image.BeginAnimation(UIElement.OpacityProperty, null);
+            image.Opacity = 0;
+            image.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(120)));
+        }
+
+        private void AddGame_Click(object sender, RoutedEventArgs e)
+        {
+            string apiKey = _gameManager.GetConfig().UISettings.SteamGridDbApiKey;
+            var dialog = new AddGameWindow(apiKey) { Owner = this };
+            if (dialog.ShowDialog() == true)
+            {
+                // Add game in manager but don't trigger the global event (that would cause a full reload/re-animation)
+                var newGame = _gameManager.AddManualGame(dialog.GameName, dialog.GamePath, dialog.GameArgs, dialog.GameCoverPath, notifyUI: false);
+                
+                // Add to our main collection instantly via ViewModel
+                _viewModel.Games.Add(newGame);
+                
+                ShowStatus("Spiel hinzugefügt");
+                Logger.Log("User added a manual game. Added instantly to list.");
+                
+                // Refresh instantly so the new item (Opacity 0) becomes visible immediately
+                RefreshList(instant: true);
+            }
+        }
+
+        private void GameCard_Click(object sender, RoutedEventArgs e)
+        {
+            // Handle ListBoxItem click (sender is ListBoxItem, DataContext is Game)
+            if (sender is ListBoxItem item && item.DataContext is Game game)
+            {
+                var details = new GameDetailsWindow(game, _gameManager);
+                details.Owner = this;
+                details.LaunchGameRequested += (g) => LaunchGame(g);
+                Logger.Log($"Opening details for: {game.Name}");
+                details.ShowDialog();
+                
+                // Refresh list only if something changed (Played or Favorite toggled)
+                if (details.GameWasModified)
+                {
+                    RefreshList(instant: true);
+                }
+            }
+        }
+
+        private void Play_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.DataContext is Game game)
+            {
+               LaunchGame(game);
+            }
+        }
+
+        private void ChangeImage_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.DataContext is Game game)
+            {
+                var dialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Filter = "Bilder (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg",
+                    Title = "Bild auswählen"
+                };
+
+                if (dialog.ShowDialog() == true)
+                {
+                    _gameManager.SetManualGameImage(game, dialog.FileName);
+                    _viewModel.GamesView.Refresh();
+                    ShowStatus("Bild aktualisiert");
+                }
+            }
+        }
+
+        private void Favorite_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.DataContext is Game game)
+            {
+                _gameManager.ToggleFavorite(game);
+                 _viewModel.GamesView.Refresh();
+                 ShowStatus(game.IsFavorite ? "Zu Favoriten hinzugefügt" : "Von Favoriten entfernt");
+            }
+        }
+
+        private void Hide_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.DataContext is Game game)
+            {
+                 if (game.IsHidden)
+                 {
+                     _gameManager.UnhideGame(game);
+                     ShowStatus("Spiel eingeblendet");
+                 }
+                 else
+                 {
+                     if (MessageBox.Show($"Möchtest du '{game.Name}' ausblenden?", "Ausblenden", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                     {
+                         _gameManager.HideGame(game);
+                         ShowStatus("Spiel ausgeblendet");
+                     }
+                 }
+                 RefreshList();
+            }
+        }
+
+        private void Delete_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.DataContext is Game game)
+            {
+                if (ModernMessageWindow.Show(
+                    $"Möchtest du '{game.Name}' wirklich entfernen?",
+                    "Löschen",
+                    ModernMessageWindow.ModernMessageButton.YesNo,
+                    this) == MessageBoxResult.Yes)
+                {
+                    // Remove but don't trigger global update
+                    _gameManager.RemoveManualGame(game, notifyUI: false);
+                    
+                    // Remove from our visible collection instantly via ViewModel
+                    _viewModel.Games.Remove(game);
+                    
+                    ShowStatus("Spiel gelöscht");
+                    RefreshList(instant: true);
+                }
+            }
+        }
+
+        private void LaunchGame(Game game)
+        {
+            try
+            {
+                _gameManager.LaunchGame(game);
+                
+                // Update LastPlayed immediately on launch
+                game.LastPlayed = DateTime.Now;
+                _gameManager.UpdateLastPlayed(game.Id, game.LastPlayed.Value);
+
+                ShowStatus($"Starte {game.Name}...");
+
+                // Handle launcher behavior on game start
+                var settings = _gameManager?.GetConfig()?.UISettings;
+                if (settings != null)
+                {
+                    if (settings.CloseOnGameStart)
+                    {
+                        // Mark as explicit exit so OnClosing bypasses MinimizeToTray.
+                        BeginExit();
+                        Close();
+                    }
+                    else if (settings.MinimizeOnGameStart)
+                    {
+                        this.WindowState = WindowState.Minimized;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Logger.Error handled in GameManager
+                if (ex.Message.Contains("find") || ex is System.ComponentModel.Win32Exception)
+                {
+                     MessageBox.Show($"Die Datei wurde nicht gefunden:\n{game.Path}", "Datei fehlt", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                else
+                {
+                     MessageBox.Show($"Fehler beim Starten des Spiels.", "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                ShowStatus("Fehler");
+            }
+        }
+
+
+
+
+
+        private async void AnimateItemsStaggered(bool instant = false)
+        {
+            if (!instant && _releaseStartupImageCacheAfterAnimation)
+            {
+                await Dispatcher.InvokeAsync(
+                    PrepareStartupImageCacheRelease,
+                    System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+
+            await _animationService.AnimateItemsStaggeredAsync(
+                GameListControl,
+                active => IsStartupActive = active,
+                instant);
+
+            if (!instant && _releaseStartupImageCacheAfterAnimation)
+            {
+                _startupAnimationCompleted = true;
+                TryReleaseStartupImageCache();
+            }
+        }
+
+        private void PrepareStartupImageCacheRelease()
+        {
+            _startupImageCacheReleaseCts?.Cancel();
+            _startupImageCacheReleaseCts?.Dispose();
+
+            var startupImages = GetGeneratedStartupImages();
+            int expectedImageCount = startupImages.Count;
+
+            _startupAnimationCompleted = false;
+            _startupImageCacheTrackingActive = expectedImageCount > 0;
+            _startupImageBindingsRemaining = expectedImageCount;
+            _startupBoundImages.Clear();
+
+            if (!_startupImageCacheTrackingActive)
+            {
+                return;
+            }
+
+            Logger.Log($"Startup image cache tracking started: waiting for {expectedImageCount} image binding(s).");
+
+            foreach (var image in startupImages)
+            {
+                if (image.Source != null && _startupBoundImages.Add(image))
+                {
+                    _startupImageBindingsRemaining = Math.Max(0, _startupImageBindingsRemaining - 1);
+                }
+            }
+
+            _startupImageCacheReleaseCts = new CancellationTokenSource();
+            _ = ForceReleaseStartupImageCacheAfterTimeoutAsync(_startupImageCacheReleaseCts.Token);
+        }
+
+        private void TrackStartupImageBinding(Image image)
+        {
+            if (!_startupImageCacheTrackingActive)
+            {
+                return;
+            }
+
+            if (!_startupBoundImages.Add(image))
+            {
+                return;
+            }
+
+            _startupImageBindingsRemaining = Math.Max(0, _startupImageBindingsRemaining - 1);
+            TryReleaseStartupImageCache();
+        }
+
+        private void TryReleaseStartupImageCache()
+        {
+            if (!_releaseStartupImageCacheAfterAnimation || !_startupAnimationCompleted)
+            {
+                return;
+            }
+
+            if (_startupImageCacheTrackingActive && _startupImageBindingsRemaining > 0)
+            {
+                return;
+            }
+
+            BitmapCacheConverter.ReleaseStartupStrongCache();
+            _releaseStartupImageCacheAfterAnimation = false;
+            ResetStartupImageCacheTracking();
+        }
+
+        private async Task ForceReleaseStartupImageCacheAfterTimeoutAsync(CancellationToken ct)
+        {
+            try
+            {
+                await Task.Delay(1500, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (!_releaseStartupImageCacheAfterAnimation)
+                {
+                    return;
+                }
+
+                Logger.Log(
+                    $"Startup image cache release timeout reached. Remaining image bindings: {_startupImageBindingsRemaining}.");
+                _startupImageBindingsRemaining = 0;
+                TryReleaseStartupImageCache();
+            });
+        }
+
+        private void ResetStartupImageCacheTracking()
+        {
+            _startupImageCacheTrackingActive = false;
+            _startupAnimationCompleted = false;
+            _startupImageBindingsRemaining = 0;
+            _startupBoundImages.Clear();
+            _startupImageCacheReleaseCts?.Cancel();
+            _startupImageCacheReleaseCts?.Dispose();
+            _startupImageCacheReleaseCts = null;
+        }
+
+        private List<Image> GetGeneratedStartupImages()
+        {
+            var images = new List<Image>();
+
+            for (int i = 0; i < GameListControl.Items.Count; i++)
+            {
+                if (GameListControl.ItemContainerGenerator.ContainerFromIndex(i) is not ListBoxItem container)
+                {
+                    continue;
+                }
+
+                var image = FindVisualChild<Image>(container);
+                if (image != null)
+                {
+                    images.Add(image);
+                }
+            }
+
+            return images;
+        }
+
+        private void ShowStatus(string message, int delayMs = 3000) =>
+            _statusMessageService.ShowStatus(message, delayMs);
+
+        private Task CheckForUpdatesAsync() =>
+            _updateCoordinator.CheckForUpdatesAsync(this);
+
+        #endregion
+    }
+}

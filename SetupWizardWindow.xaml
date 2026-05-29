@@ -1,0 +1,172 @@
+<Window x:Class="GameLauncher.SetupWizardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Willkommen beim Game Launcher" Height="500" Width="700"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E" Foreground="White"
+        WindowStyle="None" AllowsTransparency="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize">
+
+    <Window.Resources>
+        <!-- Modern Button Style -->
+        <!-- Modern Button Style (Inherits Global) -->
+        <Style x:Key="ModernButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Padding" Value="24,12"/>
+        </Style>
+
+        <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#333333"/>
+            <!-- Note: Template triggers in global style use TemplateBinding Background, so changing Background here works -->
+        </Style>
+    </Window.Resources>
+
+    <Border BorderBrush="#333333" BorderThickness="1" CornerRadius="12">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="#252526" Offset="0"/>
+                <GradientStop Color="#1E1E1E" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.Background>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Sidebar -->
+            <Border Background="#2D2D30" CornerRadius="12,0,0,12">
+                <StackPanel Margin="24,48,24,24">
+                    <Image Source="game.ico" Width="80" Height="80" Margin="0,0,0,32">
+                        <Image.Effect>
+                            <DropShadowEffect BlurRadius="15" Opacity="0.3" ShadowDepth="0"/>
+                        </Image.Effect>
+                    </Image>
+                    <TextBlock Text="Initialisierung" FontSize="22" FontWeight="Bold" Margin="0,0,0,40" HorizontalAlignment="Center"/>
+                    
+                    <StackPanel x:Name="IndicatorPanel">
+                        <TextBlock x:Name="Step1Indicator" Text="• Willkommen" Foreground="#007ACC" Margin="0,8" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="Step2Indicator" Text="• Spiele" Foreground="#888888" Margin="0,8" FontSize="15"/>
+                        <TextBlock x:Name="Step3Indicator" Text="• Bibliotheken" Foreground="#888888" Margin="0,8" FontSize="15"/>
+                        <TextBlock x:Name="Step4Indicator" Text="• Design" Foreground="#888888" Margin="0,8" FontSize="15"/>
+                        <TextBlock x:Name="Step5Indicator" Text="• Fertig" Foreground="#888888" Margin="0,8" FontSize="15"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Main Content Area -->
+            <Grid Grid.Column="1" Margin="40">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Steps -->
+                <Grid x:Name="StepsContainer">
+                    
+                    <!-- Step 1: Welcome -->
+                    <StackPanel x:Name="Step1" Visibility="Visible">
+                        <TextBlock Text="Willkommen!" FontSize="32" FontWeight="Bold" Margin="0,0,0,24"/>
+                        <TextBlock Text="Vielen Dank, dass du dich für den Game Launcher entschieden hast. Wir helfen dir kurz dabei, deine Spiele zu finden und das Design anzupassen." 
+                                 FontSize="16" TextWrapping="Wrap" Foreground="#CCCCCC" Margin="0,0,0,24" LineHeight="24"/>
+                        <TextBlock Text="Das dauert weniger als eine Minute." 
+                                 FontSize="14" Foreground="#888888" Margin="0,0,0,24"/>
+                    </StackPanel>
+
+                    <!-- Step 2: Spiele -->
+                    <StackPanel x:Name="Step2" Visibility="Collapsed">
+                        <TextBlock Text="Spiele" FontSize="32" FontWeight="Bold" Margin="0,0,0,12"/>
+                        <TextBlock Text="Der Launcher kann viele Spiele automatisch erkennen. Im nächsten Schritt kannst du gefundene Bibliothekspfade prüfen und fehlende Pfade ergänzen."
+                                 FontSize="15" TextWrapping="Wrap" Foreground="#CCCCCC" Margin="0,0,0,16" LineHeight="22"/>
+
+                        <Border Background="#2D2D30" CornerRadius="8" Padding="12" Margin="0,0,0,8">
+                            <StackPanel>
+                                <TextBlock Text="Steam, Epic, GOG, Ubisoft, EA &amp; Xbox" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,3"/>
+                                <TextBlock Text="Steam, Epic und Xbox-Pfade werden angezeigt und können angepasst werden. Ubisoft, EA und GOG werden automatisch über ihre Systemdaten erkannt." FontSize="12" Foreground="#AAAAAA" TextWrapping="Wrap" LineHeight="18"/>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="Weitere Spiele kannst du jederzeit später manuell hinzufügen."
+                                 FontSize="12" Foreground="#888888" Margin="0,10,0,0" FontStyle="Italic" TextWrapping="Wrap"/>
+                    </StackPanel>
+
+                    <ScrollViewer x:Name="Step3" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="Bibliotheken" FontSize="32" FontWeight="Bold" Margin="0,0,0,12"/>
+
+                            <TextBlock x:Name="LibraryDetectionStatusText" Text="Noch nicht gesucht." Foreground="#888888" FontSize="12" Margin="0,0,0,12"/>
+
+                            <StackPanel x:Name="LibraryPathInputsPanel" Visibility="Collapsed">
+                                <TextBlock Text="Wir haben bekannte Bibliothekspfade gesucht. Du kannst fehlende Pfade ergänzen oder erkannte Pfade korrigieren."
+                                         FontSize="15" TextWrapping="Wrap" Foreground="#CCCCCC" Margin="0,0,0,16" LineHeight="22"/>
+
+                                <TextBlock Text="Steam Pfade" FontSize="13" Margin="0,0,0,5"/>
+                                <TextBox x:Name="WizardSteamPathsBox" Height="54" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10"/>
+
+                                <TextBlock Text="Epic Games Pfade" FontSize="13" Margin="0,0,0,5"/>
+                                <TextBox x:Name="WizardEpicPathsBox" Height="54" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10"/>
+
+                                <TextBlock Text="Xbox Pfade" FontSize="13" Margin="0,0,0,5"/>
+                                <TextBox x:Name="WizardXboxPathsBox" Height="54" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10"/>
+
+                                <TextBlock Text="Ein Pfad pro Zeile. Wenn eine Bibliothek nicht automatisch gefunden wurde, kannst du den passenden Ordner hier eintragen."
+                                         FontSize="12" Foreground="#888888" TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,8"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Step 4: Appearance -->
+                    <StackPanel x:Name="Step4" Visibility="Collapsed">
+                        <TextBlock Text="Design" FontSize="32" FontWeight="Bold" Margin="0,0,0,24"/>
+                        <TextBlock Text="Wie soll dein Launcher aussehen?" 
+                                 FontSize="16" TextWrapping="Wrap" Foreground="#CCCCCC" Margin="0,0,0,24"/>
+                        
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,24">
+                            <TextBlock Text="Farbthema:" VerticalAlignment="Center" Width="100" FontSize="15"/>
+                            <ComboBox x:Name="ThemeBox" Width="220" Padding="8" SelectionChanged="ThemeBox_SelectionChanged">
+                                <ComboBoxItem Content="Blau" Tag="#007ACC" IsSelected="True"/>
+                                <ComboBoxItem Content="Rot" Tag="#E51400"/>
+                                <ComboBoxItem Content="Grün" Tag="#60A917"/>
+                                <ComboBoxItem Content="Orange" Tag="#FA6800"/>
+                                <ComboBoxItem Content="Lila" Tag="#AA00FF"/>
+                                <ComboBoxItem Content="Pink" Tag="#D80073"/>
+                                <ComboBoxItem Content="Dunkel" Tag="#333333"/>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Kachelgröße:" VerticalAlignment="Center" Width="100" FontSize="15"/>
+                            <ComboBox x:Name="CardSizeBox" Width="220" Padding="8">
+                                <ComboBoxItem Content="Klein" Tag="Klein"/>
+                                <ComboBoxItem Content="Mittel" Tag="Mittel" IsSelected="True"/>
+                                <ComboBoxItem Content="Groß" Tag="Groß"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Step 5: Finish -->
+                    <StackPanel x:Name="Step5" Visibility="Collapsed">
+                        <TextBlock Text="Fertig!" FontSize="32" FontWeight="Bold" Margin="0,0,0,24"/>
+                        <TextBlock Text="Die Konfiguration ist abgeschlossen. Wir scannen nun deine Spiele und laden die Bibliothek." 
+                                 FontSize="16" TextWrapping="Wrap" Foreground="#CCCCCC" Margin="0,0,0,24" LineHeight="24"/>
+                        
+                        <TextBlock Text="Viel Spaß!" 
+                                 FontSize="20" FontWeight="Bold" Foreground="{DynamicResource AccentColor}" HorizontalAlignment="Center" Margin="0,48,0,0"/>
+                    </StackPanel>
+
+                </Grid>
+
+                <!-- Navigation Buttons -->
+                <Grid Grid.Row="1" Margin="0,24,0,0">
+                    <Button x:Name="BtnBack" Content="Zurück" HorizontalAlignment="Left" Style="{StaticResource SecondaryButton}" Click="BtnBack_Click" Visibility="Hidden"/>
+                    
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="BtnNext" Content="Weiter" Style="{StaticResource ModernButton}" Click="BtnNext_Click"/>
+                        <Button x:Name="BtnFinish" Content="Abschließen" Style="{StaticResource ModernButton}" Click="BtnFinish_Click" Visibility="Collapsed"/>
+                    </StackPanel>
+                </Grid>
+
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
