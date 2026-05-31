@@ -40,7 +40,7 @@ namespace GameLauncher.Models
         public Dictionary<string, List<string>> GameTags { get; set; } = new Dictionary<string, List<string>>();
 
         [JsonPropertyName("theme")]
-        public string Theme { get; set; } = "Blau";
+        public string Theme { get; set; } = "Blue";
 
         [JsonPropertyName("ui_settings")]
         public UISettings UISettings { get; set; } = new UISettings();

@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using System.IO;
 using System.Windows;
+using GameLauncher.Services.Localization;
 
 namespace GameLauncher
 {
@@ -19,6 +20,7 @@ namespace GameLauncher
 
         private Services.MetadataService _metadataService;
         private string _pendingCoverUrl = "";
+        private readonly LocalizationService _localization = LocalizationService.Instance;
 
         public AddGameWindow(string apiKey = "")
         {
@@ -29,7 +31,7 @@ namespace GameLauncher
             if (string.IsNullOrEmpty(apiKey))
             {
                 SearchCoverButton.IsEnabled = false;
-                SearchCoverButton.ToolTip = "Bitte gib in den Einstellungen zuerst einen SteamGridDB API Key ein.";
+                SearchCoverButton.ToolTip = _localization.Get("AddGame.MissingApiKeyTooltip");
             }
         }
 
@@ -37,7 +39,7 @@ namespace GameLauncher
         {
             var dialog = new OpenFileDialog
             {
-                Filter = "Executables (*.exe)|*.exe|All Files (*.*)|*.*"
+                Filter = _localization.Get("AddGame.BrowseFilter")
             };
 
             if (dialog.ShowDialog() == true)
@@ -54,7 +56,7 @@ namespace GameLauncher
         {
             if (string.IsNullOrWhiteSpace(GameName) || string.IsNullOrWhiteSpace(GamePath))
             {
-                MessageBox.Show("Bitte Name und Pfad angeben.", "Fehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(_localization.Get("AddGame.ValidationBody"), _localization.Get("Common.Error"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             
@@ -71,7 +73,7 @@ namespace GameLauncher
                 }
                 catch (System.Exception ex)
                 {
-                    MessageBox.Show($"Fehler beim Herunterladen des Covers: {ex.Message}", "Warnung", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show(_localization.Format("AddGame.CoverDownloadError", ex.Message), _localization.Get("Common.Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             }
             
@@ -87,12 +89,12 @@ namespace GameLauncher
         {
             if (string.IsNullOrWhiteSpace(NameBox.Text))
             {
-                MessageBox.Show("Bitte gib zuerst einen Spielnamen ein.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(_localization.Get("AddGame.NameRequiredBody"), _localization.Get("Common.Info"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             SearchCoverButton.IsEnabled = false;
-            SearchCoverButton.Content = "Suche...";
+            SearchCoverButton.Content = _localization.Get("AddGame.Searching");
 
             try
             {
@@ -101,19 +103,19 @@ namespace GameLauncher
                 if (imageUrl != null)
                 {
                     _pendingCoverUrl = imageUrl;
-                    MessageBox.Show("Cover gefunden!", "Erfolg", MessageBoxButton.OK, MessageBoxImage.Information);
-                    SearchCoverButton.Content = "Cover ✔";
+                    MessageBox.Show(_localization.Get("AddGame.CoverFoundBody"), _localization.Get("Common.Done"), MessageBoxButton.OK, MessageBoxImage.Information);
+                    SearchCoverButton.Content = _localization.Get("AddGame.CoverFoundButton");
                     SearchCoverButton.Style = (Style)FindResource("PrimaryButton");
                     return;
                 }
                 
-                MessageBox.Show("Kein Cover gefunden.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
-                SearchCoverButton.Content = "Cover suchen";
+                MessageBox.Show(_localization.Get("AddGame.CoverNotFoundBody"), _localization.Get("Common.Info"), MessageBoxButton.OK, MessageBoxImage.Information);
+                SearchCoverButton.Content = _localization.Get("AddGame.SearchCover");
             }
             catch (System.Exception ex)
             {
-                 MessageBox.Show($"Fehler bei der Suche: {ex.Message}", "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
-                 SearchCoverButton.Content = "Cover suchen";
+                 MessageBox.Show(_localization.Format("AddGame.SearchError", ex.Message), _localization.Get("Common.Error"), MessageBoxButton.OK, MessageBoxImage.Error);
+                 SearchCoverButton.Content = _localization.Get("AddGame.SearchCover");
             }
             finally
             {

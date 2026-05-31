@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using GameLauncher.Core;
+using GameLauncher.Services.Localization;
 
 namespace GameLauncher.Models
 {
@@ -72,6 +73,12 @@ namespace GameLauncher.Models
         [JsonIgnore]
         public string DisplayName => Name;
 
+        [JsonIgnore]
+        public string LocalizedDescription =>
+            string.IsNullOrWhiteSpace(Description)
+                ? LocalizationService.Instance.Get("Details.NoDescription")
+                : Description;
+
         private bool _isFavorite;
         [JsonIgnore]
         public bool IsFavorite
@@ -96,21 +103,53 @@ namespace GameLauncher.Models
             set => SetProperty(ref _tags, value ?? new List<string>());
         }
 
+        private string _description = "";
+        private string _publisher = "";
+        private string _developer = "";
+        private string _releaseDate = "";
+        private List<string> _genres = new List<string>();
+
         // Extended Metadata
         [JsonPropertyName("description")]
-        public string Description { get; set; } = "";
+        public string Description
+        {
+            get => _description;
+            set
+            {
+                if (SetProperty(ref _description, value ?? ""))
+                {
+                    OnPropertyChanged(nameof(LocalizedDescription));
+                }
+            }
+        }
 
         [JsonPropertyName("publisher")]
-        public string Publisher { get; set; } = "";
+        public string Publisher
+        {
+            get => _publisher;
+            set => SetProperty(ref _publisher, value ?? "");
+        }
 
         [JsonPropertyName("developer")]
-        public string Developer { get; set; } = "";
+        public string Developer
+        {
+            get => _developer;
+            set => SetProperty(ref _developer, value ?? "");
+        }
 
         [JsonPropertyName("release_date")]
-        public string ReleaseDate { get; set; } = "";
+        public string ReleaseDate
+        {
+            get => _releaseDate;
+            set => SetProperty(ref _releaseDate, value ?? "");
+        }
 
         [JsonPropertyName("genres")]
-        public List<string> Genres { get; set; } = new List<string>();
+        public List<string> Genres
+        {
+            get => _genres;
+            set => SetProperty(ref _genres, value ?? new List<string>());
+        }
 
         private int _playTime;
         private string? _cachedDisplayPlayTime;
@@ -156,6 +195,8 @@ namespace GameLauncher.Models
 
         private string FormatPlayTime()
         {
+            var localization = LocalizationService.Instance;
+
             if (_playTime > 0)
             {
                 int totalMinutes = _playTime / 60;
@@ -164,13 +205,43 @@ namespace GameLauncher.Models
                 int seconds = _playTime % 60;
 
                 if (hours > 0)
-                    return $"{hours} Std. {minutes} Min.";
+                    return localization.CurrentLanguage == AppLanguage.German
+                        ? $"{hours} Std. {minutes} Min."
+                        : $"{hours} hr {minutes} min";
                 if (minutes > 0)
-                    return $"{minutes} Min. {seconds} Sek.";
-                return $"{seconds} Sek.";
+                    return localization.CurrentLanguage == AppLanguage.German
+                        ? $"{minutes} Min. {seconds} Sek."
+                        : $"{minutes} min {seconds} sec";
+                return localization.CurrentLanguage == AppLanguage.German
+                    ? $"{seconds} Sek."
+                    : $"{seconds} sec";
             }
 
-            return _lastPlayed != null ? "Gespielt (< 30 Sek.)" : "Noch nicht gespielt";
+            if (_lastPlayed != null)
+            {
+                return localization.CurrentLanguage == AppLanguage.German
+                    ? "Gespielt (< 30 Sek.)"
+                    : "Played (< 30 sec)";
+            }
+
+            return localization.Get("Details.NeverPlayed");
+        }
+
+        public void RefreshLocalizedProperties()
+        {
+            _cachedDisplayPlayTime = null;
+            OnPropertyChanged(nameof(DisplayPlayTime));
+            OnPropertyChanged(nameof(LocalizedDescription));
+        }
+
+        public void RefreshMetadataProperties()
+        {
+            OnPropertyChanged(nameof(Description));
+            OnPropertyChanged(nameof(LocalizedDescription));
+            OnPropertyChanged(nameof(ReleaseDate));
+            OnPropertyChanged(nameof(Developer));
+            OnPropertyChanged(nameof(Publisher));
+            OnPropertyChanged(nameof(Genres));
         }
     }
 }

@@ -9,7 +9,7 @@ namespace GameLauncher
             public const string Steam = "Steam";
             public const string Epic = "Epic Games";
             public const string GOG = "GOG";
-            public const string Manual = "Manuell";
+            public const string Manual = "Manual";
             public const string BattleNet = "Battle.net";
             
             /// <summary>
@@ -35,9 +35,11 @@ namespace GameLauncher
         
         public static class Filters
         {
-            public const string All = "Alle";
-            public const string Favorites = "Favoriten";
-            public const string Hidden = "Versteckt";
+            public const string All = "all";
+            public const string Favorites = "favorites";
+            public const string Hidden = "hidden";
+            public const string Manual = "manual";
+            public const string TagPrefix = "tag:";
             // Platform filters (Steam, GOG, Epic, Manual) are defined in Platforms class
         }
         
@@ -73,13 +75,13 @@ namespace GameLauncher
             /// </summary>
             public static readonly System.Collections.Generic.Dictionary<string, string> ThemeColors = new()
             {
-                ["Blau"] = "#007ACC",
-                ["Rot"] = "#E51400",
-                ["Grün"] = "#60A917",
+                ["Blue"] = "#007ACC",
+                ["Red"] = "#E51400",
+                ["Green"] = "#60A917",
                 ["Orange"] = "#FA6800",
-                ["Lila"] = "#AA00FF",
+                ["Purple"] = "#AA00FF",
                 ["Pink"] = "#D80073",
-                ["Dunkel"] = "#333333"
+                ["Dark"] = "#333333"
             };
             
             /// <summary>
@@ -87,8 +89,26 @@ namespace GameLauncher
             /// </summary>
             public static string GetColorCodeForTheme(string themeName)
             {
-                return ThemeColors.TryGetValue(themeName, out var color) ? color : "#007ACC";
+                var normalized = NormalizeThemeKey(themeName);
+                return ThemeColors.TryGetValue(normalized, out var color) ? color : "#007ACC";
             }
+
+            public static string NormalizeThemeKey(string? themeName) => themeName switch
+            {
+                "Blau" => "Blue",
+                "Rot" => "Red",
+                "Grün" => "Green",
+                "Orange" => "Orange",
+                "Lila" => "Purple",
+                "Pink" => "Pink",
+                "Dunkel" => "Dark",
+                "Blue" => "Blue",
+                "Red" => "Red",
+                "Green" => "Green",
+                "Purple" => "Purple",
+                "Dark" => "Dark",
+                _ => "Blue"
+            };
 
             /// <summary>
             /// Cached SolidColorBrushes for platforms to avoid expensive string-to-brush conversions on every UI update.

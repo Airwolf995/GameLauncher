@@ -195,6 +195,38 @@ namespace GameLauncher.Models
             return games;
         }
 
+        public async Task RefreshSteamMetadataAsync(IEnumerable<Game> games, System.Threading.CancellationToken ct = default)
+        {
+            var steamGames = games
+                .Where(game => game.Platform == Constants.Platforms.Steam && game.Id.StartsWith("steam:", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (steamGames.Count == 0)
+            {
+                return;
+            }
+
+            using var semaphore = new System.Threading.SemaphoreSlim(3);
+            var tasks = steamGames.Select(async game =>
+            {
+                await semaphore.WaitAsync(ct);
+                try
+                {
+                    await _metadataService.FetchSteamMetadataAsync(game, ct);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Metadata refresh failed for {game.Name}", ex);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+
+            await Task.WhenAll(tasks);
+        }
+
 
         public void LaunchGame(Game game)
         {

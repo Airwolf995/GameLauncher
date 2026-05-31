@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using System.Windows;
 using GameLauncher.Services;
+using GameLauncher.Services.Localization;
 
 namespace GameLauncher
 {
@@ -9,6 +10,7 @@ namespace GameLauncher
     {
         private UpdateService _updateService;
         private UpdateInfo _updateInfo;
+        private readonly LocalizationService _localization = LocalizationService.Instance;
 
         public UpdateWindow(UpdateService updateService, UpdateInfo updateInfo)
         {
@@ -22,7 +24,7 @@ namespace GameLauncher
 
             // Set changelog
             ChangelogText.Text = string.IsNullOrWhiteSpace(updateInfo.Changelog) 
-                ? "Keine Changelog-Informationen verfügbar." 
+                ? _localization.Get("Update.NoChangelog") 
                 : updateInfo.Changelog;
 
             // Dark mode title bar
@@ -52,7 +54,7 @@ namespace GameLauncher
                     Dispatcher.Invoke(() =>
                     {
                         ProgressBar.Value = percent;
-                        ProgressText.Text = $"Download läuft... {percent}%";
+                        ProgressText.Text = _localization.Format("Update.DownloadingProgress", percent);
                     });
                 });
 
@@ -60,21 +62,21 @@ namespace GameLauncher
 
                 if (downloadSuccess)
                 {
-                    ProgressText.Text = "Installation wird gestartet...";
+                    ProgressText.Text = _localization.Get("Update.Installing");
                     await Task.Delay(500);
                     _updateService.InstallUpdate();
                     // App will close automatically
                 }
                 else
                 {
-                    ModernMessageWindow.Show("Fehler beim Herunterladen des Updates.", "Fehler");
+                    ModernMessageWindow.Show(_localization.Get("Update.DownloadError"), _localization.Get("Common.Error"));
                     Close();
                 }
             }
             catch (Exception ex)
             {
                 Models.Logger.Error("Update download/install failed", ex);
-                ModernMessageWindow.Show("Fehler beim Update.", "Fehler");
+                ModernMessageWindow.Show(_localization.Get("Update.GenericError"), _localization.Get("Common.Error"));
                 Close();
             }
         }

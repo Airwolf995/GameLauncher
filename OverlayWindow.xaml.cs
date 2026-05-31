@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using GameLauncher.Models;
 using GameLauncher.Services;
+using GameLauncher.Services.Localization;
 
 namespace GameLauncher
 {
@@ -12,6 +13,7 @@ namespace GameLauncher
         private readonly PlayTimeService _playTimeService;
         private readonly DispatcherTimer _timer;
         private readonly DateTime _launcherStartTime;
+        private readonly LocalizationService _localization = LocalizationService.Instance;
         private string? _lastActiveGameId;
         private bool _isUpdating;
 
@@ -82,7 +84,7 @@ namespace GameLauncher
                 {
                     if (_lastActiveGameId != null)
                     {
-                        ActiveGameText.Text = "KEIN SPIEL AKTIV";
+                        ActiveGameText.Text = _localization.Get("Overlay.NoActiveGame").ToUpper(_localization.CurrentCulture);
                         PlayTimeText.Text = "00:00:00";
                         _lastActiveGameId = null;
                     }

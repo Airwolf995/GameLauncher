@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using GameLauncher.Models;
 using GameLauncher.Services.Scanners;
+using GameLauncher.Services.Localization;
 
 namespace GameLauncher
 {
@@ -15,13 +16,17 @@ namespace GameLauncher
         private const int TotalSteps = 5;
 
         private int _currentStep = 1;
-        private GameManager _gameManager;
+        private readonly GameManager _gameManager;
+        private readonly LocalizationService _localization = LocalizationService.Instance;
         private bool _libraryPathsDetected;
+        private string _selectedLanguageCode = "en";
 
         public SetupWizardWindow(GameManager gameManager)
         {
             InitializeComponent();
             _gameManager = gameManager;
+            _localization.ApplyLanguageCode(_gameManager.GetConfig().UISettings.LanguageCode);
+            InitializeSelections();
 
             SourceInitialized += (s, e) => Services.DarkModeHelper.EnableDarkTitleBar(this);
         }
@@ -101,21 +106,23 @@ namespace GameLauncher
         private void ApplySettings()
         {
             var config = _gameManager.GetConfig();
+            var ui = config.UISettings;
 
             config.SteamLibraryPaths = ParsePathLines(WizardSteamPathsBox.Text);
             config.EpicLibraryPaths = ParsePathLines(WizardEpicPathsBox.Text);
             config.XboxLibraryPaths = ParsePathLines(WizardXboxPathsBox.Text);
+            ui.LanguageCode = _selectedLanguageCode;
 
             // Theme
             if (ThemeBox.SelectedItem is ComboBoxItem themeItem)
             {
-                _gameManager.SetTheme(themeItem.Content.ToString() ?? "Blau");
+                _gameManager.SetTheme(Constants.UI.NormalizeThemeKey(themeItem.Tag?.ToString() ?? "Blue"));
             }
 
             // Card Size
             if (CardSizeBox.SelectedItem is ComboBoxItem sizeItem)
             {
-                config.UISettings.CardSizeString = sizeItem.Tag?.ToString() ?? "Mittel";
+                ui.CardSizeString = sizeItem.Tag?.ToString() ?? "Medium";
             }
         }
 
@@ -132,8 +139,7 @@ namespace GameLauncher
             if (ThemeBox.SelectedItem is ComboBoxItem item)
             {
                 // Tag enthält bereits den HEX-Code (z.B. "#007ACC")
-                string colorCode = item.Tag?.ToString()
-                    ?? Constants.UI.GetColorCodeForTheme(item.Content?.ToString() ?? "Blau");
+                string colorCode = Constants.UI.GetColorCodeForTheme(item.Tag?.ToString() ?? "Blue");
 
                 try
                 {
@@ -152,7 +158,7 @@ namespace GameLauncher
         {
             var config = _gameManager.GetConfig();
 
-            LibraryDetectionStatusText.Text = "Bibliotheken werden gesucht...";
+            LibraryDetectionStatusText.Text = _localization.Get("Wizard.LibrarySearchInProgress");
             LibraryPathInputsPanel.Visibility = Visibility.Collapsed;
             BtnNext.IsEnabled = false;
             BtnBack.IsEnabled = false;
@@ -186,7 +192,7 @@ namespace GameLauncher
                 WizardSteamPathsBox.Text = FormatPathLines(config.SteamLibraryPaths);
                 WizardEpicPathsBox.Text = FormatPathLines(config.EpicLibraryPaths);
                 WizardXboxPathsBox.Text = FormatPathLines(config.XboxLibraryPaths);
-                LibraryDetectionStatusText.Text = "Automatische Suche fehlgeschlagen. Du kannst die Pfade manuell eintragen.";
+                LibraryDetectionStatusText.Text = _localization.Get("Wizard.LibrarySearchFailed");
             }
             finally
             {
@@ -197,7 +203,9 @@ namespace GameLauncher
         }
 
         private static string BuildDetectionStatus(string platform, int count) =>
-            count > 0 ? $"{platform}: {count} Pfad(e)" : $"{platform}: nichts gefunden";
+            count > 0
+                ? LocalizationService.Instance.Format("Wizard.DetectionFound", platform, count)
+                : LocalizationService.Instance.Format("Wizard.DetectionNotFound", platform);
 
         private static List<string> GetConfiguredOrDetectedPaths(List<string> configuredPaths, Func<List<string>> detectPaths) =>
             configuredPaths.Count > 0 ? configuredPaths.ToList() : detectPaths();
@@ -211,5 +219,54 @@ namespace GameLauncher
                  .Where(line => !string.IsNullOrWhiteSpace(line))
                  .Distinct(StringComparer.OrdinalIgnoreCase)
                  .ToList();
+
+        private void InitializeSelections()
+        {
+            var config = _gameManager.GetConfig();
+            SetSelectedLanguage(string.Equals(config.UISettings.LanguageCode, "de", StringComparison.OrdinalIgnoreCase) ? "de" : "en");
+            SelectComboBoxItemByTag(ThemeBox, Constants.UI.NormalizeThemeKey(config.Theme));
+            SelectComboBoxItemByTag(CardSizeBox, config.UISettings.CardSizeString);
+        }
+
+        private static void SelectComboBoxItemByTag(ComboBox comboBox, string? expectedTag)
+        {
+            foreach (var item in comboBox.Items.OfType<ComboBoxItem>())
+            {
+                if (string.Equals(item.Tag?.ToString(), expectedTag, StringComparison.OrdinalIgnoreCase))
+                {
+                    comboBox.SelectedItem = item;
+                    return;
+                }
+            }
+
+            if (comboBox.Items.Count > 0)
+            {
+                comboBox.SelectedIndex = 0;
+            }
+        }
+
+        private void EnglishLanguageButton_Click(object sender, RoutedEventArgs e) =>
+            SetSelectedLanguage("en");
+
+        private void GermanLanguageButton_Click(object sender, RoutedEventArgs e) =>
+            SetSelectedLanguage("de");
+
+        private void SetSelectedLanguage(string languageCode)
+        {
+            _selectedLanguageCode = string.Equals(languageCode, "de", StringComparison.OrdinalIgnoreCase) ? "de" : "en";
+            _localization.ApplyLanguageCode(_selectedLanguageCode);
+
+            bool isGerman = _selectedLanguageCode == "de";
+            ApplyLanguageButtonState(EnglishLanguageButton, !isGerman);
+            ApplyLanguageButtonState(GermanLanguageButton, isGerman);
+        }
+
+        private static void ApplyLanguageButtonState(Button button, bool isSelected)
+        {
+            button.Background = isSelected
+                ? (Brush)Application.Current.Resources["AccentColor"]
+                : new SolidColorBrush(Color.FromRgb(51, 51, 51));
+            button.FontWeight = isSelected ? FontWeights.Bold : FontWeights.SemiBold;
+        }
     }
 }

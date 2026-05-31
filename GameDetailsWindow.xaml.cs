@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Controls;
 using GameLauncher.Models;
+using GameLauncher.Services.Localization;
 
 namespace GameLauncher
 {
@@ -10,6 +11,7 @@ namespace GameLauncher
     {
         private Game _game = null!;
         private GameManager _manager = null!;
+        private readonly LocalizationService _localization = LocalizationService.Instance;
 
         public bool GameWasModified { get; private set; } = false;
         public event Action<Game>? LaunchGameRequested;
@@ -29,15 +31,7 @@ namespace GameLauncher
             // Populate UI (Legacy non-bound elements)
             GameNameText.Text = game.Name;
             PlatformText.Text = game.Platform;
-            
-            if (game.LastPlayed.HasValue)
-            {
-                LastPlayedText.Text = $"Zuletzt gespielt: {game.LastPlayed.Value:g}";
-            }
-            else
-            {
-                LastPlayedText.Text = "Noch nie gespielt";
-            }
+            UpdateLocalizedTexts();
             
             SetPlatformColor(game.Platform);
 
@@ -46,12 +40,13 @@ namespace GameLauncher
 
             // Optional: Close on Esc
             PreviewKeyDown += (s, e) => { if (e.Key == System.Windows.Input.Key.Escape) Close(); };
+            _localization.LanguageChanged += OnLanguageChanged;
         }
 
         private void PopulateTagComboBox()
         {
             AddTagComboBox.Items.Clear();
-            AddTagComboBox.Items.Add("+ Tag hinzufügen...");
+            AddTagComboBox.Items.Add(_localization.Get("Details.AddTag"));
             
             // Add default tags that are not already assigned
             foreach (var tag in Constants.Tags.DefaultTags)
@@ -79,7 +74,7 @@ namespace GameLauncher
             if (AddTagComboBox.SelectedIndex <= 0) return;
             
             var selectedTag = AddTagComboBox.SelectedItem?.ToString();
-            if (!string.IsNullOrEmpty(selectedTag) && selectedTag != "+ Tag hinzufügen...")
+            if (!string.IsNullOrEmpty(selectedTag) && selectedTag != _localization.Get("Details.AddTag"))
             {
                 _manager.AddTag(_game, selectedTag);
                 GameWasModified = true;
@@ -150,7 +145,7 @@ namespace GameLauncher
             }
             catch (Exception)
             {
-                 MessageBox.Show($"Fehler beim Starten des Spiels.", "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+                 MessageBox.Show(_localization.Get("Details.PlayErrorBody"), _localization.Get("Common.Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -171,6 +166,25 @@ namespace GameLauncher
             {
                 PlatformBadge.Background = System.Windows.Media.Brushes.Gray;
             }
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            _localization.LanguageChanged -= OnLanguageChanged;
+            base.OnClosed(e);
+        }
+
+        private void OnLanguageChanged(object? sender, EventArgs e)
+        {
+            UpdateLocalizedTexts();
+            PopulateTagComboBox();
+        }
+
+        private void UpdateLocalizedTexts()
+        {
+            LastPlayedText.Text = _game.LastPlayed.HasValue
+                ? _localization.Format("Details.LastPlayed", _game.LastPlayed.Value)
+                : _localization.Get("Details.NeverPlayed");
         }
     }
 }

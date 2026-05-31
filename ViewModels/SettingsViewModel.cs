@@ -12,13 +12,15 @@ using System.Windows.Input;
 using GameLauncher.Core;
 using GameLauncher.Models;
 using GameLauncher.Services;
+using GameLauncher.Services.Localization;
 using Microsoft.Win32;
 
 namespace GameLauncher.ViewModels
 {
-    public class SettingsViewModel : ObservableObject
+    public class SettingsViewModel : ObservableObject, IDisposable
     {
         private readonly GameManager _gameManager;
+        private readonly LocalizationService _localization;
         private readonly Action<string> _onThemeChanged;
         private readonly Action<UISettings> _onSettingsChanged;
         private bool _isInitialLoading = true;
@@ -49,10 +51,12 @@ namespace GameLauncher.ViewModels
         private string _gogPathsText = "";
         private string _versionText = "";
         private string _backgroundImage = "";
+        private string _selectedLanguageCode = "en";
 
         public SettingsViewModel(GameManager gameManager, Action<string> onThemeChanged, Action<UISettings> onSettingsChanged)
         {
             _gameManager = gameManager ?? throw new ArgumentNullException(nameof(gameManager));
+            _localization = LocalizationService.Instance;
             _onThemeChanged = onThemeChanged;
             _onSettingsChanged = onSettingsChanged;
 
@@ -64,6 +68,7 @@ namespace GameLauncher.ViewModels
             ResetToDefaultsCommand = new RelayCommand(_ => ResetToDefaults());
 
             LoadSettings();
+            _localization.LanguageChanged += OnLanguageChanged;
             _isInitialLoading = false;
         }
 
@@ -83,7 +88,7 @@ namespace GameLauncher.ViewModels
             set => SetProperty(ref _isCheckingUpdates, value);
         }
 
-        private string _updateButtonText = "Jetzt nach Updates suchen";
+        private string _updateButtonText = "";
         public string UpdateButtonText
         {
             get => _updateButtonText;
@@ -116,6 +121,16 @@ namespace GameLauncher.ViewModels
                 {
                     PreviewUiSettings();
                 }
+            }
+        }
+
+        public string SelectedLanguageCode
+        {
+            get => _selectedLanguageCode;
+            set
+            {
+                var normalized = string.Equals(value, "de", StringComparison.OrdinalIgnoreCase) ? "de" : "en";
+                SetProperty(ref _selectedLanguageCode, normalized);
             }
         }
 
@@ -279,6 +294,7 @@ namespace GameLauncher.ViewModels
         }
 
         public string OverlayHotkeyDisplay => BuildOverlayHotkeyDisplay();
+        public string OverlayHotkeyDisplayText => _localization.Format("Settings.CurrentHotkey", BuildOverlayHotkeyDisplay());
 
         public bool AutoCheckUpdates
         {
@@ -368,7 +384,8 @@ namespace GameLauncher.ViewModels
             var ui = config.UISettings;
 
             // Load values
-            _selectedTheme = config.Theme ?? "Blau"; // Don't trigger setter yet
+            _selectedTheme = Constants.UI.NormalizeThemeKey(config.Theme);
+            _selectedLanguageCode = string.Equals(ui.LanguageCode, "de", StringComparison.OrdinalIgnoreCase) ? "de" : "en";
             _cardSize = ui.CardSize;
             _viewMode = ui.ViewMode;
             _animationsEnabled = ui.AnimationsEnabled;
@@ -396,6 +413,7 @@ namespace GameLauncher.ViewModels
             XboxPathsText = FormatPathLines(config.XboxLibraryPaths);
 
             LoadGogStatus();
+            UpdateLocalizedTexts();
 
             var version = Assembly.GetExecutingAssembly().GetName().Version;
             VersionText = version != null
@@ -430,7 +448,9 @@ namespace GameLauncher.ViewModels
         public void RevertPreview()
         {
             var config = _gameManager.GetConfig();
-            string colorCode = Constants.UI.GetColorCodeForTheme(config.Theme ?? "Blau");
+            _localization.ApplyLanguageCode(config.UISettings.LanguageCode);
+
+            string colorCode = Constants.UI.GetColorCodeForTheme(Constants.UI.NormalizeThemeKey(config.Theme));
             if (!string.IsNullOrEmpty(colorCode))
             {
                 _onThemeChanged?.Invoke(colorCode);
@@ -454,6 +474,7 @@ namespace GameLauncher.ViewModels
                 AutostartEnabled = AutostartEnabled,
                 AutoCheckUpdates = AutoCheckUpdates,
                 EncryptedSteamGridDbApiKey = current.EncryptedSteamGridDbApiKey,
+                LanguageCode = SelectedLanguageCode,
                 MinimizeToTray = MinimizeToTray,
                 MinimizeOnGameStart = MinimizeOnGameStart,
                 CloseOnGameStart = CloseOnGameStart,
@@ -479,6 +500,7 @@ namespace GameLauncher.ViewModels
                 AutostartEnabled = settings.AutostartEnabled,
                 AutoCheckUpdates = settings.AutoCheckUpdates,
                 EncryptedSteamGridDbApiKey = settings.EncryptedSteamGridDbApiKey,
+                LanguageCode = settings.LanguageCode,
                 MinimizeToTray = settings.MinimizeToTray,
                 MinimizeOnGameStart = settings.MinimizeOnGameStart,
                 CloseOnGameStart = settings.CloseOnGameStart,
@@ -576,17 +598,17 @@ namespace GameLauncher.ViewModels
                                 }
                             }
                         }
-                        GogPathsText = $"Automatisch erkannt ({count} Spiele gefunden).";
+                        GogPathsText = _localization.Format("Settings.GogDetected", count);
                     }
                     else
                     {
-                        GogPathsText = "GOG Galaxy Registry-Schlüssel nicht gefunden.";
+                        GogPathsText = _localization.Get("Settings.GogRegistryMissing");
                     }
                 }
             }
             catch 
             {
-                 GogPathsText = "Fehler beim Lesen der GOG-Registry."; 
+                 GogPathsText = _localization.Get("Settings.GogRegistryError"); 
             }
         }
 
@@ -594,8 +616,8 @@ namespace GameLauncher.ViewModels
         {
             var dialog = new OpenFileDialog
             {
-                Filter = "Bilder (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp",
-                Title = "Hintergrundbild auswählen"
+                Filter = _localization.Get("Settings.BackgroundDialogFilter"),
+                Title = _localization.Get("Settings.BackgroundDialogTitle")
             };
 
             if (dialog.ShowDialog() == true)
@@ -616,7 +638,7 @@ namespace GameLauncher.ViewModels
              try
             {
                 IsCheckingUpdates = true;
-                UpdateButtonText = "Prüfe...";
+                UpdateButtonText = _localization.Get("Settings.Checking");
 
                 var updateService = new UpdateService("Airwolf995/GameLauncher");
                 var updateInfo = await updateService.CheckForUpdatesAsync();
@@ -629,8 +651,8 @@ namespace GameLauncher.ViewModels
                 else
                 {
                     ModernMessageWindow.Show(
-                        "Du hast bereits die neueste Version!",
-                        "Keine Updates",
+                        _localization.Get("Settings.NoUpdatesBody"),
+                        _localization.Get("Settings.NoUpdatesTitle"),
                         ModernMessageWindow.ModernMessageButton.OK,
                         GetActiveWindow());
                 }
@@ -639,14 +661,14 @@ namespace GameLauncher.ViewModels
             {
                 Logger.Error("Manual update check failed", ex);
                 ModernMessageWindow.Show(
-                    "Fehler beim Suchen nach Updates.",
-                    "Fehler",
+                    _localization.Get("Settings.UpdateErrorBody"),
+                    _localization.Get("Common.Error"),
                     ModernMessageWindow.ModernMessageButton.OK,
                     GetActiveWindow());
             }
             finally
             {
-                UpdateButtonText = "Jetzt nach Updates suchen";
+                UpdateButtonText = _localization.Get("Settings.CheckUpdatesNow");
                 IsCheckingUpdates = false;
             }
         }
@@ -670,6 +692,8 @@ namespace GameLauncher.ViewModels
             config.Theme = SelectedTheme;
             ui.CardSize = CardSize;
             ui.ViewMode = ViewMode;
+            ui.LanguageCode = SelectedLanguageCode;
+            _localization.ApplyLanguageCode(ui.LanguageCode);
             ui.AnimationsEnabled = AnimationsEnabled;
             ui.AutostartEnabled = AutostartEnabled;
             ui.MinimizeToTray = MinimizeToTray;
@@ -695,10 +719,11 @@ namespace GameLauncher.ViewModels
 
         private void ResetToDefaults()
         {
-            if (MessageBox.Show("Möchtest du wirklich alle Einstellungen auf die Standardwerte zurücksetzen?", 
-                "Zurücksetzen", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            if (MessageBox.Show(_localization.Get("Settings.ResetConfirmBody"), 
+                _localization.Get("Settings.ResetConfirmTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
-                SelectedTheme = "Blau";
+                SelectedTheme = "Blue";
+                SelectedLanguageCode = "en";
                 CardSize = Models.CardSize.Medium;
                 ViewMode = Models.ViewMode.Cards;
                 AnimationsEnabled = true;
@@ -715,7 +740,7 @@ namespace GameLauncher.ViewModels
                 _backgroundImage = "";
                 PreviewUiSettings();
                 
-                string colorCode = Constants.UI.GetColorCodeForTheme("Blau");
+                string colorCode = Constants.UI.GetColorCodeForTheme("Blue");
                 if (!string.IsNullOrEmpty(colorCode))
                 {
                     _onThemeChanged?.Invoke(colorCode);
@@ -732,13 +757,14 @@ namespace GameLauncher.ViewModels
             }
 
             OnPropertyChanged(nameof(OverlayHotkeyDisplay));
+            OnPropertyChanged(nameof(OverlayHotkeyDisplayText));
         }
 
         private string BuildOverlayHotkeyDisplay()
         {
             var parts = new List<string>();
 
-            if (OverlayHotkeyCtrl) parts.Add("Strg");
+            if (OverlayHotkeyCtrl) parts.Add(_localization.CurrentLanguage == AppLanguage.German ? "Strg" : "Ctrl");
             if (OverlayHotkeyAlt) parts.Add("Alt");
             if (OverlayHotkeyShift) parts.Add("Shift");
             if (OverlayHotkeyWin) parts.Add("Win");
@@ -772,5 +798,23 @@ namespace GameLauncher.ViewModels
         private static Window? GetActiveWindow() =>
             Application.Current?.Windows.OfType<Window>().FirstOrDefault(window => window.IsActive)
             ?? Application.Current?.MainWindow;
+
+        public void Dispose()
+        {
+            _localization.LanguageChanged -= OnLanguageChanged;
+        }
+
+        private void UpdateLocalizedTexts()
+        {
+            UpdateButtonText = _localization.Get("Settings.CheckUpdatesNow");
+            OnPropertyChanged(nameof(OverlayHotkeyDisplay));
+            OnPropertyChanged(nameof(OverlayHotkeyDisplayText));
+        }
+
+        private void OnLanguageChanged(object? sender, EventArgs e)
+        {
+            LoadGogStatus();
+            UpdateLocalizedTexts();
+        }
     }
 }

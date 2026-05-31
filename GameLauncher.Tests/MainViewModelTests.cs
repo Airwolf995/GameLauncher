@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using System.Threading;
 using GameLauncher.Models;
+using GameLauncher.Services.Localization;
 using GameLauncher.ViewModels;
 
 namespace GameLauncher.Tests
@@ -76,7 +77,7 @@ namespace GameLauncher.Tests
                     using var viewModel = new MainViewModel(manager);
 
                     Assert.Equal(GameSortMode.PlayTime, viewModel.SelectedSort);
-                    Assert.Equal("🏷️ Coop", viewModel.SelectedFilter);
+                    Assert.Equal($"{Constants.Filters.TagPrefix}Coop", viewModel.SelectedFilter);
 
                     var coopGame = new Game
                     {
@@ -94,6 +95,77 @@ namespace GameLauncher.Tests
 
                     Assert.True(InvokeFilterGames(viewModel, coopGame));
                     Assert.False(InvokeFilterGames(viewModel, otherGame));
+                }
+                finally
+                {
+                    CleanupTempRoot(tempRoot);
+                }
+            });
+        }
+
+        [Fact]
+        public void Constructor_SelectsVisibleAllFilterOptionByDefault()
+        {
+            RunInSta(() =>
+            {
+                var tempRoot = CreateTempRoot();
+                var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+
+                try
+                {
+                    using var manager = new GameManager(configPath);
+                    manager.Config.UISettings.LibraryFilter = Constants.Filters.All;
+                    manager.SaveConfigImmediate(manager.Config);
+
+                    using var viewModel = new MainViewModel(manager);
+
+                    Assert.Equal(Constants.Filters.All, viewModel.SelectedFilter);
+                    var allOption = Assert.Single(
+                        viewModel.FilterOptions,
+                        option => option.Key == Constants.Filters.All);
+                    Assert.False(string.IsNullOrWhiteSpace(allOption.DisplayName));
+                }
+                finally
+                {
+                    CleanupTempRoot(tempRoot);
+                }
+            });
+        }
+
+        [Fact]
+        public void LoadGames_PreservesAllFilterOptionInstance()
+        {
+            RunInSta(() =>
+            {
+                var tempRoot = CreateTempRoot();
+                var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+
+                try
+                {
+                    using var manager = new GameManager(configPath);
+                    manager.Config.UISettings.LibraryFilter = Constants.Filters.All;
+                    manager.SaveConfigImmediate(manager.Config);
+
+                    using var viewModel = new MainViewModel(manager);
+                    var beforeLoad = Assert.Single(
+                        viewModel.FilterOptions,
+                        option => option.Key == Constants.Filters.All);
+
+                    InvokeReplaceFilterOptions(
+                        viewModel,
+                        new List<LocalizedOption>
+                        {
+                            new() { Key = Constants.Filters.All, DisplayName = "All" },
+                            new() { Key = Constants.Platforms.Steam, DisplayName = Constants.Platforms.Steam },
+                            new() { Key = Constants.Filters.Hidden, DisplayName = "Hidden" }
+                        });
+
+                    var afterLoad = Assert.Single(
+                        viewModel.FilterOptions,
+                        option => option.Key == Constants.Filters.All);
+
+                    Assert.Same(beforeLoad, afterLoad);
+                    Assert.Equal(Constants.Filters.All, viewModel.SelectedFilter);
                 }
                 finally
                 {
@@ -122,7 +194,7 @@ namespace GameLauncher.Tests
                 using var reloadedManager = new GameManager(configPath);
 
                 Assert.Equal(GameSortMode.PlayTime, reloadedManager.Config.UISettings.LibrarySortMode);
-                Assert.Equal("Ausgeblendet", reloadedManager.Config.UISettings.LibraryFilter);
+                Assert.Equal(Constants.Filters.Hidden, reloadedManager.Config.UISettings.LibraryFilter);
             }
             finally
             {
@@ -137,6 +209,14 @@ namespace GameLauncher.Tests
 
             return (bool)(method.Invoke(viewModel, new object[] { game })
                 ?? throw new InvalidOperationException("FilterGames lieferte kein Ergebnis."));
+        }
+
+        private static void InvokeReplaceFilterOptions(MainViewModel viewModel, IReadOnlyList<LocalizedOption> options)
+        {
+            var method = typeof(MainViewModel).GetMethod("ReplaceFilterOptionsPreservingItems", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("ReplaceFilterOptionsPreservingItems-Methode wurde nicht gefunden.");
+
+            method.Invoke(viewModel, new object[] { options });
         }
 
         private static void RunInSta(Action action)

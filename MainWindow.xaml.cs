@@ -15,6 +15,7 @@ using System.Threading;
 using System.Windows.Threading;
 using GameLauncher.Models;
 using GameLauncher.Core;
+using GameLauncher.Services.Localization;
 
 namespace GameLauncher
 {
@@ -35,6 +36,7 @@ namespace GameLauncher
         private Services.MainWindow.IStatusMessageService _statusMessageService = null!;
         private Services.MainWindow.IUpdateCoordinator _updateCoordinator = null!;
         private Services.MainWindow.AnimationService _animationService = null!;
+        private readonly LocalizationService _localization = LocalizationService.Instance;
         private UiSettingsSnapshot? _lastAppliedUiSettings;
         private bool _releaseStartupImageCacheAfterAnimation;
         private bool _startupImageCacheTrackingActive;
@@ -53,7 +55,7 @@ namespace GameLauncher
         }
 
         public static readonly DependencyProperty IsInitialLoadingProperty =
-            DependencyProperty.Register("IsInitialLoading", typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
+            DependencyProperty.Register("IsInitialLoading", typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
 
         public bool IsInitialLoading
         {
@@ -80,6 +82,7 @@ namespace GameLauncher
             try 
             {
                 _gameManager = new GameManager();
+                _localization.ApplyLanguageCode(_gameManager.GetConfig().UISettings.LanguageCode);
                 _viewModel = new MainViewModel(_gameManager);
                 DataContext = _viewModel;
 
@@ -88,7 +91,7 @@ namespace GameLauncher
             catch (Exception ex)
             {
                 Logger.Error("GameManager Init Failed", ex);
-                MessageBox.Show($"GameManager Init Error: {ex.Message}", "Error");
+                MessageBox.Show(_localization.Format("App.GameManagerInitError", ex.Message), _localization.Get("Common.Error"));
             }
             
             // Save original card template and style for restoration
@@ -118,6 +121,7 @@ namespace GameLauncher
                     }
                 });
             _updateCoordinator = new Services.MainWindow.UpdateCoordinator("Airwolf995/GameLauncher");
+            _localization.LanguageChanged += OnLanguageChanged;
 
             ApplySavedTheme();
 
@@ -153,7 +157,7 @@ namespace GameLauncher
 
         private void InitFpsCounter()
         {
-            _fpsCounter.Start(fps => new Action(() => FpsText.Text = $"FPS: {fps}").RunOnUI());
+            _fpsCounter.Start(fps => new Action(() => FpsText.Text = _localization.Format("Main.Fps", fps)).RunOnUI());
         }
 
         private void MainWindow_StateChanged(object? sender, EventArgs e)
@@ -213,7 +217,7 @@ namespace GameLauncher
                 e.Cancel = true;
                 Hide();
                 _trayController?.ShowTrayIcon();
-                _trayController?.ShowBalloon("Minimiert", "Der Launcher läuft im Hintergrund weiter.", Constants.Timings.TrayBalloonDurationMs);
+                _trayController?.ShowBalloon(_localization.Get("Main.TrayMinimizedTitle"), _localization.Get("Main.TrayMinimizedBody"), Constants.Timings.TrayBalloonDurationMs);
             }
             else
             {
@@ -227,6 +231,7 @@ namespace GameLauncher
                 _statusMessageService?.Dispose();
                 _viewModel?.Dispose();
                 _gameManager?.Dispose();
+                _localization.LanguageChanged -= OnLanguageChanged;
                 base.OnClosing(e);
             }
         }
@@ -246,7 +251,11 @@ namespace GameLauncher
                 // Check if it's the first start to show the Wizard
                 if (_gameManager.GetConfig().UISettings.FirstStart)
                 {
-                    var wizard = new SetupWizardWindow(_gameManager);
+                    IsInitialLoading = false;
+                    var wizard = new SetupWizardWindow(_gameManager)
+                    {
+                        Owner = this
+                    };
                     wizard.ShowDialog();
                 }
 
@@ -288,7 +297,7 @@ namespace GameLauncher
             {
                  IsInitialLoading = false;
                  Logger.Error("Error loading games in MainWindow", ex);
-                 MessageBox.Show($"Load Error: {ex.Message}", "Error");
+                 MessageBox.Show(_localization.Format("App.LoadError", ex.Message), _localization.Get("Common.Error"));
             }
 
         }
@@ -413,6 +422,12 @@ namespace GameLauncher
         private void ClearSearch_Click(object sender, RoutedEventArgs e)
         {
             _viewModel.SearchText = string.Empty;
+        }
+
+        private void OnLanguageChanged(object? sender, EventArgs e)
+        {
+            Title = _localization.Get("AppName");
+            FpsText.Text = _localization.Format("Main.Fps", 0);
         }
 
 
@@ -606,7 +621,7 @@ namespace GameLauncher
                 // Add to our main collection instantly via ViewModel
                 _viewModel.Games.Add(newGame);
                 
-                ShowStatus("Spiel hinzugefügt");
+                ShowStatus(_localization.Get("Main.StatusGameAdded"));
                 Logger.Log("User added a manual game. Added instantly to list.");
                 
                 // Refresh instantly so the new item (Opacity 0) becomes visible immediately
@@ -647,15 +662,15 @@ namespace GameLauncher
             {
                 var dialog = new Microsoft.Win32.OpenFileDialog
                 {
-                    Filter = "Bilder (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg",
-                    Title = "Bild auswählen"
+                    Filter = _localization.Get("Main.ChangeImageDialogFilter"),
+                    Title = _localization.Get("Main.ChangeImageDialogTitle")
                 };
 
                 if (dialog.ShowDialog() == true)
                 {
                     _gameManager.SetManualGameImage(game, dialog.FileName);
                     _viewModel.GamesView.Refresh();
-                    ShowStatus("Bild aktualisiert");
+                    ShowStatus(_localization.Get("Main.StatusImageUpdated"));
                 }
             }
         }
@@ -666,7 +681,7 @@ namespace GameLauncher
             {
                 _gameManager.ToggleFavorite(game);
                  _viewModel.GamesView.Refresh();
-                 ShowStatus(game.IsFavorite ? "Zu Favoriten hinzugefügt" : "Von Favoriten entfernt");
+                 ShowStatus(game.IsFavorite ? _localization.Get("Main.StatusFavoriteAdded") : _localization.Get("Main.StatusFavoriteRemoved"));
             }
         }
 
@@ -677,14 +692,14 @@ namespace GameLauncher
                  if (game.IsHidden)
                  {
                      _gameManager.UnhideGame(game);
-                     ShowStatus("Spiel eingeblendet");
+                     ShowStatus(_localization.Get("Main.StatusGameShown"));
                  }
                  else
                  {
-                     if (MessageBox.Show($"Möchtest du '{game.Name}' ausblenden?", "Ausblenden", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                     if (MessageBox.Show(_localization.Format("Main.HideConfirmBody", game.Name), _localization.Get("Main.HideConfirmTitle"), MessageBoxButton.YesNo) == MessageBoxResult.Yes)
                      {
                          _gameManager.HideGame(game);
-                         ShowStatus("Spiel ausgeblendet");
+                         ShowStatus(_localization.Get("Main.StatusGameHidden"));
                      }
                  }
                  RefreshList();
@@ -696,8 +711,8 @@ namespace GameLauncher
             if (sender is MenuItem item && item.DataContext is Game game)
             {
                 if (ModernMessageWindow.Show(
-                    $"Möchtest du '{game.Name}' wirklich entfernen?",
-                    "Löschen",
+                    _localization.Format("Main.DeleteConfirmBody", game.Name),
+                    _localization.Get("Main.DeleteConfirmTitle"),
                     ModernMessageWindow.ModernMessageButton.YesNo,
                     this) == MessageBoxResult.Yes)
                 {
@@ -707,7 +722,7 @@ namespace GameLauncher
                     // Remove from our visible collection instantly via ViewModel
                     _viewModel.Games.Remove(game);
                     
-                    ShowStatus("Spiel gelöscht");
+                    ShowStatus(_localization.Get("Main.StatusGameDeleted"));
                     RefreshList(instant: true);
                 }
             }
@@ -723,7 +738,7 @@ namespace GameLauncher
                 game.LastPlayed = DateTime.Now;
                 _gameManager.UpdateLastPlayed(game.Id, game.LastPlayed.Value);
 
-                ShowStatus($"Starte {game.Name}...");
+                ShowStatus(_localization.Format("Main.StatusLaunching", game.Name));
 
                 // Handle launcher behavior on game start
                 var settings = _gameManager?.GetConfig()?.UISettings;
@@ -746,13 +761,13 @@ namespace GameLauncher
                 // Logger.Error handled in GameManager
                 if (ex.Message.Contains("find") || ex is System.ComponentModel.Win32Exception)
                 {
-                     MessageBox.Show($"Die Datei wurde nicht gefunden:\n{game.Path}", "Datei fehlt", MessageBoxButton.OK, MessageBoxImage.Warning);
+                     MessageBox.Show(_localization.Format("Main.FileMissingBody", game.Path), _localization.Get("Main.FileMissingTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
                 else
                 {
-                     MessageBox.Show($"Fehler beim Starten des Spiels.", "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+                     MessageBox.Show(_localization.Get("Main.LaunchErrorBody"), _localization.Get("Common.Error"), MessageBoxButton.OK, MessageBoxImage.Error);
                 }
-                ShowStatus("Fehler");
+                ShowStatus(_localization.Get("Main.StatusError"));
             }
         }
 

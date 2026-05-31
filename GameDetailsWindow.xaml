@@ -2,7 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:GameLauncher"
-        Title="Spieldetails" Height="480" Width="700"
+        xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
+        Title="{loc:Loc Key=Details.Title}" Height="480" Width="700"
         Icon="pack://application:,,,/game.ico"
         Background="#1E1E1E" WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Loaded="Window_Loaded">
@@ -59,7 +60,7 @@
 
                 <!-- Title & Meta -->
                 <StackPanel Grid.Column="1" Margin="25,5,0,0" VerticalAlignment="Top">
-                    <TextBlock x:Name="GameNameText" Text="Game Name" FontSize="28" FontWeight="Bold" Foreground="White" 
+                    <TextBlock x:Name="GameNameText" Text="" FontSize="28" FontWeight="Bold" Foreground="White" 
                                TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="80" Margin="0,0,0,10">
                         <TextBlock.Effect>
                             <DropShadowEffect BlurRadius="5" ShadowDepth="1" Opacity="0.8"/>
@@ -68,10 +69,10 @@
                     
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                         <Border x:Name="PlatformBadge" CornerRadius="4" Padding="8,3" Margin="0,0,10,0" VerticalAlignment="Center">
-                            <TextBlock x:Name="PlatformText" Text="STEAM" FontSize="11" Foreground="White" FontWeight="Bold"/>
+                            <TextBlock x:Name="PlatformText" Text="" FontSize="11" Foreground="White" FontWeight="Bold"/>
                         </Border>
                         <Border Background="#33FFFFFF" CornerRadius="4" Padding="8,3" VerticalAlignment="Center">
-                             <TextBlock x:Name="LastPlayedText" Text="Noch nie gespielt" FontSize="11" Foreground="#DDD"/>
+                             <TextBlock x:Name="LastPlayedText" Text="{loc:Loc Key=Details.NeverPlayed}" FontSize="11" Foreground="#DDD"/>
                         </Border>
                     </StackPanel>
                 </StackPanel>
@@ -83,7 +84,7 @@
                         <!-- Main Description -->
                         <TextBlock TextAlignment="Left" TextWrapping="Wrap" Foreground="#CCCCCC" FontSize="14" LineHeight="22" Margin="0,0,0,20">
                             <TextBlock.Text>
-                                <Binding Path="Description" TargetNullValue="Keine Beschreibung verfügbar." FallbackValue="Keine Beschreibung verfügbar."/>
+                                <Binding Path="LocalizedDescription"/>
                             </TextBlock.Text>
                         </TextBlock>
 
@@ -95,18 +96,18 @@
                             </Grid.ColumnDefinitions>
                             
                             <StackPanel Grid.Column="0">
-                                <TextBlock Text="VERÖFFENTLICHUNG" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <TextBlock Text="{loc:Loc Key=Details.ReleaseDate}" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,5"/>
                                 <TextBlock Text="{Binding ReleaseDate, TargetNullValue='-'}" Foreground="White" FontSize="13" Margin="0,0,0,15"/>
 
-                                <TextBlock Text="ENTWICKLER" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <TextBlock Text="{loc:Loc Key=Details.Developer}" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,5"/>
                                 <TextBlock Text="{Binding Developer, TargetNullValue='-'}" Foreground="White" FontSize="13" Margin="0,0,0,15"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="1">
-                                <TextBlock Text="PUBLISHER" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <TextBlock Text="{loc:Loc Key=Details.Publisher}" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,5"/>
                                 <TextBlock Text="{Binding Publisher, TargetNullValue='-'}" Foreground="White" FontSize="13" Margin="0,0,0,15"/>
                                 
-                                <TextBlock Text="GENRES" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <TextBlock Text="{loc:Loc Key=Details.Genres}" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,5"/>
                                 <ItemsControl ItemsSource="{Binding Genres}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -126,7 +127,7 @@
                         
                         <!-- Tags Section -->
                         <StackPanel Margin="0,10,0,20">
-                            <TextBlock Text="KATEGORIEN / TAGS" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
+                            <TextBlock Text="{loc:Loc Key=Details.Tags}" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
                             <!-- Tags wrap to multiple lines -->
                             <ItemsControl x:Name="TagsItemsControl" ItemsSource="{Binding Tags}" Margin="0,0,0,8">
                                 <ItemsControl.ItemsPanel>
@@ -141,7 +142,7 @@
                                                 <TextBlock Text="{Binding}" Foreground="White" FontSize="12" VerticalAlignment="Center"/>
                                                 <Button Content="✕" FontSize="10" Foreground="White" Background="Transparent" 
                                                         BorderThickness="0" Margin="8,0,0,0" Padding="0" Cursor="Hand"
-                                                        Click="RemoveTag_Click" Tag="{Binding}" ToolTip="Tag entfernen"/>
+                                                        Click="RemoveTag_Click" Tag="{Binding}" ToolTip="{loc:Loc Key=Details.RemoveTag}"/>
                                             </StackPanel>
                                         </Border>
                                     </DataTemplate>
@@ -154,12 +155,12 @@
                         </StackPanel>
 
                         <!-- Tech Details Expander (Moved down) -->
-                        <Expander Header="Technische Details" Foreground="#666666" HorizontalAlignment="Left" Margin="0,10,0,0">
+                        <Expander Header="{loc:Loc Key=Details.TechnicalDetails}" Foreground="#666666" HorizontalAlignment="Left" Margin="0,10,0,0">
                              <StackPanel Margin="0,10,0,0">
-                                <TextBlock Text="PFAD / URI" Foreground="#666666" FontSize="10" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <TextBlock Text="{loc:Loc Key=Details.Path}" Foreground="#666666" FontSize="10" FontWeight="Bold" Margin="0,0,0,5"/>
                                 <TextBox Text="{Binding Path}" IsReadOnly="True" Background="#22000000" Foreground="#888888" BorderThickness="0" Padding="5" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
                                 
-                                <TextBlock Text="ARGUMENTE" Foreground="#666666" FontSize="10" FontWeight="Bold" Margin="0,10,0,5"/>
+                                <TextBlock Text="{loc:Loc Key=Details.Arguments}" Foreground="#666666" FontSize="10" FontWeight="Bold" Margin="0,10,0,5"/>
                                 <TextBox Text="{Binding Args}" IsReadOnly="True" Background="#22000000" Foreground="#888888" BorderThickness="0" Padding="5" FontFamily="Consolas" FontSize="11"/>
                             </StackPanel>
                         </Expander>
@@ -174,10 +175,10 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Button x:Name="CloseButton" Content="Zurück" Click="Close_Click" Style="{StaticResource GhostButtonStyle}" HorizontalAlignment="Left" Width="Auto"/>
+                <Button x:Name="CloseButton" Content="{loc:Loc Key=Details.Back}" Click="Close_Click" Style="{StaticResource GhostButtonStyle}" HorizontalAlignment="Left" Width="Auto"/>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button x:Name="FavButton" Click="ToggleFavorite_Click" Width="50" Height="50" Margin="0,0,15,0" Style="{StaticResource GhostButtonStyle}" ToolTip="Favorit">
+                    <Button x:Name="FavButton" Click="ToggleFavorite_Click" Width="50" Height="50" Margin="0,0,15,0" Style="{StaticResource GhostButtonStyle}" ToolTip="{loc:Loc Key=Details.FavoriteTooltip}">
                         <TextBlock x:Name="FavoriteIcon" Text="❤" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Button>
                     
@@ -187,7 +188,7 @@
                         </Button.Effect>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="▶" FontSize="18" Margin="0,0,10,0"/>
-                            <TextBlock Text="JETZT SPIELEN" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc Key=Details.PlayNow}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>

@@ -1,7 +1,8 @@
-<Window x:Class="GameLauncher.ModernMessageWindow"
+    <Window x:Class="GameLauncher.ModernMessageWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Game Launcher" Height="200" Width="400"
+        xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
+        Title="{loc:Loc Key=AppName}" Height="200" Width="400"
         WindowStartupLocation="CenterScreen"
         Background="#1E1E1E"
         ResizeMode="NoResize"
@@ -59,7 +60,7 @@
             <!-- Header -->
             <TextBlock x:Name="TitleText" 
                       Grid.Row="0"
-                      Text="Titel" 
+                      Text="{loc:Loc Key=AppName}" 
                       FontSize="18" 
                       FontWeight="Bold" 
                       Foreground="White"
@@ -68,7 +69,7 @@
             <!-- Message -->
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                 <TextBlock x:Name="MessageText" 
-                          Text="Nachrichtentext..." 
+                          Text="{loc:Loc Key=Common.Loading}" 
                           FontSize="14" 
                           Foreground="#CCCCCC"
                           TextWrapping="Wrap"
@@ -83,18 +84,18 @@
                        HorizontalAlignment="Right"
                        Margin="0,20,0,0">
                 <Button x:Name="BtnYes" 
-                       Content="Ja" 
+                       Content="{loc:Loc Key=Common.Yes}" 
                        Style="{StaticResource ModernButton}" 
                        Click="BtnYes_Click" 
                        Margin="0,0,10,0"
                        Visibility="Collapsed"/>
                 <Button x:Name="BtnNo" 
-                       Content="Nein" 
+                       Content="{loc:Loc Key=Common.No}" 
                        Style="{StaticResource SecondaryButton}" 
                        Click="BtnNo_Click"
                        Visibility="Collapsed"/>
                 <Button x:Name="BtnOk" 
-                       Content="OK" 
+                       Content="{loc:Loc Key=Common.Ok}" 
                        Style="{StaticResource ModernButton}" 
                        Click="BtnOk_Click"
                        Visibility="Collapsed"/>

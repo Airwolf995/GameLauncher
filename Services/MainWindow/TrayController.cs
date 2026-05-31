@@ -3,12 +3,16 @@ using System.Drawing;
 using System.Reflection;
 using System.Windows.Forms;
 using GameLauncher.Models;
+using GameLauncher.Services.Localization;
 
 namespace GameLauncher.Services.MainWindow
 {
     public sealed class TrayController : ITrayController
     {
+        private readonly LocalizationService _localization = LocalizationService.Instance;
         private NotifyIcon? _notifyIcon;
+        private ToolStripItem? _openItem;
+        private ToolStripItem? _exitItem;
 
         public void Initialize(Action onOpenRequested, Action onExitRequested)
         {
@@ -25,11 +29,12 @@ namespace GameLauncher.Services.MainWindow
                 };
 
                 var contextMenu = new ContextMenuStrip();
-                contextMenu.Items.Add("Öffnen", null, (_, _) => onOpenRequested());
-                contextMenu.Items.Add("Beenden", null, (_, _) => onExitRequested());
+                _openItem = contextMenu.Items.Add(_localization.Get("Tray.Open"), null, (_, _) => onOpenRequested());
+                _exitItem = contextMenu.Items.Add(_localization.Get("Tray.Exit"), null, (_, _) => onExitRequested());
 
                 _notifyIcon.ContextMenuStrip = contextMenu;
                 _notifyIcon.DoubleClick += (_, _) => onOpenRequested();
+                _localization.LanguageChanged += OnLanguageChanged;
             }
             catch (Exception ex)
             {
@@ -74,10 +79,26 @@ namespace GameLauncher.Services.MainWindow
             {
                 _notifyIcon.Visible = false;
                 _notifyIcon.Dispose();
+                _localization.LanguageChanged -= OnLanguageChanged;
             }
             finally
             {
                 _notifyIcon = null;
+                _openItem = null;
+                _exitItem = null;
+            }
+        }
+
+        private void OnLanguageChanged(object? sender, EventArgs e)
+        {
+            if (_openItem != null)
+            {
+                _openItem.Text = _localization.Get("Tray.Open");
+            }
+
+            if (_exitItem != null)
+            {
+                _exitItem.Text = _localization.Get("Tray.Exit");
             }
         }
 

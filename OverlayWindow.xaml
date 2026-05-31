@@ -1,7 +1,8 @@
-<Window x:Class="GameLauncher.OverlayWindow"
+    <Window x:Class="GameLauncher.OverlayWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Game Launcher Overlay" 
+        xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
+        Title="{loc:Loc Key=Overlay.Title}" 
         Height="165" Width="250"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -18,7 +19,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="CPU" Foreground="White" FontSize="14"/>
+                <TextBlock Text="{loc:Loc Key=Overlay.Cpu}" Foreground="White" FontSize="14"/>
                 <TextBlock x:Name="CpuText" Grid.Column="1" Text="--°C | --%" Foreground="{DynamicResource AccentColor}" FontSize="14" FontWeight="SemiBold"/>
             </Grid>
 
@@ -27,7 +28,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="GPU" Foreground="White" FontSize="14"/>
+                <TextBlock Text="{loc:Loc Key=Overlay.Gpu}" Foreground="White" FontSize="14"/>
                 <TextBlock x:Name="GpuText" Grid.Column="1" Text="--°C | --%" Foreground="{DynamicResource AccentColor}" FontSize="14" FontWeight="SemiBold"/>
             </Grid>
 
@@ -36,7 +37,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="RAM" Foreground="White" FontSize="14"/>
+                <TextBlock Text="{loc:Loc Key=Overlay.Ram}" Foreground="White" FontSize="14"/>
                 <TextBlock x:Name="RamText" Grid.Column="1" Text="-- GB | --%" Foreground="{DynamicResource AccentColor}" FontSize="14" FontWeight="SemiBold"/>
             </Grid>
 
@@ -45,7 +46,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="VRAM" Foreground="White" FontSize="14"/>
+                <TextBlock Text="{loc:Loc Key=Overlay.Vram}" Foreground="White" FontSize="14"/>
                 <TextBlock x:Name="VramText" Grid.Column="1" Text="-- GB | --%" Foreground="{DynamicResource AccentColor}" FontSize="14" FontWeight="SemiBold"/>
             </Grid>
 
@@ -55,7 +56,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock x:Name="ActiveGameText" Text="Kein Spiel aktiv" Foreground="White" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="ActiveGameText" Text="{loc:Loc Key=Overlay.NoActiveGame}" Foreground="White" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                     <TextBlock x:Name="ClockText" Text="00:00" Foreground="#AAAAAA" FontSize="11"/>
                 </StackPanel>
                 <TextBlock x:Name="PlayTimeText" Grid.Column="1" Text="00:00:00" Foreground="#AAAAAA" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Right"/>

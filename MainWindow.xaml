@@ -5,8 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:system="clr-namespace:System;assembly=mscorlib"
         xmlns:local="clr-namespace:GameLauncher"
+        xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
         mc:Ignorable="d"
-        Title="Game Launcher" Height="840" Width="1350"
+        Title="{loc:Loc Key=AppName}" Height="840" Width="1350"
         Icon="pack://application:,,,/game.ico"
         Background="#1E1E1E" WindowStartupLocation="CenterScreen">
 
@@ -155,7 +156,7 @@
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
-                <DataTrigger Binding="{Binding}" Value="──────────">
+                <DataTrigger Binding="{Binding IsSeparator}" Value="True">
                     <Setter Property="IsEnabled" Value="False"/>
                     <Setter Property="Foreground" Value="#555555"/>
                 </DataTrigger>
@@ -203,7 +204,7 @@
 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="🎮" FontSize="24" Margin="0,0,10,0"/>
-                    <TextBlock Text="BIBLIOTHEK" FontSize="20" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc Key=Main.Library}" FontSize="20" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
                     <TextBlock x:Name="GameCountText" Text="{Binding GamesView.Count, StringFormat='({0})', Mode=OneWay}" FontSize="14" Foreground="#888888" VerticalAlignment="Center" Margin="10,0,0,0" MinWidth="55" TextAlignment="Left"/>
                 </StackPanel>
 
@@ -212,7 +213,7 @@
                     <TextBox x:Name="SearchBox" 
                              Style="{StaticResource ModernTextBox}"
                              Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                             Tag="Suchen..."/>
+                             Tag="{loc:Loc Key=Main.SearchPlaceholder}"/>
                     <Button x:Name="ClearSearchButton" 
                             Content="✕" 
                             Click="ClearSearch_Click"
@@ -253,7 +254,7 @@
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Sort Selection -->
                     <StackPanel Orientation="Horizontal" Margin="0,0,20,0" VerticalAlignment="Center">
-                        <TextBlock Text="Sortieren:" Foreground="#888888" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                        <TextBlock Text="{loc:Loc Key=Main.Sort}" Foreground="#888888" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
                         <ComboBox x:Name="SortBox" Width="130" Padding="8,6" 
                                   ItemsSource="{Binding SortOptions}"
                                   SelectedValuePath="Key"
@@ -265,18 +266,20 @@
                     
                     <!-- Filter Selection -->
                     <StackPanel Orientation="Horizontal" Margin="0,0,20,0" VerticalAlignment="Center">
-                        <TextBlock Text="Filter:" Foreground="#888888" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                        <TextBlock Text="{loc:Loc Key=Main.Filter}" Foreground="#888888" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
                         <ComboBox x:Name="FilterBox" Width="150" Padding="8,6" 
                                   ItemsSource="{Binding FilterOptions}"
                                   DropDownOpened="ComboBox_DropDownOpened"
-                                  SelectedItem="{Binding SelectedFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                  SelectedValuePath="Key"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectedValue="{Binding SelectedFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                   ItemContainerStyle="{StaticResource MainComboBoxItemStyle}"
                                   FontSize="13" MaxDropDownHeight="400" VerticalAlignment="Center">
                         </ComboBox>
                     </StackPanel>
 
                     <!-- Action Icons -->
-                    <Button Command="{Binding RefreshCommand}" Padding="8" Margin="0,0,10,0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="Bibliothek aktualisieren" VerticalAlignment="Center">
+                    <Button Command="{Binding RefreshCommand}" Padding="8" Margin="0,0,10,0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="{loc:Loc Key=Main.RefreshLibrary}" VerticalAlignment="Center">
                         <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#CCCCCC" VerticalAlignment="Center"/>
                         <Button.Style>
                             <Style TargetType="Button">
@@ -299,7 +302,7 @@
                         </Button.Style>
                     </Button>
 
-                    <Button Click="Settings_Click" Padding="8" Margin="0,0,15,0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="Einstellungen" VerticalAlignment="Center">
+                    <Button Click="Settings_Click" Padding="8" Margin="0,0,15,0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="{loc:Loc Key=Main.Settings}" VerticalAlignment="Center">
                         <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#CCCCCC" VerticalAlignment="Center"/>
                         <Button.Style>
                             <Style TargetType="Button">
@@ -323,7 +326,7 @@
                     </Button>
 
                     <!-- Add Game Button -->
-                    <Button Content="SPIEL HINZUFÜGEN" Click="AddGame_Click" Height="34" Padding="15,0" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" MinWidth="140"/>
+                    <Button Content="{loc:Loc Key=Main.AddGame}" Click="AddGame_Click" Height="34" Padding="15,0" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" MinWidth="140"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -539,23 +542,23 @@
 
                         <Grid.ContextMenu>
                             <ContextMenu>
-                                <MenuItem Header="Starten" Click="Play_Click"/>
-                                <MenuItem Header="Bild ändern..." Click="ChangeImage_Click"/>
+                                <MenuItem Header="{loc:Loc Key=Main.Context.Play}" Click="Play_Click"/>
+                                <MenuItem Header="{loc:Loc Key=Main.Context.ChangeImage}" Click="ChangeImage_Click"/>
                                 <Separator/>
-                                <MenuItem Header="Favorit umschalten" Click="Favorite_Click"/>
+                                <MenuItem Header="{loc:Loc Key=Main.Context.ToggleFavorite}" Click="Favorite_Click"/>
                                 <MenuItem Click="Hide_Click">
                                     <MenuItem.Style>
                                         <Style TargetType="MenuItem">
-                                            <Setter Property="Header" Value="Ausblenden"/>
+                                            <Setter Property="Header" Value="{Binding Source={x:Static loc:LocalizationService.Instance}, Path=[Main.Context.Hide]}"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsHidden}" Value="True">
-                                                    <Setter Property="Header" Value="Wieder einblenden"/>
+                                                    <Setter Property="Header" Value="{Binding Source={x:Static loc:LocalizationService.Instance}, Path=[Main.Context.Unhide]}"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </MenuItem.Style>
                                 </MenuItem>
-                                <MenuItem Header="Löschen" Click="Delete_Click" IsEnabled="{Binding IsManual}"/>
+                                <MenuItem Header="{loc:Loc Key=Main.Context.Delete}" Click="Delete_Click" IsEnabled="{Binding IsManual}"/>
                             </ContextMenu>
                         </Grid.ContextMenu>
                     </Grid>
@@ -593,13 +596,13 @@
                         </Path.Triggers>
                     </Path>
                 </Grid>
-                <TextBlock Text="Bibliothek wird geladen..."
+                <TextBlock Text="{loc:Loc Key=Main.LoadingTitle}"
                            Foreground="White"
                            FontSize="18"
                            FontWeight="SemiBold"
                            HorizontalAlignment="Center"
                            Margin="0,18,0,0"/>
-                <TextBlock Text="Spiele werden gesucht und vorbereitet"
+                <TextBlock Text="{loc:Loc Key=Main.LoadingBody}"
                            Foreground="#AAAAAA"
                            FontSize="12"
                            HorizontalAlignment="Center"
@@ -611,7 +614,7 @@
         <Border Grid.Row="2" Background="{DynamicResource AccentColor}" Padding="10,5">
             <Grid>
                 <TextBlock x:Name="StatusText" Text="{Binding StatusText}" Foreground="White" FontSize="12" HorizontalAlignment="Left"/>
-                <TextBlock x:Name="FpsText" Text="FPS: 0" Foreground="White" FontSize="11" HorizontalAlignment="Right" Opacity="0.8"/>
+                <TextBlock x:Name="FpsText" Text="{loc:Loc Key=Main.FpsIdle}" Foreground="White" FontSize="11" HorizontalAlignment="Right" Opacity="0.8"/>
             </Grid>
         </Border>
     </Grid>

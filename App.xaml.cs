@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Windows;
+using GameLauncher.Services.Localization;
 
 namespace GameLauncher
 {
@@ -12,13 +13,14 @@ namespace GameLauncher
         {
             const string appName = "GameLauncher_CSharp_SingleInstance";
             bool createdNew;
+            var localization = LocalizationService.Instance;
 
             _mutex = new Mutex(true, appName, out createdNew);
 
             if (!createdNew)
             {
                 // App is already running!
-                MessageBox.Show("Der Launcher läuft bereits!", "Game Launcher", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(localization.Get("App.AlreadyRunning"), localization.Get("AppName"), MessageBoxButton.OK, MessageBoxImage.Information);
                 Shutdown();
                 return;
             }
@@ -30,7 +32,7 @@ namespace GameLauncher
             {
                 var ex = args.ExceptionObject as Exception;
                 Models.Logger.Error("Unhandled Application Crash", ex);
-                MessageBox.Show($"Unhandled Error: {args.ExceptionObject}", "Crash", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(localization.Format("App.UnhandledError", args.ExceptionObject ?? "Unknown"), localization.Get("App.CrashTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
             };
 
             try
@@ -44,7 +46,7 @@ namespace GameLauncher
             catch (Exception ex)
             {
                 Models.Logger.Error("Startup failed", ex);
-                MessageBox.Show($"Startup Error: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(localization.Format("App.StartupError", ex.Message, ex.StackTrace ?? string.Empty), localization.Get("Common.Error"), MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown();
             }
         }

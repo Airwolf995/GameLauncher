@@ -11,6 +11,7 @@
             </ResourceDictionary.MergedDictionaries>
             
             <vm:InverseBoolConverter x:Key="InverseBoolConverter"/>
+            <vm:EnumLocalizationConverter x:Key="EnumLocalizationConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

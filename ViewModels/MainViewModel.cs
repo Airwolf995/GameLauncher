@@ -1,80 +1,91 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
 using GameLauncher.Core;
 using GameLauncher.Models;
+using GameLauncher.Services.Localization;
 
 namespace GameLauncher.ViewModels
 {
     public class MainViewModel : ObservableObject, IDisposable
     {
+        private const string TagDisplayPrefix = "🏷️ ";
+
         private readonly GameManager _gameManager;
-        private ObservableCollection<Game> _games;
+        private readonly LocalizationService _localization;
+        private readonly ObservableCollection<Game> _games;
         private ICollectionView _gamesView = null!;
         private string _searchText = "";
-        private string _selectedFilter = "Alle";
-        private string _preferredFilter = "Alle";
+        private string _selectedFilter = Constants.Filters.All;
+        private string _preferredFilter = Constants.Filters.All;
         private GameSortMode _selectedSort = GameSortMode.Name;
-        private System.Threading.Timer? _filterDebounce;
-        private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+        private Timer? _filterDebounce;
+        private CancellationTokenSource? _metadataRefreshCts;
+        private readonly CancellationTokenSource _cts = new();
+        private ObservableCollection<LocalizedOption> _filterOptions = [];
+        private ObservableCollection<KeyValuePair<GameSortMode, string>> _sortOptions = [];
+        private string _statusText = "";
 
-        private ObservableCollection<string> _filterOptions = new()
+        public MainViewModel(GameManager gameManager)
         {
-            "Alle", "Steam", "Epic Games", "GOG", "Ubisoft Connect", "EA App", "Xbox", "Manuell", "Ausgeblendet"
-        };
-        
-        public ObservableCollection<string> FilterOptions
+            _gameManager = gameManager ?? throw new ArgumentNullException(nameof(gameManager));
+            _localization = LocalizationService.Instance;
+            _games = [];
+
+            LoadLibraryViewSettings();
+            ConfigureGamesView();
+            RebuildSortOptions();
+            PopulateFilterOptions();
+            RefreshStatusText();
+
+            LoadGamesCommand = new RelayCommand(async _ => await LoadGamesAsync());
+            RefreshCommand = new RelayCommand(async _ => await LoadGamesAsync());
+
+            _gameManager.GamesUpdated += OnGamesUpdated;
+            _localization.LanguageChanged += OnLanguageChanged;
+        }
+
+        public ICollectionView GamesView => _gamesView;
+        public ObservableCollection<Game> Games => _games;
+
+        public ObservableCollection<LocalizedOption> FilterOptions
         {
             get => _filterOptions;
             set => SetProperty(ref _filterOptions, value);
         }
 
-        public MainViewModel(GameManager gameManager)
+        public ObservableCollection<KeyValuePair<GameSortMode, string>> SortOptions
         {
-            _gameManager = gameManager ?? throw new ArgumentNullException(nameof(gameManager));
-            _games = new ObservableCollection<Game>();
-            LoadLibraryViewSettings();
-            
-            ConfigureGamesView();
-
-            // Commands
-            LoadGamesCommand = new RelayCommand(async _ => await LoadGamesAsync());
-            RefreshCommand = new RelayCommand(async _ => await LoadGamesAsync());
-
-            // Listen to external updates
-            _gameManager.GamesUpdated += OnGamesUpdated;
-
-            PopulateFilterOptions();
+            get => _sortOptions;
+            set => SetProperty(ref _sortOptions, value);
         }
-
-        public ICollectionView GamesView => _gamesView;
-        public ObservableCollection<Game> Games => _games;
 
         public string SearchText
         {
             get => _searchText;
             set
             {
-                if (SetProperty(ref _searchText, value))
+                if (!SetProperty(ref _searchText, value))
                 {
-                    // Debounce: wait 150ms after last keystroke before filtering
-                    _filterDebounce?.Dispose();
-                    _filterDebounce = new System.Threading.Timer(_ =>
-                    {
-                        new Action(() =>
-                        {
-                            _gamesView.Refresh();
-                            OnPropertyChanged(nameof(IsSearchActive));
-                        }).RunOnUI();
-                    }, null, 150, System.Threading.Timeout.Infinite);
+                    return;
                 }
+
+                _filterDebounce?.Dispose();
+                _filterDebounce = new Timer(_ =>
+                {
+                    new Action(() =>
+                    {
+                        _gamesView.Refresh();
+                        OnPropertyChanged(nameof(IsSearchActive));
+                    }).RunOnUI();
+                }, null, 150, Timeout.Infinite);
             }
         }
 
@@ -85,43 +96,34 @@ namespace GameLauncher.ViewModels
             get => _selectedFilter;
             set
             {
-                var val = value ?? "Alle";
-                if (val == "──────────") return;
-                if (SetProperty(ref _selectedFilter, val))
+                var normalized = NormalizeFilterKey(value);
+                if (!SetProperty(ref _selectedFilter, normalized))
                 {
-                    _preferredFilter = val;
-                    _gamesView.Refresh();
-                    UpdateStatusText();
-                    SaveLibraryViewSettings();
+                    return;
                 }
+
+                _preferredFilter = normalized;
+                _gamesView.Refresh();
+                UpdateStatusText();
+                SaveLibraryViewSettings();
             }
         }
-
-        /// <summary>
-        /// Available sort options for XAML ComboBox binding.
-        /// </summary>
-        public static IReadOnlyList<KeyValuePair<GameSortMode, string>> SortOptions { get; } = new[]
-        {
-            KeyValuePair.Create(GameSortMode.Name, "Name"),
-            KeyValuePair.Create(GameSortMode.Favorites, "Favoriten"),
-            KeyValuePair.Create(GameSortMode.LastPlayed, "Zuletzt gespielt"),
-            KeyValuePair.Create(GameSortMode.PlayTime, "Spielzeit"),
-        };
 
         public GameSortMode SelectedSort
         {
             get => _selectedSort;
             set
             {
-                if (SetProperty(ref _selectedSort, value))
+                if (!SetProperty(ref _selectedSort, value))
                 {
-                    ApplySort();
-                    SaveLibraryViewSettings();
+                    return;
                 }
+
+                ApplySort();
+                SaveLibraryViewSettings();
             }
         }
 
-        private string _statusText = "Bereit";
         public string StatusText
         {
             get => _statusText;
@@ -133,26 +135,23 @@ namespace GameLauncher.ViewModels
 
         public async Task LoadGamesAsync()
         {
-            StatusText = "Lade Spiele...";
-            try 
+            StatusText = _localization.Get("Main.StatusLoadingGames");
+            try
             {
                 var games = await _gameManager.LoadAllGamesAsync(_cts.Token);
-                
+
                 new Action(() =>
                 {
-                    // Clear and add to EXISTING collection (not replace) to keep external references valid
-                    // This is important for PlayTimeService which holds a reference to this collection
                     _games.Clear();
                     foreach (var game in games)
                     {
                         _games.Add(game);
+                        game.RefreshLocalizedProperties();
                     }
-                    
-                    ConfigureGamesView();
 
+                    ConfigureGamesView();
                     PopulateFilterOptions();
 
-                    // Notify UI of property changes
                     OnPropertyChanged(nameof(GamesView));
                     OnPropertyChanged(nameof(IsSearchActive));
                     UpdateStatusText();
@@ -160,8 +159,23 @@ namespace GameLauncher.ViewModels
             }
             catch (OperationCanceledException)
             {
-                // Ignore
             }
+        }
+
+        public void RefreshStatusText()
+        {
+            UpdateStatusText();
+        }
+
+        public void Dispose()
+        {
+            _metadataRefreshCts?.Cancel();
+            _metadataRefreshCts?.Dispose();
+            _cts.Cancel();
+            _cts.Dispose();
+            _filterDebounce?.Dispose();
+            _gameManager.GamesUpdated -= OnGamesUpdated;
+            _localization.LanguageChanged -= OnLanguageChanged;
         }
 
         private void OnGamesUpdated(object? sender, EventArgs e)
@@ -174,78 +188,69 @@ namespace GameLauncher.ViewModels
             });
         }
 
-        public void Dispose()
+        private void OnLanguageChanged(object? sender, EventArgs e)
         {
-            _cts.Cancel();
-            _cts.Dispose();
-            _filterDebounce?.Dispose();
-            _gameManager.GamesUpdated -= OnGamesUpdated;
+            RebuildSortOptions();
+            PopulateFilterOptions();
+
+            foreach (var game in _games)
+            {
+                game.RefreshLocalizedProperties();
+            }
+
+            _gamesView.Refresh();
+            UpdateStatusText();
+            OnPropertyChanged(nameof(SelectedFilter));
+            _ = RefreshSteamMetadataForCurrentLanguageAsync();
         }
 
         private bool FilterGames(object item)
         {
-            if (item is not Game game) return false;
+            if (item is not Game game)
+            {
+                return false;
+            }
 
-            // Text Filter
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
                 bool matchesName = game.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase);
                 bool matchesTag = game.Tags.Any(tag => tag.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
 
-                if (!matchesName && !matchesTag) return false;
-            }
-
-            // Category Filter
-            if (string.IsNullOrEmpty(_selectedFilter) || _selectedFilter == "Alle")
-            {
-                if (game.IsHidden) return false;
-            }
-            else if (_selectedFilter == "Ausgeblendet")
-            {
-                if (!game.IsHidden) return false;
-            }
-            else
-            {
-                if (game.IsHidden) return false;
-                
-                switch (_selectedFilter)
+                if (!matchesName && !matchesTag)
                 {
-                    case "Favoriten":
-                        if (!game.IsFavorite) return false;
-                        break;
-                    case "Steam":
-                        if (game.Platform != "Steam") return false;
-                        break;
-                    case "Epic Games":
-                        if (game.Platform != "Epic Games") return false;
-                        break;
-                    case "Ubisoft Connect":
-                        if (game.Platform != "Ubisoft Connect") return false;
-                        break;
-                    case "EA App":
-                        if (game.Platform != "EA App") return false;
-                        break;
-                    case "Xbox":
-                        if (game.Platform != "Xbox") return false;
-                        break;
-                    case "GOG":
-                        if (game.Platform != "GOG") return false;
-                        break;
-                    case "Manuell":
-                        if (!game.IsManual) return false;
-                        break;
-                    default:
-                        // Tag filter - check if the filter matches a tag
-                        if (_selectedFilter.StartsWith("🏷️ "))
-                        {
-                            string tagName = _selectedFilter.Substring(4); // Remove "🏷️ " prefix
-                            if (!game.Tags.Contains(tagName)) return false;
-                        }
-                        break;
+                    return false;
                 }
             }
 
-            return true;
+            if (string.IsNullOrEmpty(_selectedFilter) || _selectedFilter == Constants.Filters.All)
+            {
+                return !game.IsHidden;
+            }
+
+            if (_selectedFilter == Constants.Filters.Hidden)
+            {
+                return game.IsHidden;
+            }
+
+            if (game.IsHidden)
+            {
+                return false;
+            }
+
+            return _selectedFilter switch
+            {
+                Constants.Filters.Favorites => game.IsFavorite,
+                Constants.Filters.Manual => game.IsManual,
+                Constants.Platforms.Steam => game.Platform == Constants.Platforms.Steam,
+                Constants.Platforms.Epic => game.Platform == Constants.Platforms.Epic,
+                "Ubisoft Connect" => game.Platform == "Ubisoft Connect",
+                "EA App" => game.Platform == "EA App",
+                "Xbox" => game.Platform == "Xbox",
+                Constants.Platforms.GOG => game.Platform == Constants.Platforms.GOG,
+                _ when _selectedFilter.StartsWith(Constants.Filters.TagPrefix, StringComparison.Ordinal) =>
+                    game.Tags.Contains(_selectedFilter.Substring(Constants.Filters.TagPrefix.Length)),
+                _ => true
+            };
         }
 
         private void ApplySort()
@@ -256,19 +261,19 @@ namespace GameLauncher.ViewModels
             switch (_selectedSort)
             {
                 case GameSortMode.Name:
-                    _gamesView.SortDescriptions.Add(new SortDescription("Name", ListSortDirection.Ascending));
+                    _gamesView.SortDescriptions.Add(new SortDescription(nameof(Game.Name), ListSortDirection.Ascending));
                     break;
                 case GameSortMode.Favorites:
-                    _gamesView.SortDescriptions.Add(new SortDescription("IsFavorite", ListSortDirection.Descending));
-                    _gamesView.SortDescriptions.Add(new SortDescription("Name", ListSortDirection.Ascending));
+                    _gamesView.SortDescriptions.Add(new SortDescription(nameof(Game.IsFavorite), ListSortDirection.Descending));
+                    _gamesView.SortDescriptions.Add(new SortDescription(nameof(Game.Name), ListSortDirection.Ascending));
                     break;
                 case GameSortMode.LastPlayed:
-                    _gamesView.SortDescriptions.Add(new SortDescription("LastPlayed", ListSortDirection.Descending));
-                    _gamesView.SortDescriptions.Add(new SortDescription("Name", ListSortDirection.Ascending));
+                    _gamesView.SortDescriptions.Add(new SortDescription(nameof(Game.LastPlayed), ListSortDirection.Descending));
+                    _gamesView.SortDescriptions.Add(new SortDescription(nameof(Game.Name), ListSortDirection.Ascending));
                     break;
                 case GameSortMode.PlayTime:
-                    _gamesView.SortDescriptions.Add(new SortDescription("PlayTime", ListSortDirection.Descending));
-                    _gamesView.SortDescriptions.Add(new SortDescription("Name", ListSortDirection.Ascending));
+                    _gamesView.SortDescriptions.Add(new SortDescription(nameof(Game.PlayTime), ListSortDirection.Descending));
+                    _gamesView.SortDescriptions.Add(new SortDescription(nameof(Game.Name), ListSortDirection.Ascending));
                     break;
             }
         }
@@ -318,7 +323,7 @@ namespace GameLauncher.ViewModels
         {
             var uiSettings = _gameManager.GetConfig().UISettings;
             _selectedSort = uiSettings.LibrarySortMode;
-            _selectedFilter = string.IsNullOrWhiteSpace(uiSettings.LibraryFilter) ? "Alle" : uiSettings.LibraryFilter;
+            _selectedFilter = NormalizeFilterKey(uiSettings.LibraryFilter);
             _preferredFilter = _selectedFilter;
         }
 
@@ -330,66 +335,65 @@ namespace GameLauncher.ViewModels
             _gameManager.SaveConfig();
         }
 
-
-
         private void UpdateStatusText()
         {
             int steam = 0, gog = 0, epic = 0, ubi = 0, ea = 0, xbox = 0, manual = 0;
             foreach (var game in _games)
             {
                 if (game.IsManual) manual++;
-                else if (game.Platform == "Steam") steam++;
-                else if (game.Platform == "GOG") gog++;
-                else if (game.Platform == "Epic Games") epic++;
+                else if (game.Platform == Constants.Platforms.Steam) steam++;
+                else if (game.Platform == Constants.Platforms.GOG) gog++;
+                else if (game.Platform == Constants.Platforms.Epic) epic++;
                 else if (game.Platform == "Ubisoft Connect") ubi++;
                 else if (game.Platform == "EA App") ea++;
                 else if (game.Platform == "Xbox") xbox++;
             }
 
-            StatusText = $"{_games.Count} Spiele | Steam: {steam} | GOG: {gog} | Epic: {epic} | Ubi: {ubi} | EA: {ea} | Xbox: {xbox} | Manuell: {manual}";
-        }
-
-        public void RefreshStatusText()
-        {
-            UpdateStatusText();
+            StatusText = _localization.Format("Main.StatusSummary", _games.Count, steam, gog, epic, ubi, ea, xbox, manual);
         }
 
         private void PopulateFilterOptions()
         {
             new Action(() =>
             {
-                var desiredFilter = string.IsNullOrWhiteSpace(_preferredFilter) ? "Alle" : _preferredFilter;
-                
-                var newOptions = new ObservableCollection<string>
+                var desiredFilter = string.IsNullOrWhiteSpace(_preferredFilter) ? Constants.Filters.All : _preferredFilter;
+                var newOptions = new List<LocalizedOption>
                 {
-                    "Alle", "Steam", "Epic Games", "GOG", "Ubisoft Connect", "EA App", "Xbox", "Manuell", "Ausgeblendet"
+                    CreateOption(Constants.Filters.All, _localization.Get("Filter.All")),
+                    CreateOption(Constants.Platforms.Steam, Constants.Platforms.Steam),
+                    CreateOption(Constants.Platforms.Epic, Constants.Platforms.Epic),
+                    CreateOption(Constants.Platforms.GOG, Constants.Platforms.GOG),
+                    CreateOption("Ubisoft Connect", "Ubisoft Connect"),
+                    CreateOption("EA App", "EA App"),
+                    CreateOption("Xbox", "Xbox"),
+                    CreateOption(Constants.Filters.Manual, _localization.Get("Filter.Manual")),
+                    CreateOption(Constants.Filters.Hidden, _localization.Get("Filter.Hidden"))
                 };
 
                 var usedTags = _gameManager.GetAllUsedTags();
                 if (usedTags.Count > 0 || Constants.Tags.DefaultTags.Length > 0)
                 {
-                    newOptions.Add("──────────");
+                    newOptions.Add(new LocalizedOption { Key = "__separator__", DisplayName = "──────────", IsSeparator = true });
                 }
 
                 foreach (var tag in Constants.Tags.DefaultTags)
                 {
-                    newOptions.Add($"🏷️ {tag}");
+                    newOptions.Add(CreateTagOption(tag));
                 }
 
                 foreach (var tag in usedTags)
                 {
                     if (!Constants.Tags.DefaultTags.Contains(tag, StringComparer.OrdinalIgnoreCase))
                     {
-                        newOptions.Add($"🏷️ {tag}");
+                        newOptions.Add(CreateTagOption(tag));
                     }
                 }
-                
-                FilterOptions = newOptions;
 
-                // Restore the saved filter when it becomes available after loading tags/games.
-                var activeFilter = FilterOptions.Contains(desiredFilter)
+                ReplaceFilterOptionsPreservingItems(newOptions);
+
+                var activeFilter = FilterOptions.Any(option => option.Key == desiredFilter)
                     ? desiredFilter
-                    : "Alle";
+                    : Constants.Filters.All;
 
                 if (_selectedFilter != activeFilter)
                 {
@@ -400,6 +404,109 @@ namespace GameLauncher.ViewModels
 
                 OnPropertyChanged(nameof(SelectedFilter));
             }).RunOnUI();
+        }
+
+        private void RebuildSortOptions()
+        {
+            SortOptions = new ObservableCollection<KeyValuePair<GameSortMode, string>>
+            {
+                KeyValuePair.Create(GameSortMode.Name, _localization.Get("Sort.Name")),
+                KeyValuePair.Create(GameSortMode.Favorites, _localization.Get("Sort.Favorites")),
+                KeyValuePair.Create(GameSortMode.LastPlayed, _localization.Get("Sort.LastPlayed")),
+                KeyValuePair.Create(GameSortMode.PlayTime, _localization.Get("Sort.PlayTime"))
+            };
+        }
+
+        private LocalizedOption CreateTagOption(string tag) =>
+            new()
+            {
+                Key = $"{Constants.Filters.TagPrefix}{tag}",
+                DisplayName = string.Format(_localization.CurrentCulture, _localization.Get("Filter.TagPrefix"), tag)
+            };
+
+        private static LocalizedOption CreateOption(string key, string displayName) =>
+            new()
+            {
+                Key = key,
+                DisplayName = displayName
+            };
+
+        private void ReplaceFilterOptionsPreservingItems(IReadOnlyList<LocalizedOption> newOptions)
+        {
+            for (int targetIndex = 0; targetIndex < newOptions.Count; targetIndex++)
+            {
+                var newOption = newOptions[targetIndex];
+                int existingIndex = IndexOfFilterOption(newOption.Key);
+
+                if (existingIndex >= 0)
+                {
+                    var existingOption = FilterOptions[existingIndex];
+                    existingOption.DisplayName = newOption.DisplayName;
+
+                    if (existingIndex != targetIndex)
+                    {
+                        FilterOptions.Move(existingIndex, targetIndex);
+                    }
+                }
+                else
+                {
+                    FilterOptions.Insert(targetIndex, newOption);
+                }
+            }
+
+            while (FilterOptions.Count > newOptions.Count)
+            {
+                FilterOptions.RemoveAt(FilterOptions.Count - 1);
+            }
+        }
+
+        private int IndexOfFilterOption(string key)
+        {
+            for (int i = 0; i < FilterOptions.Count; i++)
+            {
+                if (FilterOptions[i].Key == key)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private static string NormalizeFilterKey(string? filter) => filter switch
+        {
+            null or "" => Constants.Filters.All,
+            "Alle" => Constants.Filters.All,
+            "all" => Constants.Filters.All,
+            "Favoriten" => Constants.Filters.Favorites,
+            "favorites" => Constants.Filters.Favorites,
+            "Ausgeblendet" => Constants.Filters.Hidden,
+            "Versteckt" => Constants.Filters.Hidden,
+            "hidden" => Constants.Filters.Hidden,
+            "Manuell" => Constants.Filters.Manual,
+            "Manual" => Constants.Filters.Manual,
+            _ when filter.StartsWith(TagDisplayPrefix, StringComparison.Ordinal) => $"{Constants.Filters.TagPrefix}{filter.Substring(TagDisplayPrefix.Length)}",
+            _ => filter
+        };
+
+        private async Task RefreshSteamMetadataForCurrentLanguageAsync()
+        {
+            _metadataRefreshCts?.Cancel();
+            _metadataRefreshCts?.Dispose();
+            _metadataRefreshCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+            var token = _metadataRefreshCts.Token;
+
+            try
+            {
+                await _gameManager.RefreshSteamMetadataAsync(_games.ToList(), token);
+                if (!token.IsCancellationRequested)
+                {
+                    new Action(() => _gamesView.Refresh()).RunOnUI();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
     }
 }

@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using GameLauncher.Models;
+using GameLauncher.Services.Localization;
 
 namespace GameLauncher.Services
 {
@@ -24,7 +25,7 @@ namespace GameLauncher.Services
             if (string.IsNullOrEmpty(game.Id) || !game.Id.StartsWith("steam:")) return false;
 
             string appId = game.Id.Replace("steam:", "");
-            string url = $"https://store.steampowered.com/api/appdetails?appids={appId}&l=german";
+            string url = BuildSteamAppDetailsUrl(appId, LocalizationService.Instance.CurrentLanguage);
 
             try
             {
@@ -85,7 +86,7 @@ namespace GameLauncher.Services
                             // Genres
                             if (data.TryGetProperty("genres", out var genres))
                             {
-                                game.Genres.Clear();
+                                var localizedGenres = new List<string>();
                                 foreach (var genre in genres.EnumerateArray())
                                 {
                                     if (genre.TryGetProperty("description", out var genreName))
@@ -93,12 +94,14 @@ namespace GameLauncher.Services
                                         var genreDescription = genreName.GetString();
                                         if (!string.IsNullOrWhiteSpace(genreDescription))
                                         {
-                                            game.Genres.Add(genreDescription);
+                                            localizedGenres.Add(genreDescription);
                                         }
                                     }
                                 }
+                                game.Genres = localizedGenres;
                             }
 
+                            game.RefreshMetadataProperties();
 
                             Logger.Log($"Fetched metadata for {game.Name}");
                             return true;
@@ -112,6 +115,12 @@ namespace GameLauncher.Services
             }
 
             return false;
+        }
+
+        internal static string BuildSteamAppDetailsUrl(string appId, AppLanguage language)
+        {
+            string steamLanguage = language == AppLanguage.German ? "german" : "english";
+            return $"https://store.steampowered.com/api/appdetails?appids={Uri.EscapeDataString(appId)}&l={steamLanguage}";
         }
 
         public async Task<string?> GetCoverUrlAsync(string gameName, CancellationToken ct = default)

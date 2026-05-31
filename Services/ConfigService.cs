@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using GameLauncher.Models;
+using GameLauncher.Services.Localization;
 
 namespace GameLauncher.Services
 {
@@ -118,6 +119,7 @@ namespace GameLauncher.Services
                 // Ensure defaults for all collections to prevent NullReferenceExceptions
                 config.SteamLibraryPaths ??= new List<string>();
                 config.EpicLibraryPaths ??= new List<string>();
+                config.XboxLibraryPaths ??= new List<string>();
                 config.ManualGames ??= new List<Game>();
                 config.Favorites ??= new HashSet<string>();
                 config.LastPlayed ??= new Dictionary<string, DateTime>();
@@ -127,6 +129,7 @@ namespace GameLauncher.Services
                 config.HiddenGames ??= new HashSet<string>();
                 config.ImageOverrides ??= new Dictionary<string, string>();
                 config.GameTags ??= new Dictionary<string, List<string>>();
+                NormalizeConfig(config);
 
                 Logger.Log("Configuration loaded successfully.");
                 return config;
@@ -191,5 +194,45 @@ namespace GameLauncher.Services
             }
             _saveTimer?.Dispose();
         }
+
+        private static void NormalizeConfig(GameConfig config)
+        {
+            config.Theme = Constants.UI.NormalizeThemeKey(config.Theme);
+
+            config.UISettings.CardSizeString = config.UISettings.CardSize switch
+            {
+                CardSize.Small => "Small",
+                CardSize.Large => "Large",
+                _ => "Medium"
+            };
+
+            config.UISettings.ViewModeString = config.UISettings.ViewMode switch
+            {
+                ViewMode.List => "List",
+                _ => "Cards"
+            };
+
+            config.UISettings.LanguageCode = string.Equals(config.UISettings.LanguageCode, "de", StringComparison.OrdinalIgnoreCase)
+                ? "de"
+                : "en";
+
+            config.UISettings.LibraryFilter = NormalizeFilterKey(config.UISettings.LibraryFilter);
+        }
+
+        private static string NormalizeFilterKey(string? filter) => filter switch
+        {
+            null or "" => Constants.Filters.All,
+            "Alle" => Constants.Filters.All,
+            "all" => Constants.Filters.All,
+            "Favoriten" => Constants.Filters.Favorites,
+            "favorites" => Constants.Filters.Favorites,
+            "Ausgeblendet" => Constants.Filters.Hidden,
+            "Versteckt" => Constants.Filters.Hidden,
+            "hidden" => Constants.Filters.Hidden,
+            "Manuell" => Constants.Filters.Manual,
+            "Manual" => Constants.Filters.Manual,
+            _ when filter.StartsWith("🏷️ ", StringComparison.Ordinal) => $"{Constants.Filters.TagPrefix}{filter.Substring(4)}",
+            _ => filter
+        };
     }
 }

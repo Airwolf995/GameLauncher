@@ -4,6 +4,10 @@ Alle nennenswerten Änderungen an diesem Projekt werden in dieser Datei dokument
 
 ## [2.0.0] - 2026-05-30
 ### Neu
+- **Lokalisierung (Deutsch/Englisch)**: Alle sichtbaren UI-Texte wurden auf eine zentrale Lokalisierung umgestellt. Englisch ist die Standardsprache, Deutsch kann im Einrichtungsassistenten oder in den Einstellungen gewählt werden; Logging bleibt bewusst Englisch.
+  - **Einrichtungsassistent**: Die Sprachauswahl erscheint direkt auf der ersten Seite als zwei klare Buttons für Englisch und Deutsch statt als Dropdown.
+  - **Einstellungen**: Eine geänderte Sprache wird erst beim Klick auf „Fertig" übernommen und gespeichert; beim Schließen des Fensters über `X` wird die Auswahl verworfen.
+  - **Steam-Metadaten**: Beschreibung und Genres im Detailfenster werden passend zur Launcher-Sprache von Steam geladen und bei einem Sprachwechsel aktualisiert.
 - **Scanner-Erweiterung**: Der GameLauncher unterstützt nun drei weitere große Plattformen out-of-the-box. Spiele von **Xbox / PC Game Pass**, **Ubisoft Connect** und der **EA App** werden beim Start automatisch erkannt und der Bibliothek hinzugefügt.
   - **Xbox / PC Game Pass**: Komplett neue, native C#-Implementierung. Xbox-Bibliotheken werden über bekannte bzw. konfigurierte Bibliothekspfade durchsucht und per Windows PackageManager mit App-Start-IDs angereichert, wodurch keine langsamen PowerShell-Prozeduren mehr nötig sind.
   - **EA App & Ubisoft Connect**: Registry-basierte Erkennung der installierten Spiele.

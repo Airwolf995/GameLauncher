@@ -7,7 +7,7 @@ namespace GameLauncher.Models
     public class UISettings
     {
         [JsonPropertyName("card_size")]
-        public string CardSizeString { get; set; } = "Mittel";
+        public string CardSizeString { get; set; } = "Medium";
 
         /// <summary>
         /// Typsicherer Zugriff auf CardSize. Getter/Setter konvertieren den JSON-String.
@@ -18,19 +18,21 @@ namespace GameLauncher.Models
             get => CardSizeString switch
             {
                 "Klein" => CardSize.Small,
+                "Small" => CardSize.Small,
                 "Groß" => CardSize.Large,
+                "Large" => CardSize.Large,
                 _ => CardSize.Medium
             };
             set => CardSizeString = value switch
             {
-                CardSize.Small => "Klein",
-                CardSize.Large => "Groß",
-                _ => "Mittel"
+                CardSize.Small => "Small",
+                CardSize.Large => "Large",
+                _ => "Medium"
             };
         }
         
         [JsonPropertyName("view_mode")]
-        public string ViewModeString { get; set; } = "Karten";
+        public string ViewModeString { get; set; } = "Cards";
 
         /// <summary>
         /// Typsicherer Zugriff auf ViewMode. Getter/Setter konvertieren den JSON-String.
@@ -40,13 +42,14 @@ namespace GameLauncher.Models
         {
             get => ViewModeString switch
             {
+                "List" => ViewMode.List,
                 "Liste" => ViewMode.List,
                 _ => ViewMode.Cards
             };
             set => ViewModeString = value switch
             {
-                ViewMode.List => "Liste",
-                _ => "Karten"
+                ViewMode.List => "List",
+                _ => "Cards"
             };
         }
 
@@ -66,7 +69,7 @@ namespace GameLauncher.Models
         }
 
         [JsonPropertyName("library_filter")]
-        public string LibraryFilter { get; set; } = "Alle";
+        public string LibraryFilter { get; set; } = "all";
         
         [JsonPropertyName("animations_enabled")]
         public bool AnimationsEnabled { get; set; } = true;
@@ -126,5 +129,8 @@ namespace GameLauncher.Models
 
         [JsonPropertyName("first_start")]
         public bool FirstStart { get; set; } = true;
+
+        [JsonPropertyName("language")]
+        public string LanguageCode { get; set; } = "en";
     }
 }
