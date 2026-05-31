@@ -28,51 +28,7 @@ namespace GameLauncher.Services
 
         internal ConfigService(string? configPathOverride)
         {
-            if (!string.IsNullOrWhiteSpace(configPathOverride))
-            {
-                _configPath = configPathOverride;
-                var configDirectory = Path.GetDirectoryName(_configPath);
-                if (!string.IsNullOrWhiteSpace(configDirectory) && !Directory.Exists(configDirectory))
-                {
-                    Directory.CreateDirectory(configDirectory);
-                }
-            }
-            else
-            {
-#if DEBUG
-                // In Debug mode, prioritize project root config for development
-                string headers = AppDomain.CurrentDomain.BaseDirectory;
-                string projectRoot = Path.GetFullPath(Path.Combine(headers, @"..\..\..\"));
-                string devConfig = Path.Combine(projectRoot, "game_launcher_config.json");
-                
-                if (File.Exists(devConfig))
-                {
-                    _configPath = devConfig;
-                }
-                else
-                {
-                    // Fall back to Documents if project config doesn't exist
-                    string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                    string appDataDir = Path.Combine(documentsPath, "GameLauncher");
-                    if (!Directory.Exists(appDataDir))
-                    {
-                        Directory.CreateDirectory(appDataDir);
-                    }
-                    _configPath = Path.Combine(appDataDir, "game_launcher_config.json");
-                }
-#else
-                // In Release mode, always use Documents folder
-                string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                string appDataDir = Path.Combine(documentsPath, "GameLauncher");
-                
-                if (!Directory.Exists(appDataDir))
-                {
-                    Directory.CreateDirectory(appDataDir);
-                }
-                
-                _configPath = Path.Combine(appDataDir, "game_launcher_config.json");
-#endif
-            }
+            _configPath = ResolveConfigPath(configPathOverride, ensureDirectory: true);
 
             _config = LoadConfig();
             
@@ -185,6 +141,28 @@ namespace GameLauncher.Services
             }
         }
 
+        public static string GetStoredLanguageCode(string? configPathOverride = null)
+        {
+            string configPath = ResolveConfigPath(configPathOverride, ensureDirectory: false);
+
+            if (!File.Exists(configPath))
+            {
+                return "en";
+            }
+
+            try
+            {
+                string json = File.ReadAllText(configPath);
+                var config = JsonSerializer.Deserialize<GameConfig>(json);
+                var languageCode = config?.UISettings?.LanguageCode;
+                return string.Equals(languageCode, "de", StringComparison.OrdinalIgnoreCase) ? "de" : "en";
+            }
+            catch
+            {
+                return "en";
+            }
+        }
+
         public void Dispose()
         {
             if (_pendingSave)
@@ -234,5 +212,43 @@ namespace GameLauncher.Services
             _ when filter.StartsWith("🏷️ ", StringComparison.Ordinal) => $"{Constants.Filters.TagPrefix}{filter.Substring(4)}",
             _ => filter
         };
+
+        private static string ResolveConfigPath(string? configPathOverride, bool ensureDirectory)
+        {
+            if (!string.IsNullOrWhiteSpace(configPathOverride))
+            {
+                if (ensureDirectory)
+                {
+                    var configDirectory = Path.GetDirectoryName(configPathOverride);
+                    if (!string.IsNullOrWhiteSpace(configDirectory) && !Directory.Exists(configDirectory))
+                    {
+                        Directory.CreateDirectory(configDirectory);
+                    }
+                }
+
+                return configPathOverride;
+            }
+
+#if DEBUG
+            // In Debug mode, prioritize project root config for development
+            string headers = AppDomain.CurrentDomain.BaseDirectory;
+            string projectRoot = Path.GetFullPath(Path.Combine(headers, @"..\..\..\"));
+            string devConfig = Path.Combine(projectRoot, "game_launcher_config.json");
+
+            if (File.Exists(devConfig))
+            {
+                return devConfig;
+            }
+#endif
+
+            // Fall back to Documents
+            string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            string appDataDir = Path.Combine(documentsPath, "GameLauncher");
+            if (ensureDirectory && !Directory.Exists(appDataDir))
+            {
+                Directory.CreateDirectory(appDataDir);
+            }
+            return Path.Combine(appDataDir, "game_launcher_config.json");
+        }
     }
 }

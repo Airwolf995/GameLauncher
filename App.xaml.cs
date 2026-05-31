@@ -14,6 +14,7 @@ namespace GameLauncher
             const string appName = "GameLauncher_CSharp_SingleInstance";
             bool createdNew;
             var localization = LocalizationService.Instance;
+            localization.ApplyLanguageCode(Services.ConfigService.GetStoredLanguageCode());
 
             _mutex = new Mutex(true, appName, out createdNew);
 

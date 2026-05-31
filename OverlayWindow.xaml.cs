@@ -23,6 +23,7 @@ namespace GameLauncher
             _hardwareMonitor = hardwareMonitor;
             _playTimeService = playTimeService;
             _launcherStartTime = DateTime.Now;
+            _localization.LanguageChanged += OnLanguageChanged;
 
             // Position at top-right by default
             Left = SystemParameters.PrimaryScreenWidth - Width - 20;
@@ -84,8 +85,7 @@ namespace GameLauncher
                 {
                     if (_lastActiveGameId != null)
                     {
-                        ActiveGameText.Text = _localization.Get("Overlay.NoActiveGame").ToUpper(_localization.CurrentCulture);
-                        PlayTimeText.Text = "00:00:00";
+                        ShowNoActiveGameText();
                         _lastActiveGameId = null;
                     }
                 }
@@ -111,6 +111,20 @@ namespace GameLauncher
             {
                 _timer.Stop();
             }
+        }
+
+        private void OnLanguageChanged(object? sender, EventArgs e)
+        {
+            if (_playTimeService.ActiveGame == null)
+            {
+                ShowNoActiveGameText();
+            }
+        }
+
+        private void ShowNoActiveGameText()
+        {
+            ActiveGameText.Text = _localization.Get("Overlay.NoActiveGame").ToUpper(_localization.CurrentCulture);
+            PlayTimeText.Text = "00:00:00";
         }
 
         private static string FormatMemory(float? usedGb, float? totalGb, float? loadPercent)
@@ -147,5 +161,11 @@ namespace GameLauncher
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern int SetWindowLong(IntPtr hwnd, int index, int newStyle);
+
+        protected override void OnClosed(EventArgs e)
+        {
+            _localization.LanguageChanged -= OnLanguageChanged;
+            base.OnClosed(e);
+        }
     }
 }
