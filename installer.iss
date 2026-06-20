@@ -3,7 +3,8 @@
 #define MyAppName "Game Launcher"
 #define MyAppPublisher "Airwolf99"
 #define MyAppExeName "GameLauncher.exe"
-#define MyAppVersion GetFileVersion("bin\Release\net8.0-windows10.0.19041.0\GameLauncher.exe")
+#define MyAppBuildDir "publish\win-x64"
+#define MyAppVersion GetFileVersion(AddBackslash(MyAppBuildDir) + MyAppExeName)
 
 [Setup]
 AppId={{8F4A2E1D-9B3C-4F7A-A8E2-5D6C9B1A3F4E}
@@ -14,16 +15,17 @@ DefaultDirName={localappdata}\Programs\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=installer_output
-OutputBaseFilename=GameLauncher_Setup
+OutputBaseFilename=GameLauncher_Setup_{#MyAppVersion}
 SetupIconFile=game.ico
 Compression=lzma
+CompressionThreads=auto
 SolidCompression=yes
 WizardStyle=modern
+WizardResizable=no
 PrivilegesRequired=lowest
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode=x64
 DisableProgramGroupPage=yes
-CloseApplications=force
 
 [Languages]
 Name: "german"; MessagesFile: "compiler:Languages\German.isl"
@@ -33,8 +35,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "autostart"; Description: "Mit Windows starten"; GroupDescription: "Weitere Optionen:"; Flags: unchecked
 
 [Files]
-; IMPORTANT: Install the release build output
-Source: "bin\Release\net8.0-windows10.0.19041.0\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; IMPORTANT: Install only the curated publish output.
+Source: "{#MyAppBuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb,*.xml"
 ; Install README to Documents folder
 Source: "ANLEITUNG_CONFIG.txt"; DestDir: "{userdocs}\GameLauncher"; Flags: ignoreversion
 
