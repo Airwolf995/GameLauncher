@@ -321,7 +321,8 @@ namespace GameLauncher.Controls
                         continue;
                     }
 
-                    if (isNewlyRealized)
+                    int currentChildIndex = InternalChildren.IndexOf(child);
+                    if (isNewlyRealized || currentChildIndex < 0)
                     {
                         if (childInsertIndex >= InternalChildren.Count)
                         {
@@ -334,9 +335,14 @@ namespace GameLauncher.Controls
 
                         generator.PrepareItemContainer(child);
                     }
-                    else if (InternalChildren[childInsertIndex] != child)
+                    else if (currentChildIndex != childInsertIndex)
                     {
-                        RemoveInternalChildRange(childInsertIndex, 1);
+                        RemoveInternalChildRange(currentChildIndex, 1);
+                        if (currentChildIndex < childInsertIndex)
+                        {
+                            childInsertIndex--;
+                        }
+
                         InsertInternalChild(childInsertIndex, child);
                     }
                 }
@@ -345,6 +351,13 @@ namespace GameLauncher.Controls
 
         private void CleanupItemsOutsideRange(int firstIndex, int lastIndex)
         {
+            var itemsControl = ItemsControl.GetItemsOwner(this);
+            var recyclingGenerator = ItemContainerGenerator as IRecyclingItemContainerGenerator;
+            bool recycleContainers =
+                itemsControl != null &&
+                recyclingGenerator != null &&
+                GetVirtualizationMode(itemsControl) == VirtualizationMode.Recycling;
+
             for (int childIndex = InternalChildren.Count - 1; childIndex >= 0; childIndex--)
             {
                 GeneratorPosition position = new GeneratorPosition(childIndex, 0);
@@ -354,7 +367,15 @@ namespace GameLauncher.Controls
                     continue;
                 }
 
-                ItemContainerGenerator.Remove(position, 1);
+                if (recycleContainers)
+                {
+                    recyclingGenerator!.Recycle(position, 1);
+                }
+                else
+                {
+                    ItemContainerGenerator.Remove(position, 1);
+                }
+
                 RemoveInternalChildRange(childIndex, 1);
             }
         }
