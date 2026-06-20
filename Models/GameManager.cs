@@ -342,10 +342,14 @@ namespace GameLauncher.Models
 
                         if (!isShared)
                         {
-                            // Only delete if it is in our cache directory
-                            string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                            string cacheDir = Path.Combine(documentsPath, "GameLauncher", "Cache");
-                            if (Path.GetFullPath(game.ImageUrl).StartsWith(Path.GetFullPath(cacheDir), StringComparison.OrdinalIgnoreCase))
+                            // Only delete if it is in one of our managed image directories
+                            string legacyCacheDir = Services.AppPaths.GetLegacyCacheDirectory();
+                            string downloadedCoversDir = Services.AppPaths.GetDownloadedCoversDirectory();
+                            string extractedIconsDir = Services.AppPaths.GetExtractedIconsDirectory();
+                            string fullImagePath = Path.GetFullPath(game.ImageUrl);
+                            if (fullImagePath.StartsWith(Path.GetFullPath(legacyCacheDir), StringComparison.OrdinalIgnoreCase) ||
+                                fullImagePath.StartsWith(Path.GetFullPath(downloadedCoversDir), StringComparison.OrdinalIgnoreCase) ||
+                                fullImagePath.StartsWith(Path.GetFullPath(extractedIconsDir), StringComparison.OrdinalIgnoreCase))
                             {
                                 File.Delete(game.ImageUrl);
                                 Logger.Log($"Deleted cached image for: {game.Name}");

@@ -44,6 +44,7 @@ namespace GameLauncher
         private int _startupImageBindingsRemaining;
         private CancellationTokenSource? _startupImageCacheReleaseCts;
         private readonly HashSet<Image> _startupBoundImages = new();
+        private readonly DispatcherTimer _visibleImageRetentionTimer;
 
         public static readonly DependencyProperty IsStartupActiveProperty =
             DependencyProperty.Register("IsStartupActive", typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
@@ -70,6 +71,15 @@ namespace GameLauncher
         {
             get => (bool)GetValue(AreAnimationsEnabledProperty);
             set => SetValue(AreAnimationsEnabledProperty, value);
+        }
+
+        public static readonly DependencyProperty AreImageLoadTransitionsEnabledProperty =
+            DependencyProperty.Register("AreImageLoadTransitionsEnabled", typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
+
+        public bool AreImageLoadTransitionsEnabled
+        {
+            get => (bool)GetValue(AreImageLoadTransitionsEnabledProperty);
+            set => SetValue(AreImageLoadTransitionsEnabledProperty, value);
         }
 
         public MainWindow()
@@ -122,11 +132,18 @@ namespace GameLauncher
                 });
             _updateCoordinator = new Services.MainWindow.UpdateCoordinator("Airwolf995/GameLauncher");
             _localization.LanguageChanged += OnLanguageChanged;
+            _visibleImageRetentionTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(120)
+            };
+            _visibleImageRetentionTimer.Tick += VisibleImageRetentionTimer_Tick;
 
             ApplySavedTheme();
 
             // FpsCounter bedarfsgesteuert: nur aktiv wenn Fenster sichtbar
             StateChanged += MainWindow_StateChanged;
+            GameListControl.LayoutUpdated += GameListControl_LayoutUpdated;
+            GameListControl.SizeChanged += GameListControl_SizeChanged;
         }
 
         private void InitOverlay()
@@ -232,6 +249,9 @@ namespace GameLauncher
                 _viewModel?.Dispose();
                 _gameManager?.Dispose();
                 _localization.LanguageChanged -= OnLanguageChanged;
+                _visibleImageRetentionTimer.Stop();
+                GameListControl.LayoutUpdated -= GameListControl_LayoutUpdated;
+                GameListControl.SizeChanged -= GameListControl_SizeChanged;
                 base.OnClosing(e);
             }
         }
@@ -428,6 +448,7 @@ namespace GameLauncher
         {
             Title = _localization.Get("AppName");
             FpsText.Text = _localization.Format("Main.Fps", 0);
+            ScheduleVisibleImageRetentionUpdate();
         }
 
 
@@ -442,6 +463,41 @@ namespace GameLauncher
             {
                 // Apply UI settings immediately without restart
                 ApplyUISettings();
+            }
+        }
+
+        private async void RefreshLibrary_Click(object sender, RoutedEventArgs e)
+        {
+            if (IsInitialLoading)
+            {
+                return;
+            }
+
+            bool previousImageLoadTransitionsEnabled = AreImageLoadTransitionsEnabled;
+            bool refreshCompleted = false;
+
+            try
+            {
+                BitmapCacheConverter.ClearImageCaches();
+                AreImageLoadTransitionsEnabled = true;
+                IsInitialLoading = true;
+                await _viewModel.LoadGamesAsync();
+                RefreshList(instant: false);
+                refreshCompleted = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Manual library refresh failed", ex);
+                MessageBox.Show(_localization.Format("App.LoadError", ex.Message), _localization.Get("Common.Error"));
+            }
+            finally
+            {
+                if (!refreshCompleted)
+                {
+                    AreImageLoadTransitionsEnabled = previousImageLoadTransitionsEnabled;
+                }
+
+                IsInitialLoading = false;
             }
         }
 
@@ -598,7 +654,14 @@ namespace GameLauncher
 
             if (image.Source == null)
             {
-                image.Opacity = 0;
+                image.Opacity = AreImageLoadTransitionsEnabled ? 0 : 1;
+                return;
+            }
+
+            if (!AreImageLoadTransitionsEnabled)
+            {
+                image.BeginAnimation(UIElement.OpacityProperty, null);
+                image.Opacity = 1;
                 return;
             }
 
@@ -789,6 +852,13 @@ namespace GameLauncher
                 active => IsStartupActive = active,
                 instant);
 
+            if (!instant)
+            {
+                AreImageLoadTransitionsEnabled = false;
+            }
+
+            ScheduleVisibleImageRetentionUpdate();
+
             if (!instant && _releaseStartupImageCacheAfterAnimation)
             {
                 _startupAnimationCompleted = true;
@@ -923,6 +993,60 @@ namespace GameLauncher
 
         private Task CheckForUpdatesAsync() =>
             _updateCoordinator.CheckForUpdatesAsync(this);
+
+        private void GameListControl_LayoutUpdated(object? sender, EventArgs e) =>
+            ScheduleVisibleImageRetentionUpdate();
+
+        private void GameListControl_SizeChanged(object sender, SizeChangedEventArgs e) =>
+            ScheduleVisibleImageRetentionUpdate();
+
+        private void ScheduleVisibleImageRetentionUpdate()
+        {
+            _visibleImageRetentionTimer.Stop();
+            _visibleImageRetentionTimer.Start();
+        }
+
+        private void VisibleImageRetentionTimer_Tick(object? sender, EventArgs e)
+        {
+            _visibleImageRetentionTimer.Stop();
+            UpdateVisibleImageRetention();
+        }
+
+        private void UpdateVisibleImageRetention()
+        {
+            if (FindVisualChild<ScrollViewer>(GameListControl) is not ScrollViewer scrollViewer)
+            {
+                return;
+            }
+
+            var visiblePaths = new List<string>();
+            Rect viewportRect = new Rect(0, 0, scrollViewer.ViewportWidth, scrollViewer.ViewportHeight);
+            const double verticalBuffer = 300;
+            viewportRect.Inflate(0, verticalBuffer);
+
+            for (int i = 0; i < GameListControl.Items.Count; i++)
+            {
+                if (GameListControl.ItemContainerGenerator.ContainerFromIndex(i) is not ListBoxItem container)
+                {
+                    continue;
+                }
+
+                Rect containerBounds = container.TransformToAncestor(scrollViewer)
+                    .TransformBounds(new Rect(0, 0, container.ActualWidth, container.ActualHeight));
+
+                if (!containerBounds.IntersectsWith(viewportRect))
+                {
+                    continue;
+                }
+
+                if (container.DataContext is Game game && !string.IsNullOrWhiteSpace(game.ImageUrl))
+                {
+                    visiblePaths.Add(game.ImageUrl);
+                }
+            }
+
+            BitmapCacheConverter.UpdateViewportRetention(visiblePaths);
+        }
 
         #endregion
     }

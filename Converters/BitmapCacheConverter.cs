@@ -19,6 +19,9 @@ namespace GameLauncher
         // WeakReferences allow GC to reclaim bitmaps under memory pressure
         private static readonly ConcurrentDictionary<string, WeakReference<BitmapImage>> _cache = new();
         private static readonly ConcurrentDictionary<string, BitmapImage> _startupStrongCache = new();
+        private static readonly Dictionary<string, BitmapImage> _viewportStrongCache = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> _desiredViewportPaths = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly object _viewportStrongCacheLock = new();
         private static readonly HttpClient _httpClient = new()
         {
             Timeout = TimeSpan.FromSeconds(8)
@@ -85,6 +88,17 @@ namespace GameLauncher
                 return strongCached;
             }
 
+            if (TryGetViewportStrongCache(path, out var viewportCached))
+            {
+                var cachedBitmap = viewportCached!;
+                Interlocked.Increment(ref _weakCacheHits);
+                if (keepStrongReference)
+                {
+                    _startupStrongCache[path] = cachedBitmap;
+                }
+                return cachedBitmap;
+            }
+
             // Return cached bitmap if still alive
             if (_cache.TryGetValue(path, out var weakRef) && weakRef.TryGetTarget(out var cached))
             {
@@ -141,6 +155,7 @@ namespace GameLauncher
                 {
                     _startupStrongCache[path] = bitmap;
                 }
+                TryPinViewportPath(path, bitmap);
                 _cache[path] = new WeakReference<BitmapImage>(bitmap);
                 return bitmap;
             }
@@ -189,6 +204,66 @@ namespace GameLauncher
         {
             _startupStrongCache.TryRemove(path, out _);
             _cache.TryRemove(path, out _);
+            RemoveFromViewportStrongCache(path);
+        }
+
+        public static void ClearImageCaches()
+        {
+            _startupStrongCache.Clear();
+            _cache.Clear();
+
+            lock (_viewportStrongCacheLock)
+            {
+                _viewportStrongCache.Clear();
+                _desiredViewportPaths.Clear();
+            }
+
+            Logger.Log("Image caches cleared for manual library refresh.");
+        }
+
+        public static void UpdateViewportRetention(IEnumerable<string> imagePaths)
+        {
+            var desiredPaths = imagePaths
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            lock (_viewportStrongCacheLock)
+            {
+                _desiredViewportPaths.Clear();
+                foreach (var path in desiredPaths)
+                {
+                    _desiredViewportPaths.Add(path);
+                }
+
+                var toRemove = _viewportStrongCache.Keys
+                    .Where(path => !_desiredViewportPaths.Contains(path))
+                    .ToList();
+
+                foreach (var path in toRemove)
+                {
+                    _viewportStrongCache.Remove(path);
+                }
+
+                foreach (var path in desiredPaths)
+                {
+                    if (_viewportStrongCache.ContainsKey(path))
+                    {
+                        continue;
+                    }
+
+                    if (_startupStrongCache.TryGetValue(path, out var startupBitmap))
+                    {
+                        _viewportStrongCache[path] = startupBitmap;
+                        continue;
+                    }
+
+                    if (_cache.TryGetValue(path, out var weakRef) && weakRef.TryGetTarget(out var cached))
+                    {
+                        _viewportStrongCache[path] = cached;
+                    }
+                }
+            }
         }
 
         private static void ResetCacheStats()
@@ -197,6 +272,41 @@ namespace GameLauncher
             Interlocked.Exchange(ref _weakCacheHits, 0);
             Interlocked.Exchange(ref _preloadLoadCount, 0);
             Interlocked.Exchange(ref _uiLoadCount, 0);
+        }
+
+        private static bool TryGetViewportStrongCache(string path, out BitmapImage? bitmap)
+        {
+            lock (_viewportStrongCacheLock)
+            {
+                if (_viewportStrongCache.TryGetValue(path, out var cached))
+                {
+                    bitmap = cached;
+                    return true;
+                }
+            }
+
+            bitmap = null;
+            return false;
+        }
+
+        private static void TryPinViewportPath(string path, BitmapImage bitmap)
+        {
+            lock (_viewportStrongCacheLock)
+            {
+                if (_desiredViewportPaths.Contains(path))
+                {
+                    _viewportStrongCache[path] = bitmap;
+                }
+            }
+        }
+
+        private static void RemoveFromViewportStrongCache(string path)
+        {
+            lock (_viewportStrongCacheLock)
+            {
+                _viewportStrongCache.Remove(path);
+                _desiredViewportPaths.Remove(path);
+            }
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

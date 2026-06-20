@@ -169,8 +169,7 @@ namespace GameLauncher.Services
         {
             try
             {
-                string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                string cacheDir = Path.Combine(documentsPath, "GameLauncher", "Cache");
+                string cacheDir = AppPaths.GetDownloadedCoversDirectory();
                 if (!Directory.Exists(cacheDir)) Directory.CreateDirectory(cacheDir);
 
                 string safeName = string.Join("_", gameName.Split(Path.GetInvalidFileNameChars()));

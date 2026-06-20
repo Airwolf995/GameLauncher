@@ -15,6 +15,7 @@ namespace GameLauncher.Services
     {
         private static readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
         private readonly string _configPath;
+        private readonly bool _enableArtworkMigration;
         private GameConfig _config;
         
         // Debouncing for config saves
@@ -29,6 +30,7 @@ namespace GameLauncher.Services
         internal ConfigService(string? configPathOverride)
         {
             _configPath = ResolveConfigPath(configPathOverride, ensureDirectory: true);
+            _enableArtworkMigration = string.IsNullOrWhiteSpace(configPathOverride);
 
             _config = LoadConfig();
             
@@ -86,6 +88,15 @@ namespace GameLauncher.Services
                 config.ImageOverrides ??= new Dictionary<string, string>();
                 config.GameTags ??= new Dictionary<string, List<string>>();
                 NormalizeConfig(config);
+                if (_enableArtworkMigration)
+                {
+                    bool artworkMigrated = AppPaths.MigrateLegacyArtwork(config);
+                    if (artworkMigrated)
+                    {
+                        SaveConfigImmediate(config);
+                        Logger.Log("Legacy artwork paths migrated to the new artwork directory structure.");
+                    }
+                }
 
                 Logger.Log("Configuration loaded successfully.");
                 return config;

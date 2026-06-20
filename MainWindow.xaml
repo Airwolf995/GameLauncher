@@ -279,7 +279,7 @@
                     </StackPanel>
 
                     <!-- Action Icons -->
-                    <Button Command="{Binding RefreshCommand}" Padding="8" Margin="0,0,10,0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="{loc:Loc Key=Main.RefreshLibrary}" VerticalAlignment="Center">
+                    <Button Click="RefreshLibrary_Click" Padding="8" Margin="0,0,10,0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="{loc:Loc Key=Main.RefreshLibrary}" VerticalAlignment="Center">
                         <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#CCCCCC" VerticalAlignment="Center"/>
                         <Button.Style>
                             <Style TargetType="Button">
@@ -492,7 +492,7 @@
                                         
                                         <!-- Original uncropped image, centered -->
                                         <Image Stretch="UniformToFill"
-                                               Opacity="0"
+                                               Opacity="1"
                                                HorizontalAlignment="Center"
                                                VerticalAlignment="Center"
                                                RenderOptions.BitmapScalingMode="Fant"

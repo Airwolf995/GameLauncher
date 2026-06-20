@@ -79,14 +79,17 @@ namespace GameLauncher.Services
 
                 if (!isShared)
                 {
-                    string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                    string cacheDir = Path.Combine(documentsPath, "GameLauncher", "Cache");
+                    string legacyCacheDir = AppPaths.GetLegacyCacheDirectory();
+                    string downloadedCoversDir = AppPaths.GetDownloadedCoversDirectory();
+                    string extractedIconsDir = AppPaths.GetExtractedIconsDirectory();
                     string configDir = Path.GetDirectoryName(_configService.ConfigPath) ?? AppDomain.CurrentDomain.BaseDirectory;
                     string imagesDir = Path.Combine(configDir, "images");
 
                     string fullOldPath = Path.GetFullPath(oldImageUrl);
 
-                    if (fullOldPath.StartsWith(Path.GetFullPath(cacheDir), StringComparison.OrdinalIgnoreCase) ||
+                    if (fullOldPath.StartsWith(Path.GetFullPath(legacyCacheDir), StringComparison.OrdinalIgnoreCase) ||
+                        fullOldPath.StartsWith(Path.GetFullPath(downloadedCoversDir), StringComparison.OrdinalIgnoreCase) ||
+                        fullOldPath.StartsWith(Path.GetFullPath(extractedIconsDir), StringComparison.OrdinalIgnoreCase) ||
                         fullOldPath.StartsWith(Path.GetFullPath(imagesDir), StringComparison.OrdinalIgnoreCase))
                     {
                         File.Delete(oldImageUrl);

@@ -499,10 +499,6 @@ namespace GameLauncher.ViewModels
             try
             {
                 await _gameManager.RefreshSteamMetadataAsync(_games.ToList(), token);
-                if (!token.IsCancellationRequested)
-                {
-                    new Action(() => _gamesView.Refresh()).RunOnUI();
-                }
             }
             catch (OperationCanceledException)
             {

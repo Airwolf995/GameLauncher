@@ -136,7 +136,7 @@ namespace GameLauncher.Services.MainWindow
             imageFactory.SetValue(Image.WidthProperty, 85.0);
             imageFactory.SetValue(Image.HeightProperty, 40.0);
             imageFactory.SetValue(Image.StretchProperty, Stretch.UniformToFill);
-            imageFactory.SetValue(UIElement.OpacityProperty, 0.0);
+            imageFactory.SetValue(UIElement.OpacityProperty, 1.0);
             imageFactory.SetValue(RenderOptions.BitmapScalingModeProperty, BitmapScalingMode.Fant);
             imageFactory.SetValue(Grid.ColumnProperty, 0);
             imageFactory.AddHandler(Binding.TargetUpdatedEvent, new EventHandler<DataTransferEventArgs>(OnGameImageTargetUpdated));
@@ -152,7 +152,21 @@ namespace GameLauncher.Services.MainWindow
 
             if (image.Source == null)
             {
-                image.Opacity = 0;
+                if (Window.GetWindow(image) is GameLauncher.MainWindow startupWindow && startupWindow.AreImageLoadTransitionsEnabled)
+                {
+                    image.Opacity = 0;
+                }
+                else
+                {
+                    image.Opacity = 1;
+                }
+                return;
+            }
+
+            if (Window.GetWindow(image) is GameLauncher.MainWindow mainWindow && !mainWindow.AreImageLoadTransitionsEnabled)
+            {
+                image.BeginAnimation(UIElement.OpacityProperty, null);
+                image.Opacity = 1;
                 return;
             }
 

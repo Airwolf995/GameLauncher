@@ -23,8 +23,7 @@ namespace GameLauncher.Services.Scanners
             {
                 if (!File.Exists(exePath)) return "";
 
-                string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                string cacheDir = Path.Combine(documentsPath, "GameLauncher", "Cache");
+                string cacheDir = Services.AppPaths.GetExtractedIconsDirectory();
                 if (!Directory.Exists(cacheDir)) Directory.CreateDirectory(cacheDir);
 
                 // Sanitize ID for filename
