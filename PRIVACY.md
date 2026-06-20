@@ -29,9 +29,9 @@ Um zusätzliche Informationen (wie Beschreibungen, Entwickler, Genres und Ersche
 ## 3. Playtime Tracking
 Die Erfassung der Spielzeit erfolgt rein lokal durch das Überwachen der Prozess-IDs der gestarteten Spiele. Diese Daten verlassen niemals deinen PC.
 
-## 4. Hosting & Geschlossener Quellcode
-Dieses Repository dient der Bereitstellung von Dokumentation und Installationsdateien. Der Quellcode der Anwendung ist nicht öffentlich zugänglich. Die Installationsdateien werden auf GitHub gehostet. Informationen zur Datenerhebung durch GitHub findest du in der [GitHub Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement).
+## 4. Hosting & Quellcode
+Dieses Projekt wird über GitHub bereitgestellt. Installationsdateien und Quellcode können über GitHub gehostet oder verteilt werden. Informationen zur Datenerhebung durch GitHub findest du in der [GitHub Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement).
 
 
 ---
-*Stand: 23. April 2026*
+*Stand: 21 Juni 2026*

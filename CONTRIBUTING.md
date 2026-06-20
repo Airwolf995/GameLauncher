@@ -1,6 +1,6 @@
 # Contributing
 
-Danke fuer dein Interesse an Beitragen zu Game Launcher.
+Danke für dein Interesse an Beiträgen zu Game Launcher.
 
 ## Voraussetzungen
 
@@ -15,7 +15,7 @@ dotnet build .\GameLauncher.csproj -c Debug
 dotnet test .\GameLauncher.Tests\GameLauncher.Tests.csproj -c Debug --no-restore
 ```
 
-Fuer einen sauberen Release-Publish:
+Für einen sauberen Release-Publish:
 
 ```powershell
 .\build-release.ps1
@@ -24,13 +24,13 @@ Fuer einen sauberen Release-Publish:
 ## Richtlinien
 
 - Bitte kleine, nachvollziehbare Pull Requests bevorzugen.
-- Kommentare, Logging und neue Texte moeglichst auf Deutsch halten.
+- Kommentare, Logging und neue Texte möglichst auf Deutsch halten.
 - Keine Build-Artefakte wie `bin/`, `obj/`, `publish/` oder `installer_output/` einchecken.
-- Bei UI-Aenderungen nach Moeglichkeit Screenshots beilegen.
-- Bei funktionalen Aenderungen passende Tests ergaenzen, wenn das lokal sinnvoll moeglich ist.
+- Bei UI-Änderungen nach Möglichkeit Screenshots beilegen.
+- Bei funktionalen Änderungen passende Tests ergänzen, wenn das lokal sinnvoll möglich ist.
 
 ## Pull Requests
 
-- Beschreibe kurz Motivation, Aenderung und Risiken.
+- Beschreibe kurz Motivation, Änderung und Risiken.
 - Notiere, was lokal getestet wurde.
-- Wenn Verhalten sichtbar geaendert wurde, erwaehne das explizit.
+- Wenn Verhalten sichtbar geändert wurde, erwähne das explizit.

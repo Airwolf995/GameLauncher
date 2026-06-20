@@ -1,14 +1,14 @@
 # Game Launcher for Windows
 
-Ein moderner Windows-Launcher fuer lokale Spielbibliotheken mit Fokus auf ein schnelles WPF-UI, lokale Datenhaltung und integriertes Hardware-Overlay.
+Ein moderner Windows-Launcher für lokale Spielbibliotheken mit Fokus auf ein schnelles WPF-UI, lokale Datenhaltung und integriertes Hardware-Overlay.
 
 ## Features
 
 - Erkennt Spiele aus mehreren Quellen, darunter Steam, Epic, GOG und Xbox/Game Pass.
-- Unterstuetzt manuelle Eintraege fuer EXE-Dateien und URI-Starts.
+- Unterstützt manuelle Einträge für EXE-Dateien und URI-Starts.
 - Bietet ein Overlay mit CPU-, GPU-, RAM- und VRAM-Werten sowie Sitzungsdauer.
 - Verwaltert Tags, Filter, Sortierung und unterschiedliche Karten-/Listenansichten.
-- Nutzt lokale Cover-/Artwork-Caches und laedt optionale Metadaten nach.
+- Nutzt lokale Cover-/Artwork-Caches und lädt optionale Metadaten nach.
 - Bringt einen Windows-Installer und einen Release-Publish-Prozess mit.
 
 ## Voraussetzungen
@@ -25,13 +25,13 @@ dotnet test .\GameLauncher.Tests\GameLauncher.Tests.csproj -c Debug --no-restore
 
 ## Release-Build
 
-Sauberer Publish fuer den Installer:
+Sauberer Publish für den Installer:
 
 ```powershell
 .\build-release.ps1
 ```
 
-Der Installer liest anschliessend aus `publish\win-x64`.
+Der Installer liest anschließend aus `publish\win-x64`.
 
 ## Installer
 
