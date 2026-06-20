@@ -145,9 +145,7 @@ namespace GameLauncher.Controls
             switch (args.Action)
             {
                 case System.Collections.Specialized.NotifyCollectionChangedAction.Remove:
-                case System.Collections.Specialized.NotifyCollectionChangedAction.Replace:
-                case System.Collections.Specialized.NotifyCollectionChangedAction.Move:
-                case System.Collections.Specialized.NotifyCollectionChangedAction.Reset:
+                    // Beim Entfernen kann WPF kurzfristig veraltete realisierte Container behalten.
                     ClearRealizedChildren();
                     break;
             }
