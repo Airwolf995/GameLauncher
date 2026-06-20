@@ -79,7 +79,6 @@ namespace GameLauncher.Services
 
                 if (!isShared)
                 {
-                    string legacyCacheDir = AppPaths.GetLegacyCacheDirectory();
                     string downloadedCoversDir = AppPaths.GetDownloadedCoversDirectory();
                     string extractedIconsDir = AppPaths.GetExtractedIconsDirectory();
                     string configDir = Path.GetDirectoryName(_configService.ConfigPath) ?? AppDomain.CurrentDomain.BaseDirectory;
@@ -87,8 +86,7 @@ namespace GameLauncher.Services
 
                     string fullOldPath = Path.GetFullPath(oldImageUrl);
 
-                    if (fullOldPath.StartsWith(Path.GetFullPath(legacyCacheDir), StringComparison.OrdinalIgnoreCase) ||
-                        fullOldPath.StartsWith(Path.GetFullPath(downloadedCoversDir), StringComparison.OrdinalIgnoreCase) ||
+                    if (fullOldPath.StartsWith(Path.GetFullPath(downloadedCoversDir), StringComparison.OrdinalIgnoreCase) ||
                         fullOldPath.StartsWith(Path.GetFullPath(extractedIconsDir), StringComparison.OrdinalIgnoreCase) ||
                         fullOldPath.StartsWith(Path.GetFullPath(imagesDir), StringComparison.OrdinalIgnoreCase))
                     {

@@ -343,12 +343,10 @@ namespace GameLauncher.Models
                         if (!isShared)
                         {
                             // Only delete if it is in one of our managed image directories
-                            string legacyCacheDir = Services.AppPaths.GetLegacyCacheDirectory();
                             string downloadedCoversDir = Services.AppPaths.GetDownloadedCoversDirectory();
                             string extractedIconsDir = Services.AppPaths.GetExtractedIconsDirectory();
                             string fullImagePath = Path.GetFullPath(game.ImageUrl);
-                            if (fullImagePath.StartsWith(Path.GetFullPath(legacyCacheDir), StringComparison.OrdinalIgnoreCase) ||
-                                fullImagePath.StartsWith(Path.GetFullPath(downloadedCoversDir), StringComparison.OrdinalIgnoreCase) ||
+                            if (fullImagePath.StartsWith(Path.GetFullPath(downloadedCoversDir), StringComparison.OrdinalIgnoreCase) ||
                                 fullImagePath.StartsWith(Path.GetFullPath(extractedIconsDir), StringComparison.OrdinalIgnoreCase))
                             {
                                 File.Delete(game.ImageUrl);
