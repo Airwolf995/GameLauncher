@@ -1,0 +1,198 @@
+<Window x:Class="GameLauncher.GameDetailsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:GameLauncher"
+        xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
+        Title="{loc:Loc Key=Details.Title}" Height="480" Width="700"
+        Icon="pack://application:,,,/game.ico"
+        Background="#1E1E1E" WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Loaded="Window_Loaded">
+
+    <Window.Resources>
+        <local:BitmapCacheConverter x:Key="BitmapCacheConverter"/>
+    </Window.Resources>
+
+    <Grid>
+        <!-- Atmospheric Background -->
+        <Grid Panel.ZIndex="-1">
+            <Image Source="{Binding Source, ElementName=GameImage}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Image.Effect>
+                    <BlurEffect Radius="30" RenderingBias="Quality"/>
+                </Image.Effect>
+            </Image>
+            <Rectangle Fill="#F21E1E1E"/> <!-- 95% Opacity Dark Overlay for readability -->
+        </Grid>
+        
+        <Grid Margin="30">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- Header -->
+                <RowDefinition Height="*"/>    <!-- Spacer/Content -->
+                <RowDefinition Height="Auto"/> <!-- Footer -->
+            </Grid.RowDefinitions>
+
+            <!-- Header Section -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Game Cover (Hero) with dark background -->
+                <Border Width="260" Height="122" Background="#1A1A1C" CornerRadius="8" VerticalAlignment="Top" ClipToBounds="True">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="20" ShadowDepth="4" Opacity="0.4" Direction="270"/>
+                    </Border.Effect>
+                    <Grid>
+                        <TextBlock Text="🎮" FontSize="40" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#222"/>
+                        
+                        <!-- Original uncropped image, centered -->
+                        <Image x:Name="GameImage" Source="{Binding ImageUrl, Converter={StaticResource BitmapCacheConverter}, IsAsync=True}" 
+                               Stretch="Uniform" 
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               RenderOptions.BitmapScalingMode="HighQuality">
+                            <Image.Effect>
+                                <DropShadowEffect BlurRadius="10" ShadowDepth="0" Opacity="0.5"/>
+                            </Image.Effect>
+                        </Image>
+                    </Grid>
+                </Border>
+
+                <!-- Title & Meta -->
+                <StackPanel Grid.Column="1" Margin="25,5,0,0" VerticalAlignment="Top">
+                    <TextBlock x:Name="GameNameText" Text="" FontSize="28" FontWeight="Bold" Foreground="White" 
+                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="80" Margin="0,0,0,10">
+                        <TextBlock.Effect>
+                            <DropShadowEffect BlurRadius="5" ShadowDepth="1" Opacity="0.8"/>
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <Border x:Name="PlatformBadge" CornerRadius="4" Padding="8,3" Margin="0,0,10,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="PlatformText" Text="" FontSize="11" Foreground="White" FontWeight="Bold"/>
+                        </Border>
+                        <Border Background="#33FFFFFF" CornerRadius="4" Padding="8,3" VerticalAlignment="Center">
+                             <TextBlock x:Name="LastPlayedText" Text="{loc:Loc Key=Details.NeverPlayed}" FontSize="11" Foreground="#DDD"/>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+
+                <!-- Metadata Section -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,15">
+                    <StackPanel>
+                        <!-- Main Description -->
+                        <TextBlock TextAlignment="Left" TextWrapping="Wrap" Foreground="#CCCCCC" FontSize="14" LineHeight="22" Margin="0,0,0,20">
+                            <TextBlock.Text>
+                                <Binding Path="LocalizedDescription"/>
+                            </TextBlock.Text>
+                        </TextBlock>
+
+                        <!-- Meta Info Grid -->
+                        <Grid Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="{loc:Loc Key=Details.ReleaseDate}" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <TextBlock Text="{Binding ReleaseDate, TargetNullValue='-'}" Foreground="White" FontSize="13" Margin="0,0,0,15"/>
+
+                                <TextBlock Text="{loc:Loc Key=Details.Developer}" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <TextBlock Text="{Binding Developer, TargetNullValue='-'}" Foreground="White" FontSize="13" Margin="0,0,0,15"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="{loc:Loc Key=Details.Publisher}" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <TextBlock Text="{Binding Publisher, TargetNullValue='-'}" Foreground="White" FontSize="13" Margin="0,0,0,15"/>
+                                
+                                <TextBlock Text="{loc:Loc Key=Details.Genres}" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <ItemsControl ItemsSource="{Binding Genres}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#333333" CornerRadius="4" Padding="8,4" Margin="0,0,5,5">
+                                                <TextBlock Text="{Binding}" Foreground="#AAAAAA" FontSize="12"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Grid>
+                        
+                        <!-- Tags Section -->
+                        <StackPanel Margin="0,10,0,20">
+                            <TextBlock Text="{loc:Loc Key=Details.Tags}" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
+                            <!-- Tags wrap to multiple lines -->
+                            <ItemsControl x:Name="TagsItemsControl" ItemsSource="{Binding Tags}" Margin="0,0,0,8">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{DynamicResource AccentColor}" CornerRadius="4" Padding="10,5" Margin="0,0,8,5">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding}" Foreground="White" FontSize="12" VerticalAlignment="Center"/>
+                                                <Button Content="✕" FontSize="10" Foreground="White" Background="Transparent" 
+                                                        BorderThickness="0" Margin="8,0,0,0" Padding="0" Cursor="Hand"
+                                                        Click="RemoveTag_Click" Tag="{Binding}" ToolTip="{loc:Loc Key=Details.RemoveTag}"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <!-- ComboBox on new line -->
+                            <ComboBox x:Name="AddTagComboBox" Width="160" HorizontalAlignment="Left" SelectionChanged="AddTag_SelectionChanged"
+                                      Background="#333333" Foreground="#CCCCCC" BorderBrush="#555555" Padding="6,4">
+                            </ComboBox>
+                        </StackPanel>
+
+                        <!-- Tech Details Expander (Moved down) -->
+                        <Expander Header="{loc:Loc Key=Details.TechnicalDetails}" Foreground="#666666" HorizontalAlignment="Left" Margin="0,10,0,0">
+                             <StackPanel Margin="0,10,0,0">
+                                <TextBlock Text="{loc:Loc Key=Details.Path}" Foreground="#666666" FontSize="10" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding Path}" IsReadOnly="True" Background="#22000000" Foreground="#888888" BorderThickness="0" Padding="5" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                                
+                                <TextBlock Text="{loc:Loc Key=Details.Arguments}" Foreground="#666666" FontSize="10" FontWeight="Bold" Margin="0,10,0,5"/>
+                                <TextBox Text="{Binding Args}" IsReadOnly="True" Background="#22000000" Foreground="#888888" BorderThickness="0" Padding="5" FontFamily="Consolas" FontSize="11"/>
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+                </ScrollViewer>
+
+            <!-- Footer Action Bar -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Button x:Name="CloseButton" Content="{loc:Loc Key=Details.Back}" Click="Close_Click" Style="{StaticResource GhostButtonStyle}" HorizontalAlignment="Left" Width="Auto"/>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button x:Name="FavButton" Click="ToggleFavorite_Click" Width="50" Height="50" Margin="0,0,15,0" Style="{StaticResource GhostButtonStyle}" ToolTip="{loc:Loc Key=Details.FavoriteTooltip}">
+                        <TextBlock x:Name="FavoriteIcon" Text="❤" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Button>
+                    
+                    <Button x:Name="PlayButton" Click="Play_Click" Width="220" Height="50" Background="{DynamicResource AccentColor}" IsDefault="True">
+                        <Button.Effect>
+                            <DropShadowEffect BlurRadius="15" Opacity="0.4" ShadowDepth="0"/>
+                        </Button.Effect>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="▶" FontSize="18" Margin="0,0,10,0"/>
+                            <TextBlock Text="{loc:Loc Key=Details.PlayNow}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

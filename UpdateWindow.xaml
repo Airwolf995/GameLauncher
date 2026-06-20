@@ -1,0 +1,141 @@
+    <Window x:Class="GameLauncher.UpdateWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
+        Title="{loc:Loc Key=Update.Title}" Height="450" Width="500"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="True">
+
+    <Window.Resources>
+        <!-- Button styles now use global App.xaml styles -->
+    </Window.Resources>
+
+    <Border BorderBrush="{DynamicResource AccentColor}" BorderThickness="2" CornerRadius="10">
+        <Grid Margin="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                <TextBlock Text="{loc:Loc Key=Update.Header}" 
+                          FontSize="24" 
+                          FontWeight="Bold" 
+                          Foreground="White"
+                          HorizontalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Version Info -->
+            <Grid Grid.Row="1" Margin="0,0,0,15">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                    <TextBlock Text="{loc:Loc Key=Update.CurrentVersion}" 
+                              FontSize="12" 
+                              Foreground="#AAAAAA"
+                              HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="CurrentVersionText" 
+                              Text="1.0.0" 
+                              FontSize="20" 
+                              FontWeight="Bold" 
+                              Foreground="White"
+                              HorizontalAlignment="Center"
+                              Margin="0,5,0,0"/>
+                </StackPanel>
+
+                <TextBlock Grid.Column="1" 
+                          Text="→" 
+                          FontSize="24" 
+                          Foreground="{DynamicResource AccentColor}"
+                          VerticalAlignment="Center"
+                          Margin="20,0"/>
+
+                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                    <TextBlock Text="{loc:Loc Key=Update.NewVersion}" 
+                              FontSize="12" 
+                              Foreground="#AAAAAA"
+                              HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="NewVersionText" 
+                              Text="1.1.0" 
+                              FontSize="20" 
+                              FontWeight="Bold" 
+                              Foreground="#00FF00"
+                              HorizontalAlignment="Center"
+                              Margin="0,5,0,0"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Changelog -->
+            <Border Grid.Row="2" 
+                    Background="#2D2D2D" 
+                    CornerRadius="5" 
+                    BorderBrush="#555555" 
+                    BorderThickness="1"
+                    Margin="0,0,0,20">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" 
+                             Margin="10">
+                    <StackPanel>
+                        <TextBlock Text="{loc:Loc Key=Update.WhatsNew}" 
+                                  FontSize="14" 
+                                  FontWeight="Bold" 
+                                  Foreground="White"
+                                  Margin="0,0,0,10"/>
+                        <TextBlock x:Name="ChangelogText" 
+                                  Text="{loc:Loc Key=Common.Loading}" 
+                                  FontSize="12" 
+                                  Foreground="#CCCCCC"
+                                  TextWrapping="Wrap"
+                                  LineHeight="20"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- Buttons -->
+            <StackPanel Grid.Row="3" 
+                       Orientation="Horizontal" 
+                       HorizontalAlignment="Center"
+                       Margin="0,10,0,0">
+                <Button x:Name="UpdateButton" 
+                       Content="{loc:Loc Key=Update.Button}" 
+                       Click="UpdateButton_Click"
+                       Width="180"
+                       Margin="0,0,10,0"/>
+                <Button x:Name="CancelButton" 
+                       Content="{loc:Loc Key=Update.Later}" 
+                       Style="{StaticResource GhostButtonStyle}"
+                       Click="CancelButton_Click"
+                       Width="120"/>
+            </StackPanel>
+
+            <!-- Progress Bar (hidden initially) -->
+            <StackPanel Grid.Row="3" 
+                       x:Name="ProgressPanel"
+                       Visibility="Collapsed"
+                       Margin="0,10,0,0">
+                <TextBlock x:Name="ProgressText" 
+                          Text="{loc:Loc Key=Update.Downloading}" 
+                          FontSize="14" 
+                          Foreground="White"
+                          HorizontalAlignment="Center"
+                          Margin="0,0,0,10"/>
+                <ProgressBar x:Name="ProgressBar" 
+                            Height="25" 
+                            Minimum="0" 
+                            Maximum="100" 
+                            Value="0"
+                            Background="#333333"
+                            Foreground="{DynamicResource AccentColor}"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

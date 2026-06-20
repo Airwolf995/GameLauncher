@@ -1,0 +1,272 @@
+<Window x:Class="GameLauncher.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:GameLauncher.ViewModels"
+        xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance vm:SettingsViewModel}"
+        Title="{loc:Loc Key=Settings.Title}" Icon="pack://application:,,,/game.ico" Height="800" Width="600"
+        WindowStartupLocation="CenterOwner"
+        Background="#1E1E1E" Foreground="White"
+        ResizeMode="CanResize">
+    
+    <Window.Resources>
+        <!-- Styles moved to App.xaml -->
+    </Window.Resources>
+
+    <Grid Margin="30">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- Header -->
+            <RowDefinition Height="*"/>    <!-- Scrollable Content -->
+            <RowDefinition Height="Auto"/> <!-- Footer -->
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Text="{loc:Loc Key=Settings.Title}" FontSize="26" FontWeight="Bold" Foreground="White" Margin="0,0,0,20"/>
+
+        <!-- Scrollable Content -->
+        <ScrollViewer Grid.Row="1" Margin="0,0,0,20" VerticalScrollBarVisibility="Auto" Padding="0,0,15,0">
+            <StackPanel>
+                
+                <!-- Theme Section -->
+                <StackPanel Margin="0,0,0,30">
+                    <TextBlock Text="{loc:Loc Key=Settings.AppearanceSection}" FontSize="12" FontWeight="Bold" Foreground="#888888" Margin="0,0,0,10"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:Loc Key=Settings.Theme}" VerticalAlignment="Center" FontSize="14" Margin="0,0,20,0"/>
+                        <ComboBox x:Name="ThemeBox" Grid.Column="1" Width="200" HorizontalAlignment="Left"
+                                  SelectedValuePath="Tag"
+                                  SelectedValue="{Binding SelectedTheme, Mode=TwoWay}">
+                            <ComboBoxItem Content="{loc:Loc Key=Theme.Blue}" Tag="Blue"/>
+                            <ComboBoxItem Content="{loc:Loc Key=Theme.Red}" Tag="Red"/>
+                            <ComboBoxItem Content="{loc:Loc Key=Theme.Green}" Tag="Green"/>
+                            <ComboBoxItem Content="{loc:Loc Key=Theme.Orange}" Tag="Orange"/>
+                            <ComboBoxItem Content="{loc:Loc Key=Theme.Purple}" Tag="Purple"/>
+                            <ComboBoxItem Content="{loc:Loc Key=Theme.Pink}" Tag="Pink"/>
+                            <ComboBoxItem Content="{loc:Loc Key=Theme.Dark}" Tag="Dark"/>
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:Loc Key=Settings.Language}" VerticalAlignment="Center" FontSize="14" Margin="0,0,20,0"/>
+                        <ComboBox Grid.Column="1" Width="200" HorizontalAlignment="Left" SelectedValuePath="Tag" SelectedValue="{Binding SelectedLanguageCode, Mode=TwoWay}">
+                            <ComboBoxItem Content="{loc:Loc Key=Language.English}" Tag="en"/>
+                            <ComboBoxItem Content="{loc:Loc Key=Language.German}" Tag="de"/>
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+
+                <!-- UI Settings Section -->
+                <StackPanel Margin="0,0,0,30">
+                    <TextBlock Text="{loc:Loc Key=Settings.PresentationSection}" FontSize="12" FontWeight="Bold" Foreground="#888888" Margin="0,0,0,15"/>
+                    
+                    <!-- Card Size -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:Loc Key=Settings.CardSize}" VerticalAlignment="Center" FontSize="14"/>
+                        <ComboBox x:Name="CardSizeBox" Grid.Column="1" Width="200" HorizontalAlignment="Left" ItemsSource="{Binding CardSizeOptions}" SelectedItem="{Binding CardSize, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource EnumLocalizationConverter}}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- View Mode -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:Loc Key=Settings.ViewMode}" VerticalAlignment="Center" FontSize="14"/>
+                        <ComboBox x:Name="ViewModeBox" Grid.Column="1" Width="200" HorizontalAlignment="Left" ItemsSource="{Binding ViewModeOptions}" SelectedItem="{Binding ViewMode, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource EnumLocalizationConverter}}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- Animations -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:Loc Key=Settings.Animations}" VerticalAlignment="Center" FontSize="14" Foreground="White"/>
+                        <CheckBox x:Name="AnimationsCheckBox" Grid.Column="1" Content="{loc:Loc Key=Settings.Enabled}" VerticalAlignment="Center" Foreground="#AAAAAA"
+                                  IsChecked="{Binding AnimationsEnabled}"/>
+                    </Grid>
+
+                    <!-- Autostart -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:Loc Key=Settings.Autostart}" VerticalAlignment="Center" FontSize="14" Foreground="White"/>
+                        <CheckBox x:Name="AutostartCheckBox" Grid.Column="1" Content="{loc:Loc Key=Settings.StartWithWindows}" VerticalAlignment="Center" Foreground="#AAAAAA"
+                                  IsChecked="{Binding AutostartEnabled}"/>
+                    </Grid>
+
+                    <!-- Minimize to Tray -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:Loc Key=Settings.Behavior}" VerticalAlignment="Center" FontSize="14" Foreground="White"/>
+                        <StackPanel Grid.Column="1">
+                            <CheckBox Content="{loc:Loc Key=Settings.MinimizeToTray}" VerticalAlignment="Center" Foreground="#AAAAAA" Margin="0,0,0,8"
+                                      IsChecked="{Binding MinimizeToTray}"/>
+                            <CheckBox Content="{loc:Loc Key=Settings.MinimizeOnGameStart}" VerticalAlignment="Center" Foreground="#AAAAAA" Margin="0,0,0,8"
+                                      IsChecked="{Binding MinimizeOnGameStart}"/>
+                            <CheckBox Content="{loc:Loc Key=Settings.CloseOnGameStart}" VerticalAlignment="Center" Foreground="#AAAAAA"
+                                      IsChecked="{Binding CloseOnGameStart}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Overlay Hotkey -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:Loc Key=Settings.OverlayHotkey}" VerticalAlignment="Top" FontSize="14" Foreground="White"/>
+                        <StackPanel Grid.Column="1">
+                            <WrapPanel Margin="0,0,0,8">
+                                <CheckBox Content="{loc:Loc Key=Settings.Ctrl}" VerticalAlignment="Center" Foreground="#AAAAAA" Margin="0,0,12,0"
+                                          IsChecked="{Binding OverlayHotkeyCtrl}"/>
+                                <CheckBox Content="{loc:Loc Key=Settings.Alt}" VerticalAlignment="Center" Foreground="#AAAAAA" Margin="0,0,12,0"
+                                          IsChecked="{Binding OverlayHotkeyAlt}"/>
+                                <CheckBox Content="{loc:Loc Key=Settings.Shift}" VerticalAlignment="Center" Foreground="#AAAAAA" Margin="0,0,12,0"
+                                          IsChecked="{Binding OverlayHotkeyShift}"/>
+                                <CheckBox Content="{loc:Loc Key=Settings.Win}" VerticalAlignment="Center" Foreground="#AAAAAA"
+                                          IsChecked="{Binding OverlayHotkeyWin}"/>
+                            </WrapPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <TextBlock Text="{loc:Loc Key=Settings.Key}" VerticalAlignment="Center" FontSize="13" Foreground="#AAAAAA" Margin="0,0,10,0"/>
+                                <ComboBox Width="120" HorizontalAlignment="Left"
+                                          ItemsSource="{Binding OverlayHotkeyKeys}"
+                                          SelectedItem="{Binding OverlayHotkeyKey, Mode=TwoWay}"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding OverlayHotkeyDisplayText}" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
+                            <TextBlock Text="{loc:Loc Key=Settings.HotkeyHint}" FontSize="11" Foreground="#666666" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Font Scale -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:Loc Key=Settings.FontScale}" VerticalAlignment="Center" FontSize="14"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Slider Width="200" Minimum="0.8" Maximum="1.4" TickFrequency="0.1" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                    Value="{Binding FontScale}"/>
+                            <TextBlock Text="{Binding FontScalePercentage}" Margin="15,0,0,0" VerticalAlignment="Center" FontSize="14" MinWidth="50"/>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <!-- Updates -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:Loc Key=Settings.Updates}" VerticalAlignment="Center" FontSize="14" Foreground="White"/>
+                        <StackPanel Grid.Column="1">
+                            <CheckBox Content="{loc:Loc Key=Settings.AutoCheckUpdates}" VerticalAlignment="Center" Foreground="#AAAAAA" Margin="0,0,0,8"
+                                      IsChecked="{Binding AutoCheckUpdates}"/>
+                            <Button Content="{Binding UpdateButtonText}" HorizontalAlignment="Left" Padding="12,5"
+                                    Command="{Binding CheckUpdatesCommand}" IsEnabled="{Binding IsCheckingUpdates, Converter={StaticResource InverseBoolConverter}}"
+                                    Background="{DynamicResource AccentColor}" Foreground="White" FontWeight="Bold" MinWidth="180" Margin="0,0,0,8"/>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <!-- SteamGridDB API Key -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:Loc Key=Settings.ApiKey}" VerticalAlignment="Center" FontSize="14"/>
+                        <TextBox Grid.Column="1" VerticalAlignment="Center" Background="#333333" Foreground="White" BorderBrush="#555555"
+                                 Text="{Binding SteamGridDbApiKey, UpdateSourceTrigger=PropertyChanged}"/>
+                    </Grid>
+
+                    <!-- Background Image -->
+                    <Grid Margin="0,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:Loc Key=Settings.BackgroundImage}" VerticalAlignment="Center" FontSize="14"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button Content="{loc:Loc Key=Settings.SelectImage}" MinWidth="120" Padding="12,6" FontSize="12" ToolTip="{loc:Loc Key=Settings.SelectImageTooltip}" Command="{Binding SelectBackgroundCommand}"/>
+                            <Button Content="✖" Width="26" Height="26" Margin="10,0,0,0" Padding="0" FontSize="10" ToolTip="{loc:Loc Key=Settings.ClearBackgroundTooltip}" Command="{Binding ClearBackgroundCommand}"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Library Section -->
+                <StackPanel Margin="0,0,0,20">
+                    <TextBlock Text="{loc:Loc Key=Settings.LibrariesSection}" FontSize="12" FontWeight="Bold" Foreground="#888888" Margin="0,0,0,5"/>
+                    <TextBlock Text="{loc:Loc Key=Settings.LibraryHint}" FontSize="11" Foreground="#666666" Margin="0,0,0,15" TextWrapping="Wrap"/>
+                    
+                    <!-- Steam -->
+                    <TextBlock Text="{loc:Loc Key=Wizard.SteamPaths}" FontSize="13" Margin="0,0,0,5"/>
+                    <TextBox Height="60" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,15"
+                             Text="{Binding SteamPathsText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+
+                    <!-- Epic -->
+                    <TextBlock Text="{loc:Loc Key=Wizard.EpicPaths}" FontSize="13" Margin="0,0,0,5"/>
+                    <TextBox Height="60" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,15"
+                             Text="{Binding EpicPathsText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+
+                    <!-- Xbox -->
+                    <TextBlock Text="{loc:Loc Key=Wizard.XboxPaths}" FontSize="13" Margin="0,0,0,5"/>
+                    <TextBox Height="60" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,15"
+                             Text="{Binding XboxPathsText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+
+                    <!-- GOG -->
+                    <TextBlock Text="{loc:Loc Key=Settings.GogGames}" FontSize="13" Margin="0,0,0,5"/>
+                    <TextBox IsReadOnly="True" IsTabStop="False" Height="40" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,20"
+                             Text="{Binding GogPathsText, Mode=OneWay}"/>
+
+                    <!-- Ignored Processes -->
+                    <TextBlock Text="{loc:Loc Key=Settings.IgnoredProcesses}" FontSize="12" FontWeight="Bold" Foreground="#888888" Margin="0,0,0,5"/>
+                    <TextBlock Text="{loc:Loc Key=Settings.IgnoredProcessesHint}" FontSize="11" Foreground="#666666" Margin="0,0,0,10"/>
+                    <TextBox Height="100" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" AcceptsReturn="True" Background="#333333" Foreground="White" BorderBrush="#555555"
+                             Text="{Binding IgnoredProcessesText, UpdateSourceTrigger=LostFocus}"/>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Footer -->
+        <Grid Grid.Row="2">
+            <TextBlock Text="{Binding VersionText}" VerticalAlignment="Center" HorizontalAlignment="Left" Foreground="#555555" FontSize="12"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="{loc:Loc Key=Settings.ResetDefaults}" Command="{Binding ResetToDefaultsCommand}"
+                        Padding="12,5" Background="#333333" Foreground="White" Margin="0,0,10,0" FontSize="12"/>
+                <Button Content="{loc:Loc Key=Settings.Done}" Command="{Binding CloseCommand}" CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+                        Width="85" Height="32" Background="{DynamicResource AccentColor}" FontWeight="Bold" FontSize="12"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
