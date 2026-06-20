@@ -71,7 +71,7 @@ namespace GameLauncher.Controls
             if (itemCount == 0 || ItemWidth <= 0 || ItemHeight <= 0)
             {
                 ResetScrollState(availableSize);
-                RemoveInternalChildRange(0, InternalChildren.Count);
+                ClearRealizedChildren();
                 return availableSize;
             }
 
@@ -113,8 +113,7 @@ namespace GameLauncher.Controls
                     continue;
                 }
 
-                int itemIndex = ItemContainerGenerator.IndexFromGeneratorPosition(new GeneratorPosition(childIndex, 0));
-                if (itemIndex < 0)
+                if (!TryGetItemIndexFromChildIndex(childIndex, out int itemIndex))
                 {
                     continue;
                 }
@@ -137,6 +136,23 @@ namespace GameLauncher.Controls
             base.OnClearChildren();
             _offset = new Point(0, 0);
             ScrollOwner?.InvalidateScrollInfo();
+        }
+
+        protected override void OnItemsChanged(object sender, ItemsChangedEventArgs args)
+        {
+            base.OnItemsChanged(sender, args);
+
+            switch (args.Action)
+            {
+                case System.Collections.Specialized.NotifyCollectionChangedAction.Remove:
+                case System.Collections.Specialized.NotifyCollectionChangedAction.Replace:
+                case System.Collections.Specialized.NotifyCollectionChangedAction.Move:
+                case System.Collections.Specialized.NotifyCollectionChangedAction.Reset:
+                    ClearRealizedChildren();
+                    break;
+            }
+
+            InvalidateMeasure();
         }
 
         protected override void BringIndexIntoView(int index)
@@ -203,13 +219,9 @@ namespace GameLauncher.Controls
             }
 
             int index = InternalChildren.IndexOf(element);
-            if (index >= 0)
+            if (index >= 0 && TryGetItemIndexFromChildIndex(index, out int itemIndex))
             {
-                int itemIndex = ItemContainerGenerator.IndexFromGeneratorPosition(new GeneratorPosition(index, 0));
-                if (itemIndex >= 0)
-                {
-                    BringIndexIntoView(itemIndex);
-                }
+                BringIndexIntoView(itemIndex);
             }
 
             return rectangle;
@@ -277,9 +289,9 @@ namespace GameLauncher.Controls
                 return (0, 0);
             }
 
-            int firstIndex = ItemContainerGenerator.IndexFromGeneratorPosition(new GeneratorPosition(0, 0));
-            int lastIndex = ItemContainerGenerator.IndexFromGeneratorPosition(new GeneratorPosition(InternalChildren.Count - 1, 0));
-            if (firstIndex < 0 || lastIndex < 0 || lastIndex < firstIndex)
+            if (!TryGetItemIndexFromChildIndex(0, out int firstIndex) ||
+                !TryGetItemIndexFromChildIndex(InternalChildren.Count - 1, out int lastIndex) ||
+                lastIndex < firstIndex)
             {
                 return (0, 0);
             }
@@ -305,11 +317,21 @@ namespace GameLauncher.Controls
 
         private void RealizeItems(int firstIndex, int lastIndex)
         {
+            if (firstIndex < 0 || lastIndex < firstIndex)
+            {
+                ClearRealizedChildren();
+                return;
+            }
+
             CleanupItemsOutsideRange(firstIndex, lastIndex);
 
             IItemContainerGenerator generator = ItemContainerGenerator;
             GeneratorPosition startPosition = generator.GeneratorPositionFromIndex(firstIndex);
             int childInsertIndex = startPosition.Offset == 0 ? startPosition.Index : startPosition.Index + 1;
+            if (childInsertIndex < 0)
+            {
+                childInsertIndex = 0;
+            }
 
             using (generator.StartAt(startPosition, GeneratorDirection.Forward, true))
             {
@@ -324,6 +346,7 @@ namespace GameLauncher.Controls
                     int currentChildIndex = InternalChildren.IndexOf(child);
                     if (isNewlyRealized || currentChildIndex < 0)
                     {
+                        childInsertIndex = Math.Min(childInsertIndex, InternalChildren.Count);
                         if (childInsertIndex >= InternalChildren.Count)
                         {
                             AddInternalChild(child);
@@ -337,6 +360,7 @@ namespace GameLauncher.Controls
                     }
                     else if (currentChildIndex != childInsertIndex)
                     {
+                        childInsertIndex = Math.Min(Math.Max(childInsertIndex, 0), InternalChildren.Count);
                         RemoveInternalChildRange(currentChildIndex, 1);
                         if (currentChildIndex < childInsertIndex)
                         {
@@ -360,10 +384,22 @@ namespace GameLauncher.Controls
 
             for (int childIndex = InternalChildren.Count - 1; childIndex >= 0; childIndex--)
             {
-                GeneratorPosition position = new GeneratorPosition(childIndex, 0);
-                int itemIndex = ItemContainerGenerator.IndexFromGeneratorPosition(position);
+                if (!TryGetItemIndexFromChildIndex(childIndex, out int itemIndex))
+                {
+                    // Nach einer Collection-Aenderung kann der Generator kurzfristig keine gueltige Zuordnung mehr liefern.
+                    RemoveInternalChildRange(childIndex, 1);
+                    continue;
+                }
+
                 if (itemIndex >= firstIndex && itemIndex <= lastIndex)
                 {
+                    continue;
+                }
+
+                GeneratorPosition position = ItemContainerGenerator.GeneratorPositionFromIndex(itemIndex);
+                if (position.Index < 0)
+                {
+                    RemoveInternalChildRange(childIndex, 1);
                     continue;
                 }
 
@@ -387,6 +423,28 @@ namespace GameLauncher.Controls
             {
                 _offset.Y = maxOffset;
             }
+        }
+
+        private bool TryGetItemIndexFromChildIndex(int childIndex, out int itemIndex)
+        {
+            itemIndex = -1;
+            if (childIndex < 0 || childIndex >= InternalChildren.Count)
+            {
+                return false;
+            }
+
+            itemIndex = ItemContainerGenerator.IndexFromGeneratorPosition(new GeneratorPosition(childIndex, 0));
+            return itemIndex >= 0;
+        }
+
+        private void ClearRealizedChildren()
+        {
+            if (InternalChildren.Count == 0)
+            {
+                return;
+            }
+
+            RemoveInternalChildRange(0, InternalChildren.Count);
         }
     }
 }
