@@ -50,7 +50,7 @@ namespace GameLauncher.Services
                     foreach (var asset in assets.EnumerateArray())
                     {
                         string name = asset.GetProperty("name").GetString() ?? "";
-                        if (name.EndsWith("_Setup.exe", StringComparison.OrdinalIgnoreCase))
+                        if (IsInstallerAssetName(name))
                         {
                             downloadUrl = asset.GetProperty("browser_download_url").GetString() ?? "";
                             break;
@@ -88,6 +88,17 @@ namespace GameLauncher.Services
                 return latestVer > currentVer;
             }
             return false;
+        }
+
+        private static bool IsInstallerAssetName(string assetName)
+        {
+            if (string.IsNullOrWhiteSpace(assetName))
+            {
+                return false;
+            }
+
+            return assetName.StartsWith("GameLauncher_Setup", StringComparison.OrdinalIgnoreCase) &&
+                   assetName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
         }
 
         public async Task<bool> DownloadUpdateAsync(string downloadUrl, IProgress<int>? progress = null, CancellationToken ct = default)
