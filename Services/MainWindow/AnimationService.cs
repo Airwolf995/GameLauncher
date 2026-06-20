@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using GameLauncher.Controls;
 
 namespace GameLauncher.Services.MainWindow
 {
@@ -70,11 +71,9 @@ namespace GameLauncher.Services.MainWindow
         private static int ScheduleStartupAnimations(ListBox listBox, int count)
         {
             int animatedCount = 0;
-
-            for (int i = 0; i < count; i++)
+            var realizedRange = GetGeneratedIndexRange(listBox, count);
+            for (int i = realizedRange.firstIndex; i < realizedRange.lastIndexExclusive; i++)
             {
-                if (i >= listBox.Items.Count) break;
-
                 var container = listBox.ItemContainerGenerator.ContainerFromIndex(i) as ListBoxItem;
                 if (container == null) continue;
 
@@ -111,7 +110,8 @@ namespace GameLauncher.Services.MainWindow
         private static int CountGeneratedContainers(ListBox listBox, int count)
         {
             int generated = 0;
-            for (int i = 0; i < count; i++)
+            var realizedRange = GetGeneratedIndexRange(listBox, count);
+            for (int i = realizedRange.firstIndex; i < realizedRange.lastIndexExclusive; i++)
             {
                 if (listBox.ItemContainerGenerator.ContainerFromIndex(i) != null)
                 {
@@ -127,7 +127,8 @@ namespace GameLauncher.Services.MainWindow
         /// </summary>
         private static void AnimateInstant(ListBox listBox, int count)
         {
-            for (int i = 0; i < count; i++)
+            var realizedRange = GetGeneratedIndexRange(listBox, count);
+            for (int i = realizedRange.firstIndex; i < realizedRange.lastIndexExclusive; i++)
             {
                 var container = listBox.ItemContainerGenerator.ContainerFromIndex(i) as ListBoxItem;
                 if (container == null) continue;
@@ -149,7 +150,8 @@ namespace GameLauncher.Services.MainWindow
         /// </summary>
         private static void CleanupAnimations(ListBox listBox, int count)
         {
-            for (int i = 0; i < count; i++)
+            var realizedRange = GetGeneratedIndexRange(listBox, count);
+            for (int i = realizedRange.firstIndex; i < realizedRange.lastIndexExclusive; i++)
             {
                 var container = listBox.ItemContainerGenerator.ContainerFromIndex(i) as ListBoxItem;
                 if (container == null) continue;
@@ -164,6 +166,40 @@ namespace GameLauncher.Services.MainWindow
                 translate.BeginAnimation(TranslateTransform.YProperty, null);
                 translate.Y = 0;
             }
+        }
+
+        private static (int firstIndex, int lastIndexExclusive) GetGeneratedIndexRange(ListBox listBox, int count)
+        {
+            if (FindVisualChild<VirtualizingWrapPanel>(listBox) is VirtualizingWrapPanel virtualizingWrapPanel)
+            {
+                var realizedRange = virtualizingWrapPanel.GetRealizedIndexRange();
+                if (realizedRange.lastIndexExclusive > realizedRange.firstIndex)
+                {
+                    return realizedRange;
+                }
+            }
+
+            return (0, Math.Min(count, listBox.Items.Count));
+        }
+
+        private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T typedChild)
+                {
+                    return typedChild;
+                }
+
+                var nested = FindVisualChild<T>(child);
+                if (nested != null)
+                {
+                    return nested;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>

@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using GameLauncher.Controls;
 using GameLauncher.Models;
 
 namespace GameLauncher.Services.MainWindow
@@ -22,7 +23,7 @@ namespace GameLauncher.Services.MainWindow
 
         public void ApplyCardSize(ListBox gameListControl, ResourceDictionary resources, CardSize size, bool refresh = true)
         {
-            var panel = FindVisualChild<WrapPanel>(gameListControl);
+            var panel = FindVisualChild<VirtualizingWrapPanel>(gameListControl);
             if (panel == null)
             {
                 return;
@@ -97,9 +98,11 @@ namespace GameLauncher.Services.MainWindow
         private static void ApplyCardMode(ListBox gameListControl, DataTemplate? originalCardTemplate, CardSizeConfig config)
         {
             var wrapPanelTemplate = new ItemsPanelTemplate();
-            var wrapPanelFactory = new FrameworkElementFactory(typeof(WrapPanel));
-            wrapPanelFactory.SetValue(WrapPanel.ItemWidthProperty, config.PanelWidth);
-            wrapPanelFactory.SetValue(WrapPanel.ItemHeightProperty, config.PanelHeight);
+            var wrapPanelFactory = new FrameworkElementFactory(typeof(VirtualizingWrapPanel));
+            wrapPanelFactory.SetValue(VirtualizingWrapPanel.ItemWidthProperty, config.PanelWidth);
+            wrapPanelFactory.SetValue(VirtualizingWrapPanel.ItemHeightProperty, config.PanelHeight);
+            wrapPanelFactory.SetValue(FrameworkElement.ClipToBoundsProperty, false);
+            wrapPanelFactory.SetValue(FrameworkElement.MarginProperty, new Thickness(40, 0, 10, 0));
             wrapPanelTemplate.VisualTree = wrapPanelFactory;
             gameListControl.ItemsPanel = wrapPanelTemplate;
             gameListControl.ItemTemplate = originalCardTemplate;

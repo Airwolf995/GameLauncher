@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:system="clr-namespace:System;assembly=mscorlib"
         xmlns:local="clr-namespace:GameLauncher"
+        xmlns:controls="clr-namespace:GameLauncher.Controls"
         xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
         mc:Ignorable="d"
         Title="{loc:Loc Key=AppName}" Height="840" Width="1350"
@@ -388,10 +389,11 @@
             
             <ListBox.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <WrapPanel x:Name="GameWrapPanel" 
-                               ItemWidth="{DynamicResource GameCardWidth}" 
-                               ItemHeight="{DynamicResource GameCardHeight}" 
-                               ClipToBounds="False" Margin="40,0,10,0"/>
+                    <controls:VirtualizingWrapPanel x:Name="GameWrapPanel"
+                                                    ItemWidth="{DynamicResource GameCardWidth}"
+                                                    ItemHeight="{DynamicResource GameCardHeight}"
+                                                    ClipToBounds="False"
+                                                    Margin="40,0,10,0"/>
                 </ItemsPanelTemplate>
             </ListBox.ItemsPanel>
 
@@ -510,9 +512,6 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </Image.Style>
-                                            <Image.Effect>
-                                                <DropShadowEffect BlurRadius="8" ShadowDepth="0" Opacity="0.4"/>
-                                            </Image.Effect>
                                         </Image>
                                     </Grid>
                                 </Border>

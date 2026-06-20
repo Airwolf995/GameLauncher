@@ -198,7 +198,6 @@ namespace GameLauncher.ViewModels
                 game.RefreshLocalizedProperties();
             }
 
-            _gamesView.Refresh();
             UpdateStatusText();
             OnPropertyChanged(nameof(SelectedFilter));
             _ = RefreshSteamMetadataForCurrentLanguageAsync();

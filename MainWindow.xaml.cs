@@ -13,6 +13,7 @@ using System.Windows.Input;
 using System.Collections.Generic;
 using System.Threading;
 using System.Windows.Threading;
+using GameLauncher.Controls;
 using GameLauncher.Models;
 using GameLauncher.Core;
 using GameLauncher.Services.Localization;
@@ -23,6 +24,8 @@ namespace GameLauncher
 
     public partial class MainWindow : Window
     {
+        private const double StartupPreloadVerticalBuffer = 1200;
+        private const double ViewportRetentionVerticalBuffer = 300;
         private GameManager _gameManager = null!;
         private MainViewModel _viewModel = null!;
         private DataTemplate? _originalCardTemplate; // Store original XAML template
@@ -285,10 +288,11 @@ namespace GameLauncher
                 // Load Games via ViewModel
                 IsInitialLoading = true;
                 await _viewModel.LoadGamesAsync();
+                await Dispatcher.InvokeAsync(() => GameListControl.UpdateLayout(), DispatcherPriority.Loaded);
                 try
                 {
                     await BitmapCacheConverter.PreloadAsync(
-                        _viewModel.Games.Select(game => game.ImageUrl));
+                        GetBufferedImagePathsForCurrentViewport(verticalBuffer: StartupPreloadVerticalBuffer));
                     _releaseStartupImageCacheAfterAnimation = true;
                 }
                 catch (Exception ex)
@@ -478,7 +482,6 @@ namespace GameLauncher
 
             try
             {
-                BitmapCacheConverter.ClearImageCaches();
                 AreImageLoadTransitionsEnabled = true;
                 IsInitialLoading = true;
                 await _viewModel.LoadGamesAsync();
@@ -1019,9 +1022,28 @@ namespace GameLauncher
                 return;
             }
 
+            BitmapCacheConverter.UpdateViewportRetention(
+                GetBufferedImagePathsForCurrentViewport(scrollViewer, ViewportRetentionVerticalBuffer));
+        }
+
+        private IReadOnlyList<string> GetBufferedImagePathsForCurrentViewport(
+            ScrollViewer? scrollViewer = null,
+            double verticalBuffer = ViewportRetentionVerticalBuffer)
+        {
+            scrollViewer ??= FindVisualChild<ScrollViewer>(GameListControl);
+            if (scrollViewer == null)
+            {
+                return [];
+            }
+
+            if (FindVisualChild<VirtualizingWrapPanel>(GameListControl) is VirtualizingWrapPanel wrapPanel)
+            {
+                var range = wrapPanel.GetBufferedIndexRange(verticalBuffer);
+                return CollectImagePathsFromItemRange(range.firstIndex, range.lastIndexExclusive);
+            }
+
             var visiblePaths = new List<string>();
             Rect viewportRect = new Rect(0, 0, scrollViewer.ViewportWidth, scrollViewer.ViewportHeight);
-            const double verticalBuffer = 300;
             viewportRect.Inflate(0, verticalBuffer);
 
             for (int i = 0; i < GameListControl.Items.Count; i++)
@@ -1033,19 +1055,34 @@ namespace GameLauncher
 
                 Rect containerBounds = container.TransformToAncestor(scrollViewer)
                     .TransformBounds(new Rect(0, 0, container.ActualWidth, container.ActualHeight));
-
-                if (!containerBounds.IntersectsWith(viewportRect))
-                {
-                    continue;
-                }
-
-                if (container.DataContext is Game game && !string.IsNullOrWhiteSpace(game.ImageUrl))
+                if (containerBounds.IntersectsWith(viewportRect) &&
+                    container.DataContext is Game game &&
+                    !string.IsNullOrWhiteSpace(game.ImageUrl))
                 {
                     visiblePaths.Add(game.ImageUrl);
                 }
             }
 
-            BitmapCacheConverter.UpdateViewportRetention(visiblePaths);
+            return visiblePaths;
+        }
+
+        private List<string> CollectImagePathsFromItemRange(int firstIndex, int lastIndexExclusive)
+        {
+            if (firstIndex >= lastIndexExclusive)
+            {
+                return [];
+            }
+
+            var retainedPaths = new List<string>(Math.Max(0, lastIndexExclusive - firstIndex));
+            for (int i = firstIndex; i < lastIndexExclusive; i++)
+            {
+                if (GameListControl.Items[i] is Game game && !string.IsNullOrWhiteSpace(game.ImageUrl))
+                {
+                    retainedPaths.Add(game.ImageUrl);
+                }
+            }
+
+            return retainedPaths;
         }
 
         #endregion
