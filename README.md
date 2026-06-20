@@ -40,7 +40,6 @@ Der Installer liest anschliessend aus `publish\win-x64`.
 
 ## Dokumentation
 
-- Konfiguration und Nutzung: [ANLEITUNG_CONFIG.txt](./ANLEITUNG_CONFIG.txt)
 - Datenschutz: [PRIVACY.md](./PRIVACY.md)
 - Mitarbeit: [CONTRIBUTING.md](./CONTRIBUTING.md)
 - Sicherheit: [SECURITY.md](./SECURITY.md)

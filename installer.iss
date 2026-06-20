@@ -37,10 +37,6 @@ Name: "autostart"; Description: "Mit Windows starten"; GroupDescription: "Weiter
 [Files]
 ; IMPORTANT: Install only the curated publish output.
 Source: "{#MyAppBuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb,*.xml"
-; Install README to Documents folder
-Source: "ANLEITUNG_CONFIG.txt"; DestDir: "{userdocs}\GameLauncher"; Flags: ignoreversion
-
-
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
