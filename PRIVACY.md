@@ -1,6 +1,6 @@
 # Datenschutzerklärung (Privacy Policy)
 
-Der **Game Launcher** ist ein Freeware-Projekt. Diese Datenschutzerklärung erklärt, welche Daten beim Nutzen der Anwendung verarbeitet werden.
+Diese Datenschutzerklärung erklärt, welche Daten beim Nutzen des Game Launchers verarbeitet werden.
 
 ## 1. Lokale Datenverarbeitung
 Der Game Launcher ist so konzipiert, dass er primär lokal auf deinem Rechner arbeitet. 

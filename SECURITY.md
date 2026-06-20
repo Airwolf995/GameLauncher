@@ -1,6 +1,6 @@
-# Security Policy
+# Sicherheitsrichtlinie
 
-## Supported Versions
+## Unterstützte Versionen
 
 Aktiv gepflegt wird jeweils der aktuelle Hauptstand auf `main`.
 
