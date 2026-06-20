@@ -1,38 +1,50 @@
-# 🎮 Game Launcher for Windows
+# Game Launcher for Windows
 
-Ein moderner, schlanker Game Launcher, der deine Spiele von Steam, Epic Games und GOG an einem zentralen Ort bündelt.
+Ein moderner Windows-Launcher fuer lokale Spielbibliotheken mit Fokus auf ein schnelles WPF-UI, lokale Datenhaltung und integriertes Hardware-Overlay.
 
-![Game Launcher Screenshot](https://via.placeholder.com/800x450.png?text=Game+Launcher+Logo+oder+Screenshot) <!-- Hier kannst du später ein echtes Bild einfügen -->
+## Features
 
-## ✨ Features
-- **Plattformübergreifend:** Erkennt automatisch Spiele von Steam, Epic Games und GOG Galaxy.
-- **Manuelle Spiele:** Füge eigene EXE-Dateien oder URI-Links (z.B. Battle.net) hinzu.
-- **System-Overlay (HUD):** Auf Knopfdruck (Alt+G) siehst du im Spiel aktuelle Hardware-Daten (CPU, GPU, RAM, VRAM) sowie deine aktuelle Sitzungsdauer.
-- **Playtime Tracking:** Behalte deine Spielzeit im Blick (lokale Erfassung deiner gesamten Spielzeit).
-- **Tags & Kategorien:** Organisiere deine Bibliothek mit eigenen Tags und smarten Filterfunktionen.
-- **Modernes Design:** Dynamisches Dark-Mode UI mit anpassbaren Farbakzenten und automatischem Cover-Download.
-- **Auto-Updates:** Integriertes Update-System für neue Funktionen und Fixes.
-- **Privacy First:** Weitestgehend lokale Datenverarbeitung. Keine Telemetrie, kein Senden von Spielverhalten an Entwickler-Server (Details siehe `PRIVACY.md`).
+- Erkennt Spiele aus mehreren Quellen, darunter Steam, Epic, GOG und Xbox/Game Pass.
+- Unterstuetzt manuelle Eintraege fuer EXE-Dateien und URI-Starts.
+- Bietet ein Overlay mit CPU-, GPU-, RAM- und VRAM-Werten sowie Sitzungsdauer.
+- Verwaltert Tags, Filter, Sortierung und unterschiedliche Karten-/Listenansichten.
+- Nutzt lokale Cover-/Artwork-Caches und laedt optionale Metadaten nach.
+- Bringt einen Windows-Installer und einen Release-Publish-Prozess mit.
 
-## 🚀 Installation & Download
-Du findest den aktuellsten Installer unter den **[GitHub Releases](https://github.com/Airwolf995/GameLauncher/releases)**.
+## Voraussetzungen
 
-1. Lade die `GameLauncher_Setup.exe` herunter.
-2. Führe den Installer aus.
-3. Starte den Launcher und genieße deine organisierte Bibliothek!
+- Windows 10/11
+- .NET 8 SDK
 
-## 📄 Dokumentation
-Detaillierte Informationen zur Konfiguration und zum Hinzufügen von Spielen findest du in der [ANLEITUNG_CONFIG.txt](./ANLEITUNG_CONFIG.txt) (wird auch im Dokumente-Ordner unter `Documents\GameLauncher` installiert).
+## Entwicklung
 
-## ⚖️ Lizenz & Datenschutz
-- **Lizenz:** Dieses Programm wird als **Freeware** bereitgestellt.
-- **Datenschutz:** Detaillierte Informationen findest du in unserer **[Datenschutzerklärung (PRIVACY.md)](./PRIVACY.md)**.
-- **Hinweis:** Der Quellcode dieses Projekts ist aktuell nicht öffentlich zugänglich. Dieses Repository dient zur Bereitstellung der Dokumentation und der Installationsdateien.
+```powershell
+dotnet build .\GameLauncher.csproj -c Debug
+dotnet test .\GameLauncher.Tests\GameLauncher.Tests.csproj -c Debug --no-restore
+```
 
----
+## Release-Build
 
-### ⚠️ Haftungsausschluss
-Die Software wird "wie besehen" (as is) zur Verfügung gestellt, ohne jegliche Gewährleistung oder Haftung für Schäden, die durch die Nutzung der Software entstehen könnten. Die Nutzung erfolgt auf eigene Gefahr.
+Sauberer Publish fuer den Installer:
 
----
-*Entwickelt von Airwolf995*
+```powershell
+.\build-release.ps1
+```
+
+Der Installer liest anschliessend aus `publish\win-x64`.
+
+## Installer
+
+- Inno Setup Script: [installer.iss](./installer.iss)
+- Release-Output: `publish\win-x64`
+
+## Dokumentation
+
+- Konfiguration und Nutzung: [ANLEITUNG_CONFIG.txt](./ANLEITUNG_CONFIG.txt)
+- Datenschutz: [PRIVACY.md](./PRIVACY.md)
+- Mitarbeit: [CONTRIBUTING.md](./CONTRIBUTING.md)
+- Sicherheit: [SECURITY.md](./SECURITY.md)
+
+## Lizenz
+
+Dieses Projekt steht unter der [MIT-Lizenz](./LICENSE).

@@ -1,6 +1,8 @@
 bin/
 obj/
 installer_output/
+publish/
+.tmpdotnet/
 
 .claude/
 .stfolder/
