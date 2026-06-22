@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,10 +29,14 @@ namespace GameLauncher.ViewModels
         private GameSortMode _selectedSort = GameSortMode.Name;
         private Timer? _filterDebounce;
         private CancellationTokenSource? _metadataRefreshCts;
+        private CancellationTokenSource? _gamesViewRefreshCts;
         private readonly CancellationTokenSource _cts = new();
         private ObservableCollection<LocalizedOption> _filterOptions = [];
         private ObservableCollection<KeyValuePair<GameSortMode, string>> _sortOptions = [];
+        private ObservableCollection<GameRow> _cardRows = [];
         private string _statusText = "";
+        private int _gamesViewRefreshVersion;
+        private int _cardColumns = 1;
 
         public MainViewModel(GameManager gameManager)
         {
@@ -40,7 +45,7 @@ namespace GameLauncher.ViewModels
             _games = [];
 
             LoadLibraryViewSettings();
-            ConfigureGamesView();
+            _gamesView = new ListCollectionView(Array.Empty<Game>());
             RebuildSortOptions();
             PopulateFilterOptions();
             RefreshStatusText();
@@ -67,6 +72,12 @@ namespace GameLauncher.ViewModels
             set => SetProperty(ref _sortOptions, value);
         }
 
+        public ObservableCollection<GameRow> CardRows
+        {
+            get => _cardRows;
+            set => SetProperty(ref _cardRows, value);
+        }
+
         public string SearchText
         {
             get => _searchText;
@@ -80,11 +91,7 @@ namespace GameLauncher.ViewModels
                 _filterDebounce?.Dispose();
                 _filterDebounce = new Timer(_ =>
                 {
-                    new Action(() =>
-                    {
-                        _gamesView.Refresh();
-                        OnPropertyChanged(nameof(IsSearchActive));
-                    }).RunOnUI();
+                    _ = RefreshGamesViewAsync();
                 }, null, 150, Timeout.Infinite);
             }
         }
@@ -103,9 +110,7 @@ namespace GameLauncher.ViewModels
                 }
 
                 _preferredFilter = normalized;
-                _gamesView.Refresh();
-                UpdateStatusText();
-                SaveLibraryViewSettings();
+                _ = RefreshGamesViewAsync(saveSettings: true);
             }
         }
 
@@ -119,8 +124,7 @@ namespace GameLauncher.ViewModels
                     return;
                 }
 
-                ApplySort();
-                SaveLibraryViewSettings();
+                _ = RefreshGamesViewAsync(saveSettings: true);
             }
         }
 
@@ -133,12 +137,12 @@ namespace GameLauncher.ViewModels
         public ICommand LoadGamesCommand { get; }
         public ICommand RefreshCommand { get; }
 
-        public async Task LoadGamesAsync()
+        public async Task LoadGamesAsync(bool loadSteamMetadataInBackground = true)
         {
             StatusText = _localization.Get("Main.StatusLoadingGames");
             try
             {
-                var games = await _gameManager.LoadAllGamesAsync(_cts.Token);
+                var games = await _gameManager.LoadAllGamesAsync(loadSteamMetadataInBackground, _cts.Token);
 
                 new Action(() =>
                 {
@@ -149,13 +153,10 @@ namespace GameLauncher.ViewModels
                         game.RefreshLocalizedProperties();
                     }
 
-                    ConfigureGamesView();
                     PopulateFilterOptions();
-
-                    OnPropertyChanged(nameof(GamesView));
-                    OnPropertyChanged(nameof(IsSearchActive));
-                    UpdateStatusText();
                 }).RunOnUI();
+
+                await RefreshGamesViewAsync();
             }
             catch (OperationCanceledException)
             {
@@ -167,10 +168,68 @@ namespace GameLauncher.ViewModels
             UpdateStatusText();
         }
 
+        public Task RebuildLibraryViewAsync(bool saveSettings = false) => RefreshGamesViewAsync(saveSettings);
+
+        public Task RefreshSteamMetadataAsync() => RefreshSteamMetadataForCurrentLanguageAsync();
+
+        public async Task MergeGamesAsync(IEnumerable<Game> games)
+        {
+            var incomingGames = games
+                .Where(game => game != null)
+                .GroupBy(game => game.Id, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .ToList();
+
+            if (incomingGames.Count == 0)
+            {
+                return;
+            }
+
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                var existingIds = new HashSet<string>(_games.Select(game => game.Id), StringComparer.OrdinalIgnoreCase);
+                int addedCount = 0;
+
+                foreach (var game in incomingGames)
+                {
+                    if (!existingIds.Add(game.Id))
+                    {
+                        continue;
+                    }
+
+                    game.RefreshLocalizedProperties();
+                    _games.Add(game);
+                    addedCount++;
+                }
+
+                if (addedCount > 0)
+                {
+                    PopulateFilterOptions();
+                }
+            });
+
+            await RefreshGamesViewAsync();
+        }
+
+        public bool UpdateCardColumns(int columns)
+        {
+            int normalizedColumns = Math.Max(1, columns);
+            if (_cardColumns == normalizedColumns)
+            {
+                return false;
+            }
+
+            _cardColumns = normalizedColumns;
+            RebuildCardRowsFromCurrentView();
+            return true;
+        }
+
         public void Dispose()
         {
             _metadataRefreshCts?.Cancel();
             _metadataRefreshCts?.Dispose();
+            _gamesViewRefreshCts?.Cancel();
+            _gamesViewRefreshCts?.Dispose();
             _cts.Cancel();
             _cts.Dispose();
             _filterDebounce?.Dispose();
@@ -183,9 +242,9 @@ namespace GameLauncher.ViewModels
             Application.Current.Dispatcher.Invoke(() =>
             {
                 PopulateFilterOptions();
-                _gamesView.Refresh();
-                UpdateStatusText();
             });
+
+            _ = RefreshGamesViewAsync();
         }
 
         private void OnLanguageChanged(object? sender, EventArgs e)
@@ -200,122 +259,8 @@ namespace GameLauncher.ViewModels
 
             UpdateStatusText();
             OnPropertyChanged(nameof(SelectedFilter));
+            _ = RefreshGamesViewAsync();
             _ = RefreshSteamMetadataForCurrentLanguageAsync();
-        }
-
-        private bool FilterGames(object item)
-        {
-            if (item is not Game game)
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(SearchText))
-            {
-                bool matchesName = game.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase);
-                bool matchesTag = game.Tags.Any(tag => tag.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
-
-                if (!matchesName && !matchesTag)
-                {
-                    return false;
-                }
-            }
-
-            if (string.IsNullOrEmpty(_selectedFilter) || _selectedFilter == Constants.Filters.All)
-            {
-                return !game.IsHidden;
-            }
-
-            if (_selectedFilter == Constants.Filters.Hidden)
-            {
-                return game.IsHidden;
-            }
-
-            if (game.IsHidden)
-            {
-                return false;
-            }
-
-            return _selectedFilter switch
-            {
-                Constants.Filters.Favorites => game.IsFavorite,
-                Constants.Filters.Manual => game.IsManual,
-                Constants.Platforms.Steam => game.Platform == Constants.Platforms.Steam,
-                Constants.Platforms.Epic => game.Platform == Constants.Platforms.Epic,
-                "Ubisoft Connect" => game.Platform == "Ubisoft Connect",
-                "EA App" => game.Platform == "EA App",
-                "Xbox" => game.Platform == "Xbox",
-                Constants.Platforms.GOG => game.Platform == Constants.Platforms.GOG,
-                _ when _selectedFilter.StartsWith(Constants.Filters.TagPrefix, StringComparison.Ordinal) =>
-                    game.Tags.Contains(_selectedFilter.Substring(Constants.Filters.TagPrefix.Length)),
-                _ => true
-            };
-        }
-
-        private void ApplySort()
-        {
-            _gamesView.SortDescriptions.Clear();
-            ConfigureLiveSorting();
-
-            switch (_selectedSort)
-            {
-                case GameSortMode.Name:
-                    _gamesView.SortDescriptions.Add(new SortDescription(nameof(Game.Name), ListSortDirection.Ascending));
-                    break;
-                case GameSortMode.Favorites:
-                    _gamesView.SortDescriptions.Add(new SortDescription(nameof(Game.IsFavorite), ListSortDirection.Descending));
-                    _gamesView.SortDescriptions.Add(new SortDescription(nameof(Game.Name), ListSortDirection.Ascending));
-                    break;
-                case GameSortMode.LastPlayed:
-                    _gamesView.SortDescriptions.Add(new SortDescription(nameof(Game.LastPlayed), ListSortDirection.Descending));
-                    _gamesView.SortDescriptions.Add(new SortDescription(nameof(Game.Name), ListSortDirection.Ascending));
-                    break;
-                case GameSortMode.PlayTime:
-                    _gamesView.SortDescriptions.Add(new SortDescription(nameof(Game.PlayTime), ListSortDirection.Descending));
-                    _gamesView.SortDescriptions.Add(new SortDescription(nameof(Game.Name), ListSortDirection.Ascending));
-                    break;
-            }
-        }
-
-        private void ConfigureGamesView()
-        {
-            _gamesView = CollectionViewSource.GetDefaultView(_games);
-            _gamesView.Filter = FilterGames;
-            ApplySort();
-        }
-
-        private void ConfigureLiveSorting()
-        {
-            if (_gamesView is not ICollectionViewLiveShaping liveShaping)
-            {
-                return;
-            }
-
-            if (liveShaping.CanChangeLiveSorting)
-            {
-                liveShaping.IsLiveSorting = true;
-            }
-
-            liveShaping.LiveSortingProperties.Clear();
-
-            switch (_selectedSort)
-            {
-                case GameSortMode.Name:
-                    liveShaping.LiveSortingProperties.Add(nameof(Game.Name));
-                    break;
-                case GameSortMode.Favorites:
-                    liveShaping.LiveSortingProperties.Add(nameof(Game.IsFavorite));
-                    liveShaping.LiveSortingProperties.Add(nameof(Game.Name));
-                    break;
-                case GameSortMode.LastPlayed:
-                    liveShaping.LiveSortingProperties.Add(nameof(Game.LastPlayed));
-                    liveShaping.LiveSortingProperties.Add(nameof(Game.Name));
-                    break;
-                case GameSortMode.PlayTime:
-                    liveShaping.LiveSortingProperties.Add(nameof(Game.PlayTime));
-                    liveShaping.LiveSortingProperties.Add(nameof(Game.Name));
-                    break;
-            }
         }
 
         private void LoadLibraryViewSettings()
@@ -397,12 +342,187 @@ namespace GameLauncher.ViewModels
                 if (_selectedFilter != activeFilter)
                 {
                     _selectedFilter = activeFilter;
-                    _gamesView.Refresh();
-                    UpdateStatusText();
+                    _ = RefreshGamesViewAsync();
                 }
 
                 OnPropertyChanged(nameof(SelectedFilter));
             }).RunOnUI();
+        }
+
+        private async Task RefreshGamesViewAsync(bool saveSettings = false)
+        {
+            using var refreshCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+            var previousRefreshCts = Interlocked.Exchange(ref _gamesViewRefreshCts, refreshCts);
+            previousRefreshCts?.Cancel();
+            previousRefreshCts?.Dispose();
+            CancellationToken refreshToken = refreshCts.Token;
+
+            var totalWatch = Stopwatch.StartNew();
+            int refreshVersion = Interlocked.Increment(ref _gamesViewRefreshVersion);
+            string searchText = _searchText;
+            string selectedFilter = _selectedFilter;
+            GameSortMode selectedSort = _selectedSort;
+
+            try
+            {
+                List<Game> gamesSnapshot = [];
+                var snapshotWatch = Stopwatch.StartNew();
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    gamesSnapshot = _games.ToList();
+                });
+                snapshotWatch.Stop();
+
+                refreshToken.ThrowIfCancellationRequested();
+
+                var filterWatch = Stopwatch.StartNew();
+                var filteredGames = await Task.Run(() =>
+                    BuildGamesViewSnapshot(gamesSnapshot, searchText, selectedFilter, selectedSort), refreshToken);
+                filterWatch.Stop();
+
+                if (refreshToken.IsCancellationRequested || _cts.IsCancellationRequested || refreshVersion != _gamesViewRefreshVersion)
+                {
+                    return;
+                }
+
+                var swapWatch = Stopwatch.StartNew();
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    _gamesView = new ListCollectionView(filteredGames);
+                    ReplaceCardRows(BuildCardRowsSnapshot(filteredGames, _cardColumns));
+                    OnPropertyChanged(nameof(GamesView));
+                    OnPropertyChanged(nameof(IsSearchActive));
+                    UpdateStatusText();
+
+                    if (saveSettings)
+                    {
+                        SaveLibraryViewSettings();
+                    }
+                });
+                swapWatch.Stop();
+                totalWatch.Stop();
+
+                Logger.Log(
+                    $"Bibliotheksfilter aktualisiert: Filter={selectedFilter}, Suche='{searchText}', Sortierung={selectedSort}, Quelle={gamesSnapshot.Count}, Ergebnis={filteredGames.Count}, Snapshot={snapshotWatch.ElapsedMilliseconds} ms, Filterung={filterWatch.ElapsedMilliseconds} ms, View-Swap={swapWatch.ElapsedMilliseconds} ms, Gesamt={totalWatch.ElapsedMilliseconds} ms.");
+            }
+            catch (OperationCanceledException) when (refreshToken.IsCancellationRequested || _cts.IsCancellationRequested)
+            {
+            }
+            finally
+            {
+                if (ReferenceEquals(Interlocked.CompareExchange(ref _gamesViewRefreshCts, null, refreshCts), refreshCts))
+                {
+                    // Das aktuelle Refresh-Token wurde bereits per using entsorgt.
+                }
+            }
+        }
+
+        private static List<Game> BuildGamesViewSnapshot(
+            List<Game> games,
+            string searchText,
+            string selectedFilter,
+            GameSortMode selectedSort)
+        {
+            IEnumerable<Game> filteredGames = games.Where(game => MatchesFilter(game, searchText, selectedFilter));
+
+            return selectedSort switch
+            {
+                GameSortMode.Favorites => filteredGames
+                    .OrderByDescending(game => game.IsFavorite)
+                    .ThenBy(game => game.Name, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList(),
+                GameSortMode.LastPlayed => filteredGames
+                    .OrderByDescending(game => game.LastPlayed)
+                    .ThenBy(game => game.Name, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList(),
+                GameSortMode.PlayTime => filteredGames
+                    .OrderByDescending(game => game.PlayTime)
+                    .ThenBy(game => game.Name, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList(),
+                _ => filteredGames
+                    .OrderBy(game => game.Name, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList()
+            };
+        }
+
+        private static List<GameRow> BuildCardRowsSnapshot(IReadOnlyList<Game> games, int columns)
+        {
+            var rows = new List<GameRow>();
+            int safeColumns = Math.Max(1, columns);
+
+            for (int index = 0; index < games.Count; index += safeColumns)
+            {
+                int length = Math.Min(safeColumns, games.Count - index);
+                var rowGames = new List<Game>(length);
+                for (int offset = 0; offset < length; offset++)
+                {
+                    rowGames.Add(games[index + offset]);
+                }
+
+                rows.Add(new GameRow(rowGames));
+            }
+
+            return rows;
+        }
+
+        private static bool MatchesFilter(Game game, string searchText, string selectedFilter)
+        {
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                bool matchesName = game.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+                bool matchesTag = game.Tags.Any(tag => tag.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+                if (!matchesName && !matchesTag)
+                {
+                    return false;
+                }
+            }
+
+            if (string.IsNullOrEmpty(selectedFilter) || selectedFilter == Constants.Filters.All)
+            {
+                return !game.IsHidden;
+            }
+
+            if (selectedFilter == Constants.Filters.Hidden)
+            {
+                return game.IsHidden;
+            }
+
+            if (game.IsHidden)
+            {
+                return false;
+            }
+
+            return selectedFilter switch
+            {
+                Constants.Filters.Favorites => game.IsFavorite,
+                Constants.Filters.Manual => game.IsManual,
+                Constants.Platforms.Steam => game.Platform == Constants.Platforms.Steam,
+                Constants.Platforms.Epic => game.Platform == Constants.Platforms.Epic,
+                "Ubisoft Connect" => game.Platform == "Ubisoft Connect",
+                "EA App" => game.Platform == "EA App",
+                "Xbox" => game.Platform == "Xbox",
+                Constants.Platforms.GOG => game.Platform == Constants.Platforms.GOG,
+                _ when selectedFilter.StartsWith(Constants.Filters.TagPrefix, StringComparison.Ordinal) =>
+                    game.Tags.Contains(selectedFilter.Substring(Constants.Filters.TagPrefix.Length)),
+                _ => true
+            };
+        }
+
+        private void RebuildCardRowsFromCurrentView()
+        {
+            if (_gamesView.SourceCollection is not IEnumerable<Game> games)
+            {
+                ReplaceCardRows([]);
+                return;
+            }
+
+            ReplaceCardRows(BuildCardRowsSnapshot(games.ToList(), _cardColumns));
+        }
+
+        private void ReplaceCardRows(IEnumerable<GameRow> rows)
+        {
+            CardRows = new ObservableCollection<GameRow>(rows);
         }
 
         private void RebuildSortOptions()

@@ -51,7 +51,7 @@ namespace GameLauncher.Services.Scanners
             {
                 foreach (var folderName in KnownLibraryFolderNames)
                 {
-                    AddIfExists(found, Path.Combine(drive.RootDirectory.FullName, folderName));
+                    ScannerPathUtility.AddExistingDirectory(found, Path.Combine(drive.RootDirectory.FullName, folderName));
                 }
             }
 
@@ -60,7 +60,7 @@ namespace GameLauncher.Services.Scanners
                 var libraryRoot = TryGetLibraryRootFromInstallPath(package.InstallLocation);
                 if (!string.IsNullOrWhiteSpace(libraryRoot))
                 {
-                    AddIfExists(found, libraryRoot);
+                    ScannerPathUtility.AddExistingDirectory(found, libraryRoot);
                 }
             }
 
@@ -82,7 +82,7 @@ namespace GameLauncher.Services.Scanners
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var packageInstallRoots = candidates
                 .SelectMany(candidate => new[] { candidate.GameDirectory, candidate.ContentDirectory })
-                .Select(NormalizePath)
+                .Select(ScannerPathUtility.Normalize)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var packages = candidates.Count == 0
                 ? new List<XboxPackageInfo>()
@@ -169,8 +169,8 @@ namespace GameLauncher.Services.Scanners
             string? logoPath = ResolveLogoPath(contentDirectory, metadata.LogoPath);
 
             return new XboxGameCandidate(
-                NormalizePath(gameDirectory),
-                NormalizePath(contentDirectory),
+                ScannerPathUtility.Normalize(gameDirectory),
+                ScannerPathUtility.Normalize(contentDirectory),
                 metadata,
                 stableId,
                 logoPath);
@@ -222,7 +222,7 @@ namespace GameLauncher.Services.Scanners
                         if (string.IsNullOrWhiteSpace(installLocation))
                             continue;
 
-                        string normalizedInstallLocation = NormalizePath(installLocation);
+                        string normalizedInstallLocation = ScannerPathUtility.Normalize(installLocation);
                         if (relevantIdentityNames != null || relevantInstallRoots != null)
                         {
                             bool identityMatches = relevantIdentityNames?.Contains(package.Id.Name) == true;
@@ -288,11 +288,11 @@ namespace GameLauncher.Services.Scanners
                 }
             }
 
-            string gameRoot = NormalizePath(gameDirectory);
-            string contentRoot = NormalizePath(contentDirectory);
+            string gameRoot = ScannerPathUtility.Normalize(gameDirectory);
+            string contentRoot = ScannerPathUtility.Normalize(contentDirectory);
             var pathMatches = packages.Where(package =>
             {
-                string installRoot = NormalizePath(package.InstallLocation);
+                string installRoot = ScannerPathUtility.Normalize(package.InstallLocation);
                 return string.Equals(installRoot, gameRoot, StringComparison.OrdinalIgnoreCase) ||
                        string.Equals(installRoot, contentRoot, StringComparison.OrdinalIgnoreCase);
             }).ToList();
@@ -479,31 +479,8 @@ namespace GameLauncher.Services.Scanners
             }
         }
 
-        private static void AddIfExists(List<string> list, string path)
-        {
-            if (!Directory.Exists(path))
-            {
-                return;
-            }
-
-            string normalizedPath = NormalizePath(path);
-            if (!list.Any(existing => string.Equals(existing, normalizedPath, StringComparison.OrdinalIgnoreCase)))
-            {
-                list.Add(normalizedPath);
-            }
-        }
-
         private static List<string> NormalizePaths(IEnumerable<string>? paths) =>
-            paths?
-                .Select(path => path.Trim())
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .Select(NormalizePath)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList()
-            ?? new List<string>();
-
-        private static string NormalizePath(string path) =>
-            Path.GetFullPath(path.Trim()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            ScannerPathUtility.NormalizeDistinct(paths);
 
         internal static string ComputeStableId(string source)
         {

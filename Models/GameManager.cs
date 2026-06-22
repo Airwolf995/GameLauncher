@@ -22,6 +22,7 @@ namespace GameLauncher.Models
         private readonly GameStateService _stateService;
         private readonly GameImageService _imageService;
         private readonly Services.MetadataService _metadataService = new();
+        private readonly SteamMetadataCacheService _steamMetadataCache = new();
 
         public GameConfig Config => _configService.Config;
         
@@ -59,7 +60,7 @@ namespace GameLauncher.Models
             _configService.SaveConfigImmediate(config);
         }
 
-        public async Task<List<Game>> LoadAllGamesAsync(System.Threading.CancellationToken ct = default)
+        public async Task<List<Game>> LoadAllGamesAsync(bool loadSteamMetadataInBackground = true, System.Threading.CancellationToken ct = default)
         {
             var games = new List<Game>();
             var config = _configService.Config;
@@ -70,25 +71,22 @@ namespace GameLauncher.Models
             var steamScanner = new SteamScanner(config.SteamLibraryPaths);
             var gogScanner = new GogScanner();
             var epicScanner = new EpicScanner(config.EpicLibraryPaths);
-            var ubiScanner = new UbisoftScanner();
             var eaScanner = new EaScanner();
             var xboxScanner = new XboxScanner(config.XboxLibraryPaths);
 
             var steamTask = steamScanner.ScanAsync(ct);
             var gogTask = gogScanner.ScanAsync(ct);
             var epicTask = epicScanner.ScanAsync(ct);
-            var ubiTask = ubiScanner.ScanAsync(ct);
             var eaTask = eaScanner.ScanAsync(ct);
             var xboxTask = xboxScanner.ScanAsync(ct);
 
-            await Task.WhenAll(steamTask, gogTask, epicTask, ubiTask, eaTask, xboxTask);
+            await Task.WhenAll(steamTask, gogTask, epicTask, eaTask, xboxTask);
 
-            Logger.Log($"Parallel scan finished. Steam: {steamTask.Result.Count}, GOG: {gogTask.Result.Count}, Epic: {epicTask.Result.Count}, Ubi: {ubiTask.Result.Count}, EA: {eaTask.Result.Count}, Xbox: {xboxTask.Result.Count}");
+            Logger.Log($"Parallel scan finished. Steam: {steamTask.Result.Count}, GOG: {gogTask.Result.Count}, Epic: {epicTask.Result.Count}, EA: {eaTask.Result.Count}, Xbox: {xboxTask.Result.Count}");
 
             games.AddRange(steamTask.Result);
             games.AddRange(gogTask.Result);
             games.AddRange(epicTask.Result);
-            games.AddRange(ubiTask.Result);
             games.AddRange(eaTask.Result);
             games.AddRange(xboxTask.Result);
 
@@ -117,50 +115,29 @@ namespace GameLauncher.Models
 
             // 3. Apply Favorites, Last Played, PlayTime & Hidden Status
 
+            ApplyStoredState(games);
+
+            var currentLanguage = Services.Localization.LocalizationService.Instance.CurrentLanguage;
+            int cachedMetadataCount = 0;
             foreach (var game in games)
             {
-                // Reset state to ensure global dictionaries are the source of truth
-                game.PlayTime = 0;
-                game.LastPlayed = null;
-                game.IsFavorite = false;
-                game.IsHidden = false;
+                if (_steamMetadataCache.ApplyCachedMetadata(game, currentLanguage))
+                {
+                    cachedMetadataCount++;
+                }
+            }
 
-                // Mark Hidden Status
-                game.IsHidden = config.HiddenGames.Contains(game.Id);
-                game.IsFavorite = config.Favorites.Contains(game.Id);
-                
-                if (config.LastPlayed.TryGetValue(game.Id, out DateTime lastPlayed))
-                {
-                    game.LastPlayed = lastPlayed;
-                }
-
-                if (config.PlayTime.TryGetValue(game.Id, out int playTime))
-                {
-                    game.PlayTime = playTime;
-                }
-                
-                // Apply Image Override
-                if (config.ImageOverrides != null && config.ImageOverrides.TryGetValue(game.Id, out var customImage) && !string.IsNullOrWhiteSpace(customImage))
-                {
-                    if (File.Exists(customImage))
-                    {
-                        game.ImageUrl = customImage;
-                    }
-                }
-                
-                // Apply Tags
-                if (config.GameTags != null && config.GameTags.TryGetValue(game.Id, out var tags) && tags != null)
-                {
-                    game.Tags = new List<string>(tags);
-                }
+            if (cachedMetadataCount > 0)
+            {
+                Logger.Log($"Steam-Metadaten aus lokalem Cache übernommen: {cachedMetadataCount} Spiel(e).");
             }
 
             // Steam-Metadata throttled laden (max. 3 gleichzeitige Requests)
             var gamesNeedingMetadata = games
-                .Where(g => g.Platform == "Steam" && string.IsNullOrEmpty(g.Description))
+                .Where(g => g.Platform == "Steam" && _steamMetadataCache.NeedsRefresh(g, currentLanguage))
                 .ToList();
 
-            if (gamesNeedingMetadata.Count > 0)
+            if (loadSteamMetadataInBackground && gamesNeedingMetadata.Count > 0)
             {
                 var semaphore = new System.Threading.SemaphoreSlim(3);
                 _ = Task.Run(async () =>
@@ -172,7 +149,10 @@ namespace GameLauncher.Models
                             await semaphore.WaitAsync(ct);
                             try
                             {
-                                await _metadataService.FetchSteamMetadataAsync(game, ct);
+                                if (await _metadataService.FetchSteamMetadataAsync(game, ct))
+                                {
+                                    _steamMetadataCache.Update(game, currentLanguage);
+                                }
                             }
                             catch (Exception ex)
                             {
@@ -195,10 +175,21 @@ namespace GameLauncher.Models
             return games;
         }
 
+        public async Task<List<Game>> LoadDeferredStartupGamesAsync(System.Threading.CancellationToken ct = default)
+        {
+            var ubiScanner = new UbisoftScanner();
+            var games = await ubiScanner.ScanAsync(ct);
+            ApplyStoredState(games);
+            Logger.Log($"Zeitversetzter Startup-Scan abgeschlossen. Ubisoft: {games.Count}");
+            return games;
+        }
+
         public async Task RefreshSteamMetadataAsync(IEnumerable<Game> games, System.Threading.CancellationToken ct = default)
         {
+            var currentLanguage = Services.Localization.LocalizationService.Instance.CurrentLanguage;
             var steamGames = games
-                .Where(game => game.Platform == Constants.Platforms.Steam && game.Id.StartsWith("steam:", StringComparison.OrdinalIgnoreCase))
+                .Where(game => game.Platform == Constants.Platforms.Steam &&
+                               game.Id.StartsWith("steam:", StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
             if (steamGames.Count == 0)
@@ -206,13 +197,37 @@ namespace GameLauncher.Models
                 return;
             }
 
+            int cachedMetadataCount = 0;
+            foreach (var game in steamGames)
+            {
+                if (_steamMetadataCache.ApplyCachedMetadata(game, currentLanguage))
+                {
+                    cachedMetadataCount++;
+                }
+            }
+
+            var steamGamesNeedingRefresh = steamGames
+                .Where(game => _steamMetadataCache.NeedsRefresh(game, currentLanguage))
+                .ToList();
+
+            Logger.Log(
+                $"Steam-Metadatenaktualisierung geplant: Gesamt={steamGames.Count}, Cache-Treffer={cachedMetadataCount}, Nachladen={steamGamesNeedingRefresh.Count}.");
+
+            if (steamGamesNeedingRefresh.Count == 0)
+            {
+                return;
+            }
+
             using var semaphore = new System.Threading.SemaphoreSlim(3);
-            var tasks = steamGames.Select(async game =>
+            var tasks = steamGamesNeedingRefresh.Select(async game =>
             {
                 await semaphore.WaitAsync(ct);
                 try
                 {
-                    await _metadataService.FetchSteamMetadataAsync(game, ct);
+                    if (await _metadataService.FetchSteamMetadataAsync(game, ct))
+                    {
+                        _steamMetadataCache.Update(game, currentLanguage);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -228,7 +243,7 @@ namespace GameLauncher.Models
         }
 
 
-        public void LaunchGame(Game game)
+        public void LaunchGame(Game game, bool notifyUI = true)
         {
             try
             {
@@ -252,8 +267,11 @@ namespace GameLauncher.Models
                 }
 
                 Process.Start(psi);
-                
-                _stateService.RaiseGamesUpdated();
+
+                if (notifyUI)
+                {
+                    _stateService.RaiseGamesUpdated();
+                }
             }
             catch (Exception ex)
             {
@@ -376,28 +394,40 @@ namespace GameLauncher.Models
 
         // --- Delegated to GameStateService ---
 
-        public void ToggleFavorite(Game game)
+        public void ToggleFavorite(Game game, bool notifyUI = true)
         {
             _stateService.ToggleFavorite(game);
-            _stateService.RaiseGamesUpdated();
+            if (notifyUI)
+            {
+                _stateService.RaiseGamesUpdated();
+            }
         }
 
-        public void SetManualGameImage(Game game, string imagePath)
+        public void SetManualGameImage(Game game, string imagePath, bool notifyUI = true)
         {
             _imageService.SetManualGameImage(game, imagePath);
-            _stateService.RaiseGamesUpdated();
+            if (notifyUI)
+            {
+                _stateService.RaiseGamesUpdated();
+            }
         }
 
-        public void HideGame(Game game)
+        public void HideGame(Game game, bool notifyUI = true)
         {
             _stateService.HideGame(game);
-            _stateService.RaiseGamesUpdated();
+            if (notifyUI)
+            {
+                _stateService.RaiseGamesUpdated();
+            }
         }
 
-        public void UnhideGame(Game game)
+        public void UnhideGame(Game game, bool notifyUI = true)
         {
             _stateService.UnhideGame(game);
-            _stateService.RaiseGamesUpdated();
+            if (notifyUI)
+            {
+                _stateService.RaiseGamesUpdated();
+            }
         }
 
         public void SetTheme(string themeName) => _stateService.SetTheme(themeName);
@@ -407,6 +437,50 @@ namespace GameLauncher.Models
         public void UpdateLastPlayed(string gameId, DateTime lastPlayed) => _stateService.UpdateLastPlayed(gameId, lastPlayed);
 
         public void UpdatePlaySessions(IEnumerable<PlaySessionUpdate> updates) => _stateService.UpdatePlaySessions(updates);
+
+        public void NotifyGamesUpdated() => _stateService.RaiseGamesUpdated();
+
+        private void ApplyStoredState(IEnumerable<Game> games)
+        {
+            var config = _configService.Config;
+
+            foreach (var game in games)
+            {
+                // Gespeicherte Zustände bleiben die zentrale Quelle der Wahrheit.
+                game.PlayTime = 0;
+                game.LastPlayed = null;
+                game.IsFavorite = false;
+                game.IsHidden = false;
+
+                game.IsHidden = config.HiddenGames.Contains(game.Id);
+                game.IsFavorite = config.Favorites.Contains(game.Id);
+
+                if (config.LastPlayed.TryGetValue(game.Id, out DateTime lastPlayed))
+                {
+                    game.LastPlayed = lastPlayed;
+                }
+
+                if (config.PlayTime.TryGetValue(game.Id, out int playTime))
+                {
+                    game.PlayTime = playTime;
+                }
+
+                if (config.ImageOverrides != null &&
+                    config.ImageOverrides.TryGetValue(game.Id, out var customImage) &&
+                    !string.IsNullOrWhiteSpace(customImage) &&
+                    File.Exists(customImage))
+                {
+                    game.ImageUrl = customImage;
+                }
+
+                if (config.GameTags != null &&
+                    config.GameTags.TryGetValue(game.Id, out var tags) &&
+                    tags != null)
+                {
+                    game.Tags = new List<string>(tags);
+                }
+            }
+        }
 
         #region Tag Management
         
@@ -431,6 +505,7 @@ namespace GameLauncher.Models
 
         public void Dispose()
         {
+            _steamMetadataCache?.Dispose();
             _configService?.Dispose();
         }
     }

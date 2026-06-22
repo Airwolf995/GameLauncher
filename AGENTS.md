@@ -49,12 +49,17 @@ dotnet build .\GameLauncher.csproj -c Release
 - Keine wilden Eingriffe in bestehende UX/Design ohne Absprache.
 - Änderungen an Status/Overlay immer gegen Binding prüfen.
 - Neue Dateien bevorzugt unter `Services/`, `ViewModels/`, `Models/`.
+- Antworten, Kommentare, Logging- und UI-Texte grundsätzlich mit korrekten deutschen Umlauten schreiben, sofern keine technische Einschränkung dagegen spricht.
 - Für Releases bevorzugt den Publish-Workflow nutzen, nicht direkt aus `bin\Release\` paketieren.
-- Pushes nur auf `main`, nicht auf `master`.
+- `main` ist der stabile Ziel-Branch; nicht mit `master` arbeiten.
 
 ## Git-Workflow
 - Änderungen thematisch getrennt committen, nicht blind alle geänderten Dateien in einen Sammel-Commit ziehen.
-- Für neue Arbeiten bevorzugt auf einem Branch arbeiten und per Pull Request nach `main` mergen.
+- Neue Arbeiten zuerst lokal auf einem eigenen Branch beginnen, z. B. `codex/update-fix` oder `feature/xbox-scan`.
+- Mehrere parallele Branches sind in Ordnung, solange jeder Branch nur ein klares Thema oder Ticket behandelt.
+- Branches erst pushen, wenn der Stand sinnvoll testbar oder reviewbar ist; unfertige Experimente können lokal bleiben.
+- Vor dem Wechsel zwischen Branches möglichst committen oder staschen, damit keine ungeplanten lokalen Mischstände entstehen.
+- Gepushte Arbeits-Branches per Pull Request nach `main` mergen, statt neue Arbeit direkt auf `main` zu starten.
 - Doku-, Installer-/Build- und Feature-/Bugfix-Änderungen nach Möglichkeit in getrennten Commits oder Branches halten.
 - Vor dem Push immer kurz `git status` prüfen und nur die bewusst gemeinten Dateien committen.
 - Nur lokal geführte Hilfs- oder Archivdateien nicht committen, z. B. eine private lokal ausgeblendete `CHANGELOG.md`.

@@ -15,6 +15,35 @@ namespace GameLauncher.Services.Scanners
     {
         public string PlatformName => "Ubisoft Connect";
 
+        public static List<string> GetAutoDetectedPaths()
+        {
+            var paths = new List<string>();
+            try
+            {
+                using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs");
+                if (key == null)
+                {
+                    return paths;
+                }
+
+                foreach (string subKeyName in key.GetSubKeyNames())
+                {
+                    using var gameKey = key.OpenSubKey(subKeyName);
+                    string? installDirectory = gameKey?.GetValue("InstallDir") as string;
+                    if (!string.IsNullOrWhiteSpace(installDirectory))
+                    {
+                        ScannerPathUtility.AddExistingDirectory(paths, installDirectory);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Ubisoft path detection failed", ex);
+            }
+
+            return ScannerPathUtility.GetLibraryDirectories(paths);
+        }
+
         public Task<List<Game>> ScanAsync(CancellationToken ct = default)
         {
             return Task.Run(() => Scan(ct), ct);
@@ -53,7 +82,9 @@ namespace GameLauncher.Services.Scanners
                                 string gameName = new DirectoryInfo(installDir).Name;
                                 if (string.IsNullOrEmpty(gameName)) continue;
 
-                                string exePath = FindPrimaryExe(installDir, gameName);
+                                string exePath = ExecutableSelector.FindPrimaryExecutable(
+                                    installDir,
+                                    "unins", "crash", "redist");
                                 string iconUrl = "";
 
                                 if (!string.IsNullOrEmpty(exePath))
@@ -92,26 +123,5 @@ namespace GameLauncher.Services.Scanners
             return games;
         }
 
-        private string FindPrimaryExe(string installDir, string gameName)
-        {
-            // Einfache Heuristik: Suche nach einer .exe im Hauptverzeichnis, die ähnlich heißt wie das Spiel
-            try
-            {
-                var exeFiles = Directory.GetFiles(installDir, "*.exe", SearchOption.TopDirectoryOnly);
-                
-                // Bevorzuge Dateien, die keine typischen Redist/Uninstaller sind
-                foreach (var file in exeFiles)
-                {
-                    string fileName = Path.GetFileNameWithoutExtension(file).ToLower();
-                    if (fileName.Contains("unins") || fileName.Contains("crash") || fileName.Contains("redist"))
-                        continue;
-
-                    return file; // Nimm die erste plausible Exe (gut genug fürs Icon)
-                }
-            }
-            catch { }
-
-            return string.Empty;
-        }
     }
 }

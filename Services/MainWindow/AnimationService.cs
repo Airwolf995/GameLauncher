@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using GameLauncher.Controls;
+using GameLauncher.Core;
 
 namespace GameLauncher.Services.MainWindow
 {
@@ -170,7 +171,7 @@ namespace GameLauncher.Services.MainWindow
 
         private static (int firstIndex, int lastIndexExclusive) GetGeneratedIndexRange(ListBox listBox, int count)
         {
-            if (FindVisualChild<VirtualizingWrapPanel>(listBox) is VirtualizingWrapPanel virtualizingWrapPanel)
+            if (listBox.FindDescendant<VirtualizingWrapPanel>() is VirtualizingWrapPanel virtualizingWrapPanel)
             {
                 var realizedRange = virtualizingWrapPanel.GetRealizedIndexRange();
                 if (realizedRange.lastIndexExclusive > realizedRange.firstIndex)
@@ -180,26 +181,6 @@ namespace GameLauncher.Services.MainWindow
             }
 
             return (0, Math.Min(count, listBox.Items.Count));
-        }
-
-        private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
-        {
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
-            {
-                var child = VisualTreeHelper.GetChild(parent, i);
-                if (child is T typedChild)
-                {
-                    return typedChild;
-                }
-
-                var nested = FindVisualChild<T>(child);
-                if (nested != null)
-                {
-                    return nested;
-                }
-            }
-
-            return null;
         }
 
         /// <summary>

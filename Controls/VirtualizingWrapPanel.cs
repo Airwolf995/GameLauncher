@@ -1,8 +1,10 @@
 using System;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using GameLauncher.Models;
 
 namespace GameLauncher.Controls
 {
@@ -28,7 +30,6 @@ namespace GameLauncher.Controls
         private Size _extent = Size.Empty;
         private Size _viewport = Size.Empty;
         private Point _offset;
-
         public double ItemWidth
         {
             get => (double)GetValue(ItemWidthProperty);
@@ -65,6 +66,7 @@ namespace GameLauncher.Controls
 
         protected override Size MeasureOverride(Size availableSize)
         {
+            var measureWatch = Stopwatch.StartNew();
             var itemsControl = ItemsControl.GetItemsOwner(this);
             int itemCount = itemsControl?.Items.Count ?? 0;
 
@@ -80,10 +82,21 @@ namespace GameLauncher.Controls
             int itemsPerRow = CalculateItemsPerRow(viewportWidth);
             int rowCount = (int)Math.Ceiling(itemCount / (double)itemsPerRow);
 
-            _viewport = new Size(viewportWidth, viewportHeight);
-            _extent = new Size(viewportWidth, rowCount * ItemHeight);
+            Size newViewport = new(viewportWidth, viewportHeight);
+            Size newExtent = new(viewportWidth, rowCount * ItemHeight);
+            bool scrollInfoChanged =
+                Math.Abs(_viewport.Width - newViewport.Width) > 0.1 ||
+                Math.Abs(_viewport.Height - newViewport.Height) > 0.1 ||
+                Math.Abs(_extent.Width - newExtent.Width) > 0.1 ||
+                Math.Abs(_extent.Height - newExtent.Height) > 0.1;
+
+            _viewport = newViewport;
+            _extent = newExtent;
             CoerceVerticalOffset();
-            ScrollOwner?.InvalidateScrollInfo();
+            if (scrollInfoChanged)
+            {
+                ScrollOwner?.InvalidateScrollInfo();
+            }
 
             var indexRange = GetVisibleIndexRange(itemCount, itemsPerRow);
             RealizeItems(indexRange.firstIndex, indexRange.lastIndex);
@@ -93,11 +106,19 @@ namespace GameLauncher.Controls
                 child.Measure(new Size(ItemWidth, ItemHeight));
             }
 
+            measureWatch.Stop();
+            if (measureWatch.ElapsedMilliseconds >= 12)
+            {
+                Logger.Log(
+                    $"VirtualizingWrapPanel.Measure langsam: {measureWatch.ElapsedMilliseconds} ms, Einträge={itemCount}, realisiert={InternalChildren.Count}, Bereich={indexRange.firstIndex}-{indexRange.lastIndex}, Offset={VerticalOffset:0.##}.");
+            }
+
             return availableSize;
         }
 
         protected override Size ArrangeOverride(Size finalSize)
         {
+            var arrangeWatch = Stopwatch.StartNew();
             var itemsControl = ItemsControl.GetItemsOwner(this);
             int itemCount = itemsControl?.Items.Count ?? 0;
             if (itemCount == 0 || ItemWidth <= 0 || ItemHeight <= 0)
@@ -128,6 +149,13 @@ namespace GameLauncher.Controls
                 child.Arrange(rect);
             }
 
+            arrangeWatch.Stop();
+            if (arrangeWatch.ElapsedMilliseconds >= 12)
+            {
+                Logger.Log(
+                    $"VirtualizingWrapPanel.Arrange langsam: {arrangeWatch.ElapsedMilliseconds} ms, Einträge={itemCount}, realisiert={InternalChildren.Count}, Offset={VerticalOffset:0.##}.");
+            }
+
             return finalSize;
         }
 
@@ -144,8 +172,9 @@ namespace GameLauncher.Controls
 
             switch (args.Action)
             {
+                case System.Collections.Specialized.NotifyCollectionChangedAction.Reset:
                 case System.Collections.Specialized.NotifyCollectionChangedAction.Remove:
-                    // Beim Entfernen kann WPF kurzfristig veraltete realisierte Container behalten.
+                    // Bei Filter-/Reset-Operationen und Entfernen kann WPF kurzfristig veraltete realisierte Container behalten.
                     ClearRealizedChildren();
                     break;
             }
@@ -164,7 +193,22 @@ namespace GameLauncher.Controls
 
             int itemsPerRow = CalculateItemsPerRow(_viewport.Width > 0 ? _viewport.Width : RenderSize.Width);
             int targetRow = index / itemsPerRow;
-            double targetOffset = targetRow * ItemHeight;
+            double itemTop = targetRow * ItemHeight;
+            double itemBottom = itemTop + ItemHeight;
+            double viewportTop = VerticalOffset;
+            double viewportBottom = viewportTop + ViewportHeight;
+
+            double targetOffset = viewportTop;
+
+            if (itemTop < viewportTop)
+            {
+                targetOffset = itemTop;
+            }
+            else if (itemBottom > viewportBottom)
+            {
+                targetOffset = itemBottom - ViewportHeight;
+            }
+
             SetVerticalOffset(targetOffset);
             UpdateLayout();
         }
@@ -204,8 +248,17 @@ namespace GameLauncher.Controls
                 return;
             }
 
+            double previousOffset = _offset.Y;
             _offset.Y = newOffset;
             ScrollOwner?.InvalidateScrollInfo();
+
+            if (ItemHeight > 0 &&
+                (int)Math.Floor(previousOffset / ItemHeight) == (int)Math.Floor(newOffset / ItemHeight))
+            {
+                InvalidateArrange();
+                return;
+            }
+
             InvalidateMeasure();
         }
 
@@ -300,13 +353,14 @@ namespace GameLauncher.Controls
         private (int firstIndex, int lastIndex) GetVisibleIndexRange(int itemCount, int itemsPerRow)
         {
             int firstVisibleRow = Math.Max(0, (int)Math.Floor(VerticalOffset / ItemHeight));
-            int visibleRowCount = Math.Max(1, (int)Math.Ceiling(ViewportHeight / ItemHeight) + 1);
-            int cacheRows = 2;
+            int visibleRowCount = Math.Max(1, (int)Math.Ceiling(ViewportHeight / ItemHeight));
+            int cacheRows = 0;
+            int lastVisibleRow = firstVisibleRow + visibleRowCount - 1;
 
             int firstRow = Math.Max(0, firstVisibleRow - cacheRows);
             int lastRow = Math.Min(
                 (int)Math.Ceiling(itemCount / (double)itemsPerRow) - 1,
-                firstVisibleRow + visibleRowCount + cacheRows);
+                lastVisibleRow + cacheRows);
 
             int firstIndex = firstRow * itemsPerRow;
             int lastIndex = Math.Min(itemCount - 1, ((lastRow + 1) * itemsPerRow) - 1);
@@ -384,7 +438,7 @@ namespace GameLauncher.Controls
             {
                 if (!TryGetItemIndexFromChildIndex(childIndex, out int itemIndex))
                 {
-                    // Nach einer Collection-Aenderung kann der Generator kurzfristig keine gueltige Zuordnung mehr liefern.
+                    // Nach einer Collection-Änderung kann der Generator kurzfristig keine gültige Zuordnung mehr liefern.
                     RemoveInternalChildRange(childIndex, 1);
                     continue;
                 }
