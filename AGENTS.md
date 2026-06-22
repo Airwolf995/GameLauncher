@@ -58,6 +58,8 @@ dotnet build .\GameLauncher.csproj -c Release
 - Neue Arbeiten zuerst lokal auf einem eigenen Branch beginnen, z. B. `codex/update-fix` oder `feature/xbox-scan`.
 - Mehrere parallele Branches sind in Ordnung, solange jeder Branch nur ein klares Thema oder Ticket behandelt.
 - Branches erst pushen, wenn der Stand sinnvoll testbar oder reviewbar ist; unfertige Experimente können lokal bleiben.
+- Der normale Ablauf ist: auf einem Feature- oder Fix-Branch arbeiten, diesen Branch auf Remote pushen und anschließend einen Pull Request nach `main` erstellen.
+- Änderungen nicht direkt auf `main` pushen, solange es nicht ausdrücklich so gewünscht ist. `main` bleibt der stabile Integrations-Branch.
 - Vor dem Wechsel zwischen Branches möglichst committen oder staschen, damit keine ungeplanten lokalen Mischstände entstehen.
 - Gepushte Arbeits-Branches per Pull Request nach `main` mergen, statt neue Arbeit direkt auf `main` zu starten.
 - Doku-, Installer-/Build- und Feature-/Bugfix-Änderungen nach Möglichkeit in getrennten Commits oder Branches halten.
