@@ -73,9 +73,9 @@ namespace GameLauncher.Services
         /// <summary>
         /// Updates play time and last played for a single game.
         /// </summary>
-        public void UpdatePlayTime(string gameId, int totalPlayTimeSeconds)
+        public void UpdatePlayTime(string gameId, int totalPlayTimeSeconds, string gameName = "")
         {
-            Config.PlayTime[gameId] = totalPlayTimeSeconds;
+            Config.PlayTime[gameId] = CreatePlayTimeEntry(gameName, totalPlayTimeSeconds, gameId);
         }
 
         /// <summary>
@@ -93,10 +93,25 @@ namespace GameLauncher.Services
         {
             foreach (var update in updates)
             {
-                Config.PlayTime[update.GameId] = update.PlayTimeSeconds;
+                Config.PlayTime[update.GameId] = CreatePlayTimeEntry(update.GameName, update.PlayTimeSeconds, update.GameId);
                 Config.LastPlayed[update.GameId] = update.LastPlayed;
             }
             _configService.SaveConfig();
+        }
+
+        private PlayTimeEntry CreatePlayTimeEntry(string? gameName, int totalPlayTimeSeconds, string gameId)
+        {
+            var existingName = Config.PlayTime.TryGetValue(gameId, out var existingEntry)
+                ? existingEntry?.Name
+                : null;
+
+            return new PlayTimeEntry
+            {
+                Name = string.IsNullOrWhiteSpace(gameName)
+                    ? (string.IsNullOrWhiteSpace(existingName) ? gameId : existingName)
+                    : gameName,
+                Seconds = totalPlayTimeSeconds
+            };
         }
 
         /// <summary>

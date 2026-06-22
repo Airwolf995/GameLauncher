@@ -206,7 +206,7 @@ namespace GameLauncher.Services
                     game.LastPlayed = now;
                     PlayTimeUpdated?.Invoke(this, game);
                     updatedGameNames.Add(game.Name);
-                    sessionUpdates.Add(new PlaySessionUpdate(gameId, game.PlayTime, now));
+                    sessionUpdates.Add(new PlaySessionUpdate(gameId, game.Name, game.PlayTime, now));
                 }
 
                 if (sessionUpdates.Count > 0)
