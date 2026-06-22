@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -13,7 +11,7 @@ using GameLauncher.Core;
 using GameLauncher.Models;
 using GameLauncher.Services;
 using GameLauncher.Services.Localization;
-using Microsoft.Win32;
+using GameLauncher.Services.Settings;
 
 namespace GameLauncher.ViewModels
 {
@@ -23,6 +21,10 @@ namespace GameLauncher.ViewModels
         private readonly LocalizationService _localization;
         private readonly Action<string> _onThemeChanged;
         private readonly Action<UISettings> _onSettingsChanged;
+        private readonly IAutostartService _autostartService;
+        private readonly ISettingsDialogService _dialogService;
+        private readonly ISettingsUpdateService _updateService;
+        private readonly IPlatformStatusService _platformStatusService;
         private bool _isInitialLoading = true;
         public IEnumerable<Models.CardSize> CardSizeOptions => Enum.GetValues(typeof(Models.CardSize)).Cast<Models.CardSize>();
         public IEnumerable<Models.ViewMode> ViewModeOptions => Enum.GetValues(typeof(Models.ViewMode)).Cast<Models.ViewMode>();
@@ -49,16 +51,41 @@ namespace GameLauncher.ViewModels
         private string _epicPathsText = "";
         private string _xboxPathsText = "";
         private string _gogPathsText = "";
+        private string _ubisoftPathsText = "";
+        private string _eaPathsText = "";
         private string _versionText = "";
         private string _backgroundImage = "";
         private string _selectedLanguageCode = "en";
 
         public SettingsViewModel(GameManager gameManager, Action<string> onThemeChanged, Action<UISettings> onSettingsChanged)
+            : this(
+                gameManager,
+                onThemeChanged,
+                onSettingsChanged,
+                new AutostartService(),
+                new SettingsDialogService(LocalizationService.Instance),
+                new SettingsUpdateService(LocalizationService.Instance),
+                new PlatformStatusService())
+        {
+        }
+
+        internal SettingsViewModel(
+            GameManager gameManager,
+            Action<string> onThemeChanged,
+            Action<UISettings> onSettingsChanged,
+            IAutostartService autostartService,
+            ISettingsDialogService dialogService,
+            ISettingsUpdateService updateService,
+            IPlatformStatusService platformStatusService)
         {
             _gameManager = gameManager ?? throw new ArgumentNullException(nameof(gameManager));
             _localization = LocalizationService.Instance;
             _onThemeChanged = onThemeChanged;
             _onSettingsChanged = onSettingsChanged;
+            _autostartService = autostartService;
+            _dialogService = dialogService;
+            _updateService = updateService;
+            _platformStatusService = platformStatusService;
 
             // Initialize Commands
             CloseCommand = new RelayCommand(CloseWindow);
@@ -368,6 +395,18 @@ namespace GameLauncher.ViewModels
             set => SetProperty(ref _gogPathsText, value);
         }
 
+        public string UbisoftPathsText
+        {
+            get => _ubisoftPathsText;
+            set => SetProperty(ref _ubisoftPathsText, value);
+        }
+
+        public string EaPathsText
+        {
+            get => _eaPathsText;
+            set => SetProperty(ref _eaPathsText, value);
+        }
+
         public string VersionText
         {
             get => _versionText;
@@ -390,7 +429,7 @@ namespace GameLauncher.ViewModels
             _viewMode = ui.ViewMode;
             _animationsEnabled = ui.AnimationsEnabled;
             // Autostart Checked Real Status
-            _autostartEnabled = CheckAutostartRegistry(ui.AutostartEnabled);
+            _autostartEnabled = _autostartService.IsEnabled(ui.AutostartEnabled);
             _minimizeToTray = ui.MinimizeToTray;
             _minimizeOnGameStart = ui.MinimizeOnGameStart;
             _closeOnGameStart = ui.CloseOnGameStart;
@@ -412,7 +451,7 @@ namespace GameLauncher.ViewModels
             EpicPathsText = FormatPathLines(config.EpicLibraryPaths);
             XboxPathsText = FormatPathLines(config.XboxLibraryPaths);
 
-            LoadGogStatus();
+            LoadAutomaticPlatformPaths();
             UpdateLocalizedTexts();
 
             var version = Assembly.GetExecutingAssembly().GetName().Version;
@@ -512,117 +551,19 @@ namespace GameLauncher.ViewModels
                 FirstStart = settings.FirstStart
             };
 
-        private bool CheckAutostartRegistry(bool configSetting)
+        private void LoadAutomaticPlatformPaths()
         {
-            try
-            {
-                bool isActuallyEnabled = false;
-                using (RegistryKey? runKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false))
-                {
-                    if (runKey?.GetValue("GameLauncher") != null)
-                    {
-                        isActuallyEnabled = true;
-                         using (RegistryKey? approvedKey = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run", false))
-                         {
-                             if (approvedKey != null)
-                             {
-                                 byte[]? approvedValue = approvedKey.GetValue("GameLauncher") as byte[];
-                                 if (approvedValue != null && approvedValue.Length > 0)
-                                 {
-                                     isActuallyEnabled = (approvedValue[0] == 0x02);
-                                }
-                            }
-                        }
-                    }
-                }
-                return isActuallyEnabled;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Failed to check Autostart registry", ex);
-                return configSetting;
-            }
-        }
-
-        private void UpdateAutostartRegistry(bool enabled)
-        {
-             try
-            {
-                using (RegistryKey? key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true))
-                {
-                    if (key != null)
-                    {
-                        string? appPath = Process.GetCurrentProcess().MainModule?.FileName;
-                        if (string.IsNullOrWhiteSpace(appPath))
-                        {
-                            return;
-                        }
-
-                        if (enabled)
-                        {
-                            key.SetValue("GameLauncher", $"\"{appPath}\"");
-                        }
-                        else
-                        {
-                            key.DeleteValue("GameLauncher", false);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Failed to update Autostart registry", ex);
-            }
-        }
-
-        private void LoadGogStatus()
-        {
-            try
-            {
-                using (RegistryKey? key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\GOG.com\Games"))
-                {
-                    if (key != null)
-                    {
-                        int count = 0;
-                        foreach (var subKeyName in key.GetSubKeyNames())
-                        {
-                            using (RegistryKey? gameKey = key.OpenSubKey(subKeyName))
-                            {
-                                if (gameKey != null)
-                                {
-                                    string? exe = gameKey.GetValue("exe") as string;
-                                    if (!string.IsNullOrEmpty(exe) && File.Exists(Environment.ExpandEnvironmentVariables(exe)))
-                                    {
-                                        count++;
-                                    }
-                                }
-                            }
-                        }
-                        GogPathsText = _localization.Format("Settings.GogDetected", count);
-                    }
-                    else
-                    {
-                        GogPathsText = _localization.Get("Settings.GogRegistryMissing");
-                    }
-                }
-            }
-            catch 
-            {
-                 GogPathsText = _localization.Get("Settings.GogRegistryError"); 
-            }
+            GogPathsText = FormatPathLines(_platformStatusService.GetGogLibraryPaths());
+            UbisoftPathsText = FormatPathLines(_platformStatusService.GetUbisoftLibraryPaths());
+            EaPathsText = FormatPathLines(_platformStatusService.GetEaLibraryPaths());
         }
 
         private void SelectBackground()
         {
-            var dialog = new OpenFileDialog
+            string? selectedPath = _dialogService.SelectBackgroundImage();
+            if (!string.IsNullOrWhiteSpace(selectedPath))
             {
-                Filter = _localization.Get("Settings.BackgroundDialogFilter"),
-                Title = _localization.Get("Settings.BackgroundDialogTitle")
-            };
-
-            if (dialog.ShowDialog() == true)
-            {
-                _backgroundImage = dialog.FileName;
+                _backgroundImage = selectedPath;
                 PreviewUiSettings();
             }
         }
@@ -635,36 +576,11 @@ namespace GameLauncher.ViewModels
 
         private async Task CheckUpdatesAsync()
         {
-             try
+            try
             {
                 IsCheckingUpdates = true;
                 UpdateButtonText = _localization.Get("Settings.Checking");
-
-                var updateService = new UpdateService("Airwolf995/GameLauncher");
-                var updateInfo = await updateService.CheckForUpdatesAsync();
-
-                if (updateInfo != null)
-                {
-                    var updateWindow = new UpdateWindow(updateService, updateInfo);
-                    updateWindow.ShowDialog();
-                }
-                else
-                {
-                    ModernMessageWindow.Show(
-                        _localization.Get("Settings.NoUpdatesBody"),
-                        _localization.Get("Settings.NoUpdatesTitle"),
-                        ModernMessageWindow.ModernMessageButton.OK,
-                        GetActiveWindow());
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Manual update check failed", ex);
-                ModernMessageWindow.Show(
-                    _localization.Get("Settings.UpdateErrorBody"),
-                    _localization.Get("Common.Error"),
-                    ModernMessageWindow.ModernMessageButton.OK,
-                    GetActiveWindow());
+                await _updateService.CheckForUpdatesAsync();
             }
             finally
             {
@@ -714,13 +630,12 @@ namespace GameLauncher.ViewModels
             config.EpicLibraryPaths = ParsePathLines(EpicPathsText);
             config.XboxLibraryPaths = ParsePathLines(XboxPathsText);
 
-            UpdateAutostartRegistry(AutostartEnabled);
+            _autostartService.SetEnabled(AutostartEnabled);
         }
 
         private void ResetToDefaults()
         {
-            if (MessageBox.Show(_localization.Get("Settings.ResetConfirmBody"), 
-                _localization.Get("Settings.ResetConfirmTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            if (_dialogService.ConfirmReset())
             {
                 SelectedTheme = "Blue";
                 SelectedLanguageCode = "en";
@@ -795,10 +710,6 @@ namespace GameLauncher.ViewModels
             return keys;
         }
 
-        private static Window? GetActiveWindow() =>
-            Application.Current?.Windows.OfType<Window>().FirstOrDefault(window => window.IsActive)
-            ?? Application.Current?.MainWindow;
-
         public void Dispose()
         {
             _localization.LanguageChanged -= OnLanguageChanged;
@@ -813,7 +724,7 @@ namespace GameLauncher.ViewModels
 
         private void OnLanguageChanged(object? sender, EventArgs e)
         {
-            LoadGogStatus();
+            LoadAutomaticPlatformPaths();
             UpdateLocalizedTexts();
         }
     }

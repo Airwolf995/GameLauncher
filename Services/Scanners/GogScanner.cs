@@ -14,6 +14,40 @@ namespace GameLauncher.Services.Scanners
     {
         public string PlatformName => "GOG";
 
+        public static List<string> GetAutoDetectedPaths()
+        {
+            var paths = new List<string>();
+            try
+            {
+                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\GOG.com\Games");
+                if (key == null)
+                {
+                    return paths;
+                }
+
+                foreach (string subKeyName in key.GetSubKeyNames())
+                {
+                    using var gameKey = key.OpenSubKey(subKeyName);
+                    string? workingDirectory = gameKey?.GetValue("workingDir") as string;
+                    string? executable = gameKey?.GetValue("exe") as string;
+                    string? installDirectory = !string.IsNullOrWhiteSpace(workingDirectory)
+                        ? Environment.ExpandEnvironmentVariables(workingDirectory)
+                        : Path.GetDirectoryName(Environment.ExpandEnvironmentVariables(executable ?? string.Empty));
+
+                    if (!string.IsNullOrWhiteSpace(installDirectory))
+                    {
+                        ScannerPathUtility.AddExistingDirectory(paths, installDirectory);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("GOG path detection failed", ex);
+            }
+
+            return ScannerPathUtility.GetLibraryDirectories(paths);
+        }
+
         public Task<List<Game>> ScanAsync(CancellationToken ct = default)
         {
             return Task.Run(() => Scan(ct), ct);

@@ -168,6 +168,8 @@
         <!-- REMOVED local AccentColor to use Global Resource -->
         
         <!-- Dynamic Card Size Resources -->
+        <system:Double x:Key="GameCardWidth">420</system:Double>
+        <system:Double x:Key="GameCardHeight">114</system:Double>
         <system:Double x:Key="GameImageWidth">110</system:Double>
         <system:Double x:Key="GameImageHeight">52</system:Double>
         <system:Double x:Key="GameTitleFontSize">16</system:Double>
@@ -178,6 +180,205 @@
         
         <!-- Animation Control -->
         <system:Boolean x:Key="AnimationsEnabled">True</system:Boolean>
+
+        <Style x:Key="GameListItemContainerStyle" TargetType="ListBoxItem">
+            <Setter Property="ClipToBounds" Value="False"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Margin" Value="{DynamicResource CardMargin}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Container" Background="Transparent" CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" Padding="{TemplateBinding Padding}" RenderTransformOrigin="0.5,0.5" Opacity="1">
+                            <Border.RenderTransform>
+                                <TranslateTransform X="0" Y="0"/>
+                            </Border.RenderTransform>
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Container" Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
+                                <Setter TargetName="Container" Property="Background" Value="#1AFFFFFF"/>
+                                <Setter TargetName="Container" Property="BorderThickness" Value="2"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Panel.ZIndex" Value="100"/>
+                                <Setter TargetName="Container" Property="Background" Value="{DynamicResource HoverBackgroundBrush}"/>
+                            </Trigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True"/>
+                                    <Condition Binding="{Binding AreAnimationsEnabled, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                                </MultiDataTrigger.Conditions>
+                                <MultiDataTrigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Container" Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)" To="8" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </MultiDataTrigger.EnterActions>
+                                <MultiDataTrigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Container" Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)" To="0" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </MultiDataTrigger.ExitActions>
+                            </MultiDataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <EventSetter Event="MouseLeftButtonUp" Handler="GameCard_Click"/>
+        </Style>
+
+        <Style x:Key="GameRowItemContainerStyle" TargetType="ListBoxItem">
+            <Setter Property="ClipToBounds" Value="False"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="28,0,10,0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Container" Background="Transparent" Opacity="1">
+                            <Border.RenderTransform>
+                                <TranslateTransform X="0" Y="0"/>
+                            </Border.RenderTransform>
+                            <ContentPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <DataTemplate x:Key="GameCardTemplate">
+            <Border Width="{DynamicResource GameCardWidth}"
+                    Height="{DynamicResource GameCardHeight}"
+                    Margin="{DynamicResource CardMargin}"
+                    Background="#2D2D30"
+                    CornerRadius="8"
+                    BorderBrush="#3E3E42"
+                    BorderThickness="1"
+                    Padding="{DynamicResource CardPadding}"
+                    RenderTransformOrigin="0.5,0.5"
+                    MouseLeftButtonUp="GameTile_Click">
+                <Border.RenderTransform>
+                    <TranslateTransform X="0" Y="0"/>
+                </Border.RenderTransform>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Panel.ZIndex" Value="0"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#3A3A40"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
+                                <Setter Property="Panel.ZIndex" Value="100"/>
+                            </Trigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True"/>
+                                    <Condition Binding="{Binding AreAnimationsEnabled, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                                </MultiDataTrigger.Conditions>
+                                <MultiDataTrigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)" To="8" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </MultiDataTrigger.EnterActions>
+                                <MultiDataTrigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)" To="0" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </MultiDataTrigger.ExitActions>
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Width="{DynamicResource GameImageWidth}"
+                            Height="{DynamicResource GameImageHeight}"
+                            CornerRadius="5"
+                            ClipToBounds="True"
+                            Background="#1A1A1C"
+                            UseLayoutRounding="True"
+                            SnapsToDevicePixels="True">
+                        <Image Stretch="UniformToFill"
+                               Opacity="1"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               RenderOptions.BitmapScalingMode="LowQuality"
+                               Source="{Binding ImageUrl, Converter={StaticResource BitmapCacheConverter}}"/>
+                    </Border>
+
+                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}"
+                                   FontWeight="Bold"
+                                   FontSize="{DynamicResource GameTitleFontSize}"
+                                   Foreground="White"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Foreground="#AAAAAA"
+                                   FontSize="{DynamicResource GamePlatformFontSize}"
+                                   Margin="0,3,0,0">
+                            <Run Text="{Binding Platform}"/>
+                            <Run Text=" • "/>
+                            <Run Text="{Binding DisplayPlayTime, Mode=OneWay}"/>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="10,0,0,0">
+                        <TextBlock Text="⭐"
+                                   FontSize="20"
+                                   Foreground="#FFD700"
+                                   Visibility="{Binding IsFavorite, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    </StackPanel>
+                </Grid>
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="{loc:Loc Key=Main.Context.Play}" Click="Play_Click"/>
+                        <MenuItem Header="{loc:Loc Key=Main.Context.ChangeImage}" Click="ChangeImage_Click"/>
+                        <Separator/>
+                        <MenuItem Header="{loc:Loc Key=Main.Context.ToggleFavorite}" Click="Favorite_Click"/>
+                        <MenuItem Click="Hide_Click">
+                            <MenuItem.Style>
+                                <Style TargetType="MenuItem">
+                                    <Setter Property="Header" Value="{Binding Source={x:Static loc:LocalizationService.Instance}, Path=[Main.Context.Hide]}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsHidden}" Value="True">
+                                            <Setter Property="Header" Value="{Binding Source={x:Static loc:LocalizationService.Instance}, Path=[Main.Context.Unhide]}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </MenuItem.Style>
+                        </MenuItem>
+                        <MenuItem Header="{loc:Loc Key=Main.Context.Delete}" Click="Delete_Click" IsEnabled="{Binding IsManual}"/>
+                    </ContextMenu>
+                </Border.ContextMenu>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="GameCardRowTemplate">
+            <ItemsControl ItemsSource="{Binding Games}"
+                          ItemTemplate="{StaticResource GameCardTemplate}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -189,6 +390,9 @@
         
         <!-- Background Image -->
         <Image x:Name="BackgroundImage" Grid.RowSpan="3" Stretch="UniformToFill" Opacity="0.15" Panel.ZIndex="-1">
+            <Image.CacheMode>
+                <BitmapCache/>
+            </Image.CacheMode>
             <Image.Effect>
                 <BlurEffect Radius="20"/>
             </Image.Effect>
@@ -214,6 +418,7 @@
                     <TextBox x:Name="SearchBox" 
                              Style="{StaticResource ModernTextBox}"
                              Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             TextChanged="LibraryViewStateChanged"
                              Tag="{loc:Loc Key=Main.SearchPlaceholder}"/>
                     <Button x:Name="ClearSearchButton" 
                             Content="✕" 
@@ -261,6 +466,7 @@
                                   SelectedValuePath="Key"
                                   DisplayMemberPath="Value"
                                   DropDownOpened="ComboBox_DropDownOpened"
+                                  SelectionChanged="LibraryViewStateChanged"
                                   SelectedValue="{Binding SelectedSort}" 
                                   FontSize="13" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -271,6 +477,7 @@
                         <ComboBox x:Name="FilterBox" Width="150" Padding="8,6" 
                                   ItemsSource="{Binding FilterOptions}"
                                   DropDownOpened="ComboBox_DropDownOpened"
+                                  SelectionChanged="LibraryViewStateChanged"
                                   SelectedValuePath="Key"
                                   DisplayMemberPath="DisplayName"
                                   SelectedValue="{Binding SelectedFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
@@ -337,12 +544,16 @@
         <!-- Main Content (ListBox for Navigation) -->
         <ListBox x:Name="GameListControl" Grid.Row="1" Margin="0,10,0,10" Background="Transparent" BorderThickness="0" ClipToBounds="False"
                  ItemsSource="{Binding GamesView}"
+                 ItemTemplate="{StaticResource GameCardRowTemplate}"
+                 ItemContainerStyle="{StaticResource GameRowItemContainerStyle}"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
                  ScrollViewer.CanContentScroll="True"
                  VirtualizingPanel.IsVirtualizing="True"
                  VirtualizingPanel.VirtualizationMode="Recycling"
+                 VirtualizingPanel.ScrollUnit="Pixel"
                  VirtualizingPanel.CacheLengthUnit="Item"
-                 VirtualizingPanel.CacheLength="10,10">
+                 VirtualizingPanel.CacheLength="10,10"
+                 SizeChanged="GameListControl_SizeChanged">
             
             <ListBox.Resources>
                 <!-- Complete ScrollBar template for better visibility -->
@@ -389,180 +600,9 @@
             
             <ListBox.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <controls:VirtualizingWrapPanel x:Name="GameWrapPanel"
-                                                    ItemWidth="{DynamicResource GameCardWidth}"
-                                                    ItemHeight="{DynamicResource GameCardHeight}"
-                                                    ClipToBounds="False"
-                                                    Margin="40,0,10,0"/>
+                    <VirtualizingStackPanel/>
                 </ItemsPanelTemplate>
             </ListBox.ItemsPanel>
-
-            <ListBox.ItemContainerStyle>
-                <Style TargetType="ListBoxItem">
-                    <Setter Property="ClipToBounds" Value="False"/>
-                    <Setter Property="Padding" Value="5"/>
-                    <Setter Property="Margin" Value="{DynamicResource CardMargin}"/>
-                    <Setter Property="Background" Value="Transparent"/>
-                    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="ListBoxItem">
-                                <Border x:Name="Container" Background="Transparent" CornerRadius="8" BorderThickness="2" BorderBrush="Transparent" Padding="{TemplateBinding Padding}" RenderTransformOrigin="0.5,0.5" Opacity="0">
-                                    <Border.RenderTransform>
-                                        <TranslateTransform X="0" Y="20"/>
-                                    </Border.RenderTransform>
-                                    <ContentPresenter/>
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <!-- Global visibility switch for filters/scrolling -->
-                                    <DataTrigger Binding="{Binding IsStartupActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                        <Setter TargetName="Container" Property="Opacity" Value="1"/>
-                                        <DataTrigger.EnterActions>
-                                            <BeginStoryboard>
-                                                <Storyboard>
-                                                    <DoubleAnimation Storyboard.TargetName="Container" Storyboard.TargetProperty="RenderTransform.(TranslateTransform.Y)" To="0" Duration="0:0:0"/>
-                                                </Storyboard>
-                                            </BeginStoryboard>
-                                        </DataTrigger.EnterActions>
-                                    </DataTrigger>
-
-                                    <!-- Selected (Always Blue) -->
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter TargetName="Container" Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
-                                        <Setter TargetName="Container" Property="Background" Value="#1AFFFFFF"/>
-                                        <Setter TargetName="Container" Property="BorderThickness" Value="2"/>
-                                    </Trigger>
-                                    
-                                    
-                                    <!-- Mouse Over (Hover) -->
-                                    <!-- Mouse Over (Static Visuals) -->
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Panel.ZIndex" Value="100"/>
-                                        <Setter TargetName="Container" Property="Background" Value="{DynamicResource HoverBackgroundBrush}"/>
-                                    </Trigger>
-
-                                    <!-- Mouse Over (Animations Enabled Only) -->
-                                    <MultiDataTrigger>
-                                        <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True"/>
-                                            <Condition Binding="{Binding AreAnimationsEnabled, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
-                                        </MultiDataTrigger.Conditions>
-                                        <MultiDataTrigger.EnterActions>
-                                            <BeginStoryboard>
-                                                <Storyboard>
-                                                    <DoubleAnimation Storyboard.TargetName="Container" Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)" To="8" Duration="0:0:0.2"/>
-                                                </Storyboard>
-                                            </BeginStoryboard>
-                                        </MultiDataTrigger.EnterActions>
-                                        <MultiDataTrigger.ExitActions>
-                                            <BeginStoryboard>
-                                                <Storyboard>
-                                                    <DoubleAnimation Storyboard.TargetName="Container" Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)" To="0" Duration="0:0:0.2"/>
-                                                </Storyboard>
-                                            </BeginStoryboard>
-                                        </MultiDataTrigger.ExitActions>
-                                    </MultiDataTrigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                    <EventSetter Event="MouseLeftButtonUp" Handler="GameCard_Click"/>
-                </Style>
-            </ListBox.ItemContainerStyle>
-
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <Grid>
-                        <Border Background="#2D2D30" CornerRadius="8" BorderBrush="#3E3E42" BorderThickness="1" Padding="{DynamicResource CardPadding}">
-                             <Border.InputBindings>
-                                <MouseBinding MouseAction="RightClick" Command="{Binding DataContext.OpenContextMenuCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
-                            </Border.InputBindings>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                
-                                <!-- Fixed-size icon container with dark background -->
-                                <Border Width="{DynamicResource GameImageWidth}" 
-                                        Height="{DynamicResource GameImageHeight}" 
-                                        CornerRadius="5" ClipToBounds="True" Background="#1A1A1C"
-                                        UseLayoutRounding="True" SnapsToDevicePixels="True">
-                                    <Grid>
-                                        <TextBlock Text="🎮" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" Foreground="#252526"/>
-                                        
-                                        <!-- Original uncropped image, centered -->
-                                        <Image Stretch="UniformToFill"
-                                               Opacity="1"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"
-                                               RenderOptions.BitmapScalingMode="Fant"
-                                               TargetUpdated="GameImage_TargetUpdated">
-                                            <Image.Style>
-                                                <Style TargetType="Image">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsInitialLoading, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                                            <Setter Property="Source">
-                                                                <Setter.Value>
-                                                                    <Binding Path="ImageUrl" Converter="{StaticResource BitmapCacheConverter}" IsAsync="True" NotifyOnTargetUpdated="True"/>
-                                                                </Setter.Value>
-                                                            </Setter>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Image.Style>
-                                        </Image>
-                                    </Grid>
-                                </Border>
-
-
-                                <!-- Text Info -->
-                                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" 
-                                               FontSize="{DynamicResource GameTitleFontSize}" 
-                                               Foreground="White" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Foreground="#AAAAAA" 
-                                               FontSize="{DynamicResource GamePlatformFontSize}" 
-                                               Margin="0,3,0,0">
-                                        <Run Text="{Binding Platform}"/>
-                                        <Run Text=" • "/>
-                                        <Run Text="{Binding DisplayPlayTime, Mode=OneWay}"/>
-                                    </TextBlock>
-                                </StackPanel>
-
-                                <!-- Fav Icon -->
-                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="10,0,0,0">
-                                    <TextBlock Text="⭐" FontSize="20" Foreground="#FFD700" 
-                                               Visibility="{Binding IsFavorite, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-
-                        <Grid.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem Header="{loc:Loc Key=Main.Context.Play}" Click="Play_Click"/>
-                                <MenuItem Header="{loc:Loc Key=Main.Context.ChangeImage}" Click="ChangeImage_Click"/>
-                                <Separator/>
-                                <MenuItem Header="{loc:Loc Key=Main.Context.ToggleFavorite}" Click="Favorite_Click"/>
-                                <MenuItem Click="Hide_Click">
-                                    <MenuItem.Style>
-                                        <Style TargetType="MenuItem">
-                                            <Setter Property="Header" Value="{Binding Source={x:Static loc:LocalizationService.Instance}, Path=[Main.Context.Hide]}"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsHidden}" Value="True">
-                                                    <Setter Property="Header" Value="{Binding Source={x:Static loc:LocalizationService.Instance}, Path=[Main.Context.Unhide]}"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </MenuItem.Style>
-                                </MenuItem>
-                                <MenuItem Header="{loc:Loc Key=Main.Context.Delete}" Click="Delete_Click" IsEnabled="{Binding IsManual}"/>
-                            </ContextMenu>
-                        </Grid.ContextMenu>
-                    </Grid>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
         </ListBox>
 
         <Border Grid.Row="1"

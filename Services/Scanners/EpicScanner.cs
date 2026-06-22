@@ -53,7 +53,7 @@ namespace GameLauncher.Services.Scanners
                 if (!string.IsNullOrEmpty(appDataPath))
                 {
                     string manifestPath = Path.Combine(appDataPath, "Manifests");
-                    AddIfExists(found, manifestPath);
+                    ScannerPathUtility.AddExistingDirectory(found, manifestPath);
                 }
             }
             catch (Exception ex)
@@ -67,16 +67,10 @@ namespace GameLauncher.Services.Scanners
                 string fallback = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
                     "Epic", "EpicGamesLauncher", "Data", "Manifests");
-                AddIfExists(found, fallback);
+                ScannerPathUtility.AddExistingDirectory(found, fallback);
             }
 
             return found;
-        }
-
-        private static void AddIfExists(List<string> list, string path)
-        {
-            if (Directory.Exists(path) && !list.Any(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase)))
-                list.Add(path);
         }
 
         public Task<List<Game>> ScanAsync(CancellationToken ct = default)

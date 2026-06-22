@@ -15,6 +15,44 @@ namespace GameLauncher.Services.Scanners
     {
         public string PlatformName => "EA App";
 
+        public static List<string> GetAutoDetectedPaths()
+        {
+            var paths = new List<string>();
+            try
+            {
+                using var key = Registry.LocalMachine.OpenSubKey(
+                    @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall");
+                if (key == null)
+                {
+                    return paths;
+                }
+
+                foreach (string subKeyName in key.GetSubKeyNames())
+                {
+                    using var appKey = key.OpenSubKey(subKeyName);
+                    string? publisher = appKey?.GetValue("Publisher") as string;
+                    string? displayName = appKey?.GetValue("DisplayName") as string;
+                    string? installDirectory = appKey?.GetValue("InstallLocation") as string;
+
+                    if (string.IsNullOrWhiteSpace(publisher) ||
+                        !publisher.Contains("Electronic Arts", StringComparison.OrdinalIgnoreCase) ||
+                        IsEaClient(displayName) ||
+                        string.IsNullOrWhiteSpace(installDirectory))
+                    {
+                        continue;
+                    }
+
+                    ScannerPathUtility.AddExistingDirectory(paths, installDirectory);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("EA path detection failed", ex);
+            }
+
+            return ScannerPathUtility.GetLibraryDirectories(paths);
+        }
+
         public Task<List<Game>> ScanAsync(CancellationToken ct = default)
         {
             return Task.Run(() => Scan(ct), ct);
@@ -57,10 +95,12 @@ namespace GameLauncher.Services.Scanners
                                     continue;
 
                                 // Ignoriere den EA-Launcher selbst
-                                if (displayName != null && (displayName.Contains("EA app") || displayName.Contains("Origin")))
+                                if (IsEaClient(displayName))
                                     continue;
 
-                                string exePath = FindPrimaryExe(installLocation);
+                                string exePath = ExecutableSelector.FindPrimaryExecutable(
+                                    installLocation,
+                                    "unins", "crash", "cleanup", "touchup", "eadesktop");
                                 string iconUrl = "";
 
                                 if (!string.IsNullOrEmpty(exePath))
@@ -75,20 +115,13 @@ namespace GameLauncher.Services.Scanners
                                 {
                                     Id = $"ea_{subKeyName}",
                                     Name = cleanName,
-                                    Path = $"origin2://game/launch?offerIds={subKeyName}", // Fallback URI
+                                    Path = BuildLaunchUri(subKeyName),
                                     Args = "",
                                     Platform = "EA App",
                                     LaunchType = "uri",
                                     ImageUrl = iconUrl,
                                     InstallDirectory = installLocation
                                 };
-
-                                // Wenn wir eine exakte Exe haben, versuchen wir es direkt. EA App lässt das oft zu.
-                                if (!string.IsNullOrEmpty(exePath))
-                                {
-                                    game.Path = exePath;
-                                    game.LaunchType = "exe";
-                                }
 
                                 games.Add(game);
                                 Logger.Log($"Found EA game: {cleanName}");
@@ -109,23 +142,13 @@ namespace GameLauncher.Services.Scanners
             return games;
         }
 
-        private string FindPrimaryExe(string installDir)
-        {
-            try
-            {
-                var exeFiles = Directory.GetFiles(installDir, "*.exe", SearchOption.TopDirectoryOnly);
-                foreach (var file in exeFiles)
-                {
-                    string fileName = Path.GetFileNameWithoutExtension(file).ToLower();
-                    if (fileName.Contains("unins") || fileName.Contains("crash") || fileName.Contains("cleanup") || fileName.Contains("touchup") || fileName.Contains("eadesktop"))
-                        continue;
+        internal static string BuildLaunchUri(string offerId) =>
+            $"origin2://game/launch?offerIds={Uri.EscapeDataString(offerId)}";
 
-                    return file;
-                }
-            }
-            catch { }
+        private static bool IsEaClient(string? displayName) =>
+            !string.IsNullOrWhiteSpace(displayName) &&
+            (displayName.Contains("EA app", StringComparison.OrdinalIgnoreCase) ||
+             displayName.Contains("Origin", StringComparison.OrdinalIgnoreCase));
 
-            return string.Empty;
-        }
     }
 }

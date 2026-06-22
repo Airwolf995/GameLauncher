@@ -52,7 +52,7 @@ namespace GameLauncher.Services.Scanners
                 string? installPath = key?.GetValue("InstallPath") as string;
                 if (!string.IsNullOrEmpty(installPath))
                 {
-                    AddIfExists(found, Path.Combine(installPath, "steamapps"));
+                    ScannerPathUtility.AddExistingDirectory(found, Path.Combine(installPath, "steamapps"));
 
                     // libraryfolders.vdf enthält weitere Bibliotheken
                     string vdfPath = Path.Combine(installPath, "steamapps", "libraryfolders.vdf");
@@ -65,7 +65,7 @@ namespace GameLauncher.Services.Scanners
                             if (match.Success)
                             {
                                 string extraPath = match.Groups[1].Value.Replace("\\\\", "\\");
-                                AddIfExists(found, Path.Combine(extraPath, "steamapps"));
+                                ScannerPathUtility.AddExistingDirectory(found, Path.Combine(extraPath, "steamapps"));
                             }
                         }
                     }
@@ -85,16 +85,10 @@ namespace GameLauncher.Services.Scanners
                     @"C:\Program Files\Steam\steamapps",
                 };
                 foreach (var f in fallbacks)
-                    AddIfExists(found, f);
+                    ScannerPathUtility.AddExistingDirectory(found, f);
             }
 
             return found;
-        }
-
-        private static void AddIfExists(List<string> list, string path)
-        {
-            if (Directory.Exists(path) && !list.Any(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase)))
-                list.Add(path);
         }
 
         public Task<List<Game>> ScanAsync(CancellationToken ct = default)

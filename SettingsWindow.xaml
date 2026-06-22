@@ -245,9 +245,21 @@
                              Text="{Binding XboxPathsText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
 
                     <!-- GOG -->
-                    <TextBlock Text="{loc:Loc Key=Settings.GogGames}" FontSize="13" Margin="0,0,0,5"/>
-                    <TextBox IsReadOnly="True" IsTabStop="False" Height="40" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,20"
+                    <TextBlock Text="{loc:Loc Key=Wizard.GogPaths}" FontSize="13" Margin="0,0,0,5"/>
+                    <TextBox IsReadOnly="True" IsTabStop="False" Height="60" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,15"
                              Text="{Binding GogPathsText, Mode=OneWay}"/>
+
+                    <!-- Ubisoft -->
+                    <TextBlock Text="{loc:Loc Key=Wizard.UbisoftPaths}" FontSize="13" Margin="0,0,0,5"/>
+                    <TextBox IsReadOnly="True" IsTabStop="False" Height="60" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,15"
+                             Text="{Binding UbisoftPathsText, Mode=OneWay}"/>
+
+                    <!-- EA -->
+                    <TextBlock Text="{loc:Loc Key=Wizard.EaPaths}" FontSize="13" Margin="0,0,0,5"/>
+                    <TextBox IsReadOnly="True" IsTabStop="False" Height="60" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8"
+                             Text="{Binding EaPathsText, Mode=OneWay}"/>
+
+                    <TextBlock Text="{loc:Loc Key=Wizard.AutomaticPathHelp}" FontSize="11" Foreground="#666666" Margin="0,0,0,20" TextWrapping="Wrap"/>
 
                     <!-- Ignored Processes -->
                     <TextBlock Text="{loc:Loc Key=Settings.IgnoredProcesses}" FontSize="12" FontWeight="Bold" Foreground="#888888" Margin="0,0,0,5"/>

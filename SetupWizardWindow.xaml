@@ -113,7 +113,7 @@
                         <StackPanel>
                             <TextBlock Text="{loc:Loc Key=Wizard.LibrariesHeadline}" FontSize="32" FontWeight="Bold" Margin="0,0,0,12"/>
 
-                            <TextBlock x:Name="LibraryDetectionStatusText" Text="{loc:Loc Key=Wizard.LibrariesIdle}" Foreground="#888888" FontSize="12" Margin="0,0,0,12"/>
+                            <TextBlock x:Name="LibraryDetectionStatusText" Text="{loc:Loc Key=Wizard.LibrariesIdle}" Foreground="#888888" FontSize="12" Margin="0,0,0,12" TextWrapping="Wrap"/>
 
                             <StackPanel x:Name="LibraryPathInputsPanel" Visibility="Collapsed">
                                 <TextBlock Text="{loc:Loc Key=Wizard.LibrariesBody}"
@@ -127,6 +127,18 @@
 
                                 <TextBlock Text="{loc:Loc Key=Wizard.XboxPaths}" FontSize="13" Margin="0,0,0,5"/>
                                 <TextBox x:Name="WizardXboxPathsBox" Height="54" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10"/>
+
+                                <TextBlock Text="{loc:Loc Key=Wizard.GogPaths}" FontSize="13" Margin="0,0,0,5"/>
+                                <TextBox x:Name="WizardGogPathsBox" Height="54" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10"/>
+
+                                <TextBlock Text="{loc:Loc Key=Wizard.UbisoftPaths}" FontSize="13" Margin="0,0,0,5"/>
+                                <TextBox x:Name="WizardUbisoftPathsBox" Height="54" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10"/>
+
+                                <TextBlock Text="{loc:Loc Key=Wizard.EaPaths}" FontSize="13" Margin="0,0,0,5"/>
+                                <TextBox x:Name="WizardEaPathsBox" Height="54" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10"/>
+
+                                <TextBlock Text="{loc:Loc Key=Wizard.AutomaticPathHelp}"
+                                           FontSize="12" Foreground="#888888" TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,8"/>
 
                                 <TextBlock Text="{loc:Loc Key=Wizard.PathHelp}"
                                          FontSize="12" Foreground="#888888" TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,8"/>

@@ -169,18 +169,27 @@ namespace GameLauncher
                 {
                     Steam = GetConfiguredOrDetectedPaths(config.SteamLibraryPaths, SteamScanner.GetAutoDetectedPaths),
                     Epic = GetConfiguredOrDetectedPaths(config.EpicLibraryPaths, EpicScanner.GetAutoDetectedPaths),
-                    Xbox = GetConfiguredOrDetectedPaths(config.XboxLibraryPaths, XboxScanner.GetAutoDetectedPaths)
+                    Xbox = GetConfiguredOrDetectedPaths(config.XboxLibraryPaths, XboxScanner.GetAutoDetectedPaths),
+                    Gog = GogScanner.GetAutoDetectedPaths(),
+                    Ubisoft = UbisoftScanner.GetAutoDetectedPaths(),
+                    Ea = EaScanner.GetAutoDetectedPaths()
                 });
 
                 WizardSteamPathsBox.Text = FormatPathLines(detectedPaths.Steam);
                 WizardEpicPathsBox.Text = FormatPathLines(detectedPaths.Epic);
                 WizardXboxPathsBox.Text = FormatPathLines(detectedPaths.Xbox);
+                WizardGogPathsBox.Text = FormatPathLines(detectedPaths.Gog);
+                WizardUbisoftPathsBox.Text = FormatPathLines(detectedPaths.Ubisoft);
+                WizardEaPathsBox.Text = FormatPathLines(detectedPaths.Ea);
 
                 var statusParts = new[]
                 {
                     BuildDetectionStatus("Steam", detectedPaths.Steam.Count),
                     BuildDetectionStatus("Epic", detectedPaths.Epic.Count),
-                    BuildDetectionStatus("Xbox", detectedPaths.Xbox.Count)
+                    BuildDetectionStatus("Xbox", detectedPaths.Xbox.Count),
+                    BuildDetectionStatus("GOG", detectedPaths.Gog.Count),
+                    BuildDetectionStatus("Ubisoft", detectedPaths.Ubisoft.Count),
+                    BuildDetectionStatus("EA", detectedPaths.Ea.Count)
                 };
 
                 LibraryDetectionStatusText.Text = string.Join(" | ", statusParts);
@@ -192,6 +201,9 @@ namespace GameLauncher
                 WizardSteamPathsBox.Text = FormatPathLines(config.SteamLibraryPaths);
                 WizardEpicPathsBox.Text = FormatPathLines(config.EpicLibraryPaths);
                 WizardXboxPathsBox.Text = FormatPathLines(config.XboxLibraryPaths);
+                WizardGogPathsBox.Text = string.Empty;
+                WizardUbisoftPathsBox.Text = string.Empty;
+                WizardEaPathsBox.Text = string.Empty;
                 LibraryDetectionStatusText.Text = _localization.Get("Wizard.LibrarySearchFailed");
             }
             finally
