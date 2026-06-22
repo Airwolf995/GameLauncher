@@ -116,6 +116,7 @@ namespace GameLauncher.Models
             // 3. Apply Favorites, Last Played, PlayTime & Hidden Status
 
             ApplyStoredState(games);
+            MigratePlayTimeEntryNames(games);
 
             var currentLanguage = Services.Localization.LocalizationService.Instance.CurrentLanguage;
             int cachedMetadataCount = 0;
@@ -180,6 +181,7 @@ namespace GameLauncher.Models
             var ubiScanner = new UbisoftScanner();
             var games = await ubiScanner.ScanAsync(ct);
             ApplyStoredState(games);
+            MigratePlayTimeEntryNames(games);
             Logger.Log($"Zeitversetzter Startup-Scan abgeschlossen. Ubisoft: {games.Count}");
             return games;
         }
@@ -432,7 +434,7 @@ namespace GameLauncher.Models
 
         public void SetTheme(string themeName) => _stateService.SetTheme(themeName);
 
-        public void UpdatePlayTime(string gameId, int seconds) => _stateService.UpdatePlayTime(gameId, seconds);
+        public void UpdatePlayTime(string gameId, int seconds, string gameName = "") => _stateService.UpdatePlayTime(gameId, seconds, gameName);
 
         public void UpdateLastPlayed(string gameId, DateTime lastPlayed) => _stateService.UpdateLastPlayed(gameId, lastPlayed);
 
@@ -460,9 +462,9 @@ namespace GameLauncher.Models
                     game.LastPlayed = lastPlayed;
                 }
 
-                if (config.PlayTime.TryGetValue(game.Id, out int playTime))
+                if (config.PlayTime.TryGetValue(game.Id, out var playTimeEntry))
                 {
-                    game.PlayTime = playTime;
+                    game.PlayTime = playTimeEntry?.Seconds ?? 0;
                 }
 
                 if (config.ImageOverrides != null &&
@@ -479,6 +481,34 @@ namespace GameLauncher.Models
                 {
                     game.Tags = new List<string>(tags);
                 }
+            }
+        }
+
+        private void MigratePlayTimeEntryNames(IEnumerable<Game> games)
+        {
+            var config = _configService.Config;
+            var didChange = false;
+
+            foreach (var game in games)
+            {
+                if (!config.PlayTime.TryGetValue(game.Id, out var entry) || entry == null)
+                {
+                    continue;
+                }
+
+                if (string.Equals(entry.Name, game.Name, StringComparison.Ordinal) || string.IsNullOrWhiteSpace(game.Name))
+                {
+                    continue;
+                }
+
+                entry.Name = game.Name;
+                didChange = true;
+            }
+
+            if (didChange)
+            {
+                Logger.Log("Spielnamen in gespeicherten Spielzeit-Einträgen wurden migriert.");
+                _configService.SaveConfig();
             }
         }
 

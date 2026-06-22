@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using GameLauncher.Services.Serialization;
 
 namespace GameLauncher.Models
 {
@@ -25,7 +26,8 @@ namespace GameLauncher.Models
         public Dictionary<string, DateTime> LastPlayed { get; set; } = new Dictionary<string, DateTime>();
 
         [JsonPropertyName("play_time")]
-        public Dictionary<string, int> PlayTime { get; set; } = new Dictionary<string, int>();
+        [JsonConverter(typeof(PlayTimeDictionaryJsonConverter))]
+        public Dictionary<string, PlayTimeEntry> PlayTime { get; set; } = new Dictionary<string, PlayTimeEntry>();
 
         [JsonPropertyName("ignored_processes")]
         public List<string> IgnoredProcesses { get; set; } = new List<string> { "BsgLauncher.exe", "Steam.exe", "GalaxyClient.exe", "EpicGamesLauncher.exe", "Origin.exe", "UbisoftConnect.exe" };
