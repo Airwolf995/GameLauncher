@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using GameLauncher.Models;
@@ -11,7 +12,8 @@ namespace GameLauncher
     {
         private readonly HardwareMonitorService _hardwareMonitor;
         private readonly PlayTimeService _playTimeService;
-        private readonly DispatcherTimer _timer;
+        private readonly DispatcherTimer _hardwareTimer;
+        private readonly DispatcherTimer _clockTimer;
         private readonly DateTime _launcherStartTime;
         private readonly LocalizationService _localization = LocalizationService.Instance;
         private string? _lastActiveGameId;
@@ -29,19 +31,31 @@ namespace GameLauncher
             Left = SystemParameters.PrimaryScreenWidth - Width - 20;
             Top = 20;
 
-            _timer = new DispatcherTimer
+            _hardwareTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromSeconds(2)
             };
-            _timer.Tick += UpdateStats;
+            _hardwareTimer.Tick += UpdateHardwareStats;
+
+            _clockTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            _clockTimer.Tick += UpdateClockAndGame;
 
             // Timer nur laufen lassen wenn Overlay sichtbar ist
             IsVisibleChanged += OnVisibilityChanged;
 
-            UpdateStats(null, null);
+            UpdateClockAndGame(null, null);
+            _ = UpdateHardwareStatsAsync();
         }
 
-        private async void UpdateStats(object? sender, EventArgs? e)
+        private async void UpdateHardwareStats(object? sender, EventArgs? e)
+        {
+            await UpdateHardwareStatsAsync();
+        }
+
+        private async Task UpdateHardwareStatsAsync()
         {
             if (_isUpdating) return;
             _isUpdating = true;
@@ -65,30 +79,6 @@ namespace GameLauncher
 
                 // VRAM
                 VramText.Text = FormatMemory(stats.vramUsedGb, stats.vramTotalGb, stats.vramLoad);
-
-                // Clock
-                ClockText.Text = DateTime.Now.ToString("HH:mm:ss");
-
-                // Game & Playtime
-                if (_playTimeService.ActiveGame != null && _playTimeService.SessionStartTime.HasValue)
-                {
-                    // Spielname nur bei Wechsel aktualisieren (vermeidet ToUpper() jede Sekunde)
-                    if (_lastActiveGameId != _playTimeService.ActiveGame.Id)
-                    {
-                        ActiveGameText.Text = _playTimeService.ActiveGame.Name.ToUpper();
-                        _lastActiveGameId = _playTimeService.ActiveGame.Id;
-                    }
-                    var elapsed = DateTime.Now - _playTimeService.SessionStartTime.Value;
-                    PlayTimeText.Text = $"{elapsed.Hours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
-                }
-                else
-                {
-                    if (_lastActiveGameId != null)
-                    {
-                        ShowNoActiveGameText();
-                        _lastActiveGameId = null;
-                    }
-                }
             }
             catch (Exception ex)
             {
@@ -100,16 +90,46 @@ namespace GameLauncher
             }
         }
 
+        private void UpdateClockAndGame(object? sender, EventArgs? e)
+        {
+            ClockText.Text = DateTime.Now.ToString("HH:mm:ss");
+
+            if (_playTimeService.ActiveGame != null && _playTimeService.SessionStartTime.HasValue)
+            {
+                if (_lastActiveGameId != _playTimeService.ActiveGame.Id)
+                {
+                    ActiveGameText.Text = _playTimeService.ActiveGame.Name.ToUpper(_localization.CurrentCulture);
+                    _lastActiveGameId = _playTimeService.ActiveGame.Id;
+                }
+
+                var elapsed = DateTime.Now - _playTimeService.SessionStartTime.Value;
+                if (elapsed < TimeSpan.Zero)
+                {
+                    elapsed = TimeSpan.Zero;
+                }
+
+                PlayTimeText.Text = $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+            }
+            else if (_lastActiveGameId != null)
+            {
+                ShowNoActiveGameText();
+                _lastActiveGameId = null;
+            }
+        }
+
         private void OnVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             if (IsVisible)
             {
-                UpdateStats(null, null);
-                _timer.Start();
+                UpdateClockAndGame(null, null);
+                _ = UpdateHardwareStatsAsync();
+                _clockTimer.Start();
+                _hardwareTimer.Start();
             }
             else
             {
-                _timer.Stop();
+                _clockTimer.Stop();
+                _hardwareTimer.Stop();
             }
         }
 
