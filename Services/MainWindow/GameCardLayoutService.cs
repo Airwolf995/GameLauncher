@@ -15,6 +15,7 @@ namespace GameLauncher.Services.MainWindow
     {
         private const double CardLayoutHorizontalPadding = 70;
         private const double RowModeMinimumCardWidth = 320;
+        private const int MaximumCardColumns = 5;
         private readonly UISettingsService _uiSettingsService;
         private readonly ViewModeAnimationPolicy _animationPolicy;
 
@@ -27,13 +28,6 @@ namespace GameLauncher.Services.MainWindow
         public void ApplyCardSize(ListBox gameListControl, ResourceDictionary resources, CardSize size, bool refresh = true)
         {
             var config = _uiSettingsService.GetCardSizeSettings(size);
-            var panel = gameListControl.FindDescendant<VirtualizingWrapPanel>();
-            if (panel != null)
-            {
-                panel.ItemWidth = config.PanelWidth;
-                panel.ItemHeight = config.PanelHeight;
-            }
-
             resources["GameCardWidth"] = config.PanelWidth;
             resources["GameCardHeight"] = config.PanelHeight;
             resources["GameImageWidth"] = config.ImageWidth;
@@ -129,8 +123,12 @@ namespace GameLauncher.Services.MainWindow
         private static int CalculateCardColumns(double availableWidth, CardSizeConfig config)
         {
             double marginWidth = config.CardMargin.Left + config.CardMargin.Right;
+            double minimumWidthPerCard = RowModeMinimumCardWidth + marginWidth;
+            int maxColumns = Math.Min(
+                MaximumCardColumns,
+                Math.Max(1, (int)Math.Floor(availableWidth / minimumWidthPerCard)));
 
-            for (int columns = 3; columns >= 1; columns--)
+            for (int columns = maxColumns; columns >= 1; columns--)
             {
                 double calculatedWidth = (availableWidth / columns) - marginWidth;
                 if (calculatedWidth >= RowModeMinimumCardWidth)
