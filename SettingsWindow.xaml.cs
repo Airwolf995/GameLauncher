@@ -15,7 +15,6 @@ namespace GameLauncher
         {
             base.OnSourceInitialized(e);
             DarkModeHelper.EnableDarkTitleBar(this);
-            Opacity = 1;
         }
 
         public SettingsWindow(GameManager gameManager, Action<string> onThemeChanged, Action<UISettings> onSettingsChanged)
@@ -23,6 +22,7 @@ namespace GameLauncher
             DataContext = new SettingsViewModel(gameManager, onThemeChanged, onSettingsChanged);
             InitializeComponent();
             _localization.LanguageChanged += OnLanguageChanged;
+            ContentRendered += OnContentRendered;
         }
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
@@ -37,6 +37,7 @@ namespace GameLauncher
 
         protected override void OnClosed(EventArgs e)
         {
+            ContentRendered -= OnContentRendered;
             _localization.LanguageChanged -= OnLanguageChanged;
             if (DataContext is IDisposable disposable)
             {
@@ -50,6 +51,12 @@ namespace GameLauncher
         {
             CardSizeBox.Items.Refresh();
             ViewModeBox.Items.Refresh();
+        }
+
+        private void OnContentRendered(object? sender, EventArgs e)
+        {
+            ContentRendered -= OnContentRendered;
+            Opacity = 1;
         }
     }
 }
