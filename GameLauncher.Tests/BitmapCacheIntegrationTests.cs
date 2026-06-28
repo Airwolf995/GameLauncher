@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Concurrent;
 using System.IO;
-using System.Reflection;
 using System.Windows.Media.Imaging;
 using GameLauncher.Models;
 
@@ -10,7 +8,7 @@ namespace GameLauncher.Tests
     public class BitmapCacheIntegrationTests
     {
         [Fact]
-        public void Convert_LoadsLocalImageAsFrozenBitmap()
+        public async Task Convert_ReturnsPreloadedLocalImageAsFrozenBitmap()
         {
             var tempRoot = Path.Combine(Path.GetTempPath(), "GameLauncherTests", Guid.NewGuid().ToString("N"));
             var imagePath = Path.Combine(tempRoot, "cover.png");
@@ -22,6 +20,7 @@ namespace GameLauncher.Tests
             try
             {
                 var converter = new BitmapCacheConverter();
+                await BitmapCacheConverter.PreloadAsync([imagePath]);
 
                 var result = converter.Convert(imagePath, typeof(BitmapImage), null!, System.Globalization.CultureInfo.InvariantCulture);
 
@@ -45,11 +44,13 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
-        public void SetManualGameImage_InvalidatesBitmapCacheForTargetPath()
+        public async Task SetManualGameImage_InvalidatesBitmapCacheForTargetPath()
         {
             var tempRoot = Path.Combine(Path.GetTempPath(), "GameLauncherTests", Guid.NewGuid().ToString("N"));
             var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
             var sourceImagePath = Path.Combine(tempRoot, "cover.png");
+            var pngBytes = Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
 
             // The service stores the image in an "images/" subfolder next to the config file
             var imagesDir = Path.Combine(tempRoot, "images");
@@ -57,15 +58,20 @@ namespace GameLauncher.Tests
             var targetPath = Path.Combine(imagesDir, "Testspiel.png");
 
             Directory.CreateDirectory(tempRoot);
-            File.WriteAllBytes(sourceImagePath, new byte[] { 0x89, 0x50, 0x4E, 0x47 }); // minimal file
+            Directory.CreateDirectory(imagesDir);
+            File.WriteAllBytes(sourceImagePath, pngBytes);
+            File.WriteAllBytes(targetPath, pngBytes);
+            BitmapCacheConverter.ClearImageCaches();
 
-            var cacheField = typeof(BitmapCacheConverter).GetField("_cache", BindingFlags.NonPublic | BindingFlags.Static);
-            Assert.NotNull(cacheField);
-
-            var cache = Assert.IsType<ConcurrentDictionary<string, WeakReference<BitmapImage>>>(cacheField!.GetValue(null));
-            cache.Clear();
-            // Pre-populate cache with the expected destination path so we can verify invalidation
-            cache[targetPath] = new WeakReference<BitmapImage>(new BitmapImage());
+            var converter = new BitmapCacheConverter();
+            await BitmapCacheConverter.PreloadAsync([targetPath]);
+            var cachedBitmap = converter.Convert(
+                targetPath,
+                typeof(BitmapImage),
+                null!,
+                System.Globalization.CultureInfo.InvariantCulture);
+            Assert.NotNull(cachedBitmap);
+            Assert.True(BitmapCacheConverter.IsCachedForUi(targetPath));
 
             try
             {
@@ -75,11 +81,11 @@ namespace GameLauncher.Tests
 
                 manager.SetManualGameImage(game, sourceImagePath);
 
-                Assert.False(cache.ContainsKey(targetPath));
+                Assert.False(BitmapCacheConverter.IsCachedForUi(targetPath));
             }
             finally
             {
-                cache.Clear();
+                BitmapCacheConverter.ClearImageCaches();
 
                 try
                 {

@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using GameLauncher.Models;
+using GameLauncher.Services;
 using GameLauncher.Services.Localization;
 using GameLauncher.ViewModels;
 
@@ -10,17 +11,10 @@ namespace GameLauncher
     {
         private readonly LocalizationService _localization = LocalizationService.Instance;
 
-        [System.Runtime.InteropServices.DllImport("dwmapi.dll", PreserveSig = true)]
-        public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
-
-        private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
-
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
-            IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-            int darkMode = 1;
-            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref darkMode, sizeof(int));
+            DarkModeHelper.EnableDarkTitleBar(this);
         }
 
         public SettingsWindow(GameManager gameManager, Action<string> onThemeChanged, Action<UISettings> onSettingsChanged)
@@ -28,6 +22,7 @@ namespace GameLauncher
             DataContext = new SettingsViewModel(gameManager, onThemeChanged, onSettingsChanged);
             InitializeComponent();
             _localization.LanguageChanged += OnLanguageChanged;
+            ContentRendered += OnContentRendered;
         }
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
@@ -42,6 +37,7 @@ namespace GameLauncher
 
         protected override void OnClosed(EventArgs e)
         {
+            ContentRendered -= OnContentRendered;
             _localization.LanguageChanged -= OnLanguageChanged;
             if (DataContext is IDisposable disposable)
             {
@@ -55,6 +51,12 @@ namespace GameLauncher
         {
             CardSizeBox.Items.Refresh();
             ViewModeBox.Items.Refresh();
+        }
+
+        private void OnContentRendered(object? sender, EventArgs e)
+        {
+            ContentRendered -= OnContentRendered;
+            Opacity = 1;
         }
     }
 }

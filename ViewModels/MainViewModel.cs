@@ -11,6 +11,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using GameLauncher.Core;
 using GameLauncher.Models;
+using GameLauncher.Services;
 using GameLauncher.Services.Localization;
 
 namespace GameLauncher.ViewModels
@@ -51,10 +52,22 @@ namespace GameLauncher.ViewModels
             RefreshStatusText();
 
             LoadGamesCommand = new RelayCommand(async _ => await LoadGamesAsync());
-            RefreshCommand = new RelayCommand(async _ => await LoadGamesAsync());
+            RefreshCommand = new RelayCommand(async _ => await LoadGamesAsync(includeDeferredStartupGames: true));
 
             _gameManager.GamesUpdated += OnGamesUpdated;
             _localization.LanguageChanged += OnLanguageChanged;
+        }
+
+        public event EventHandler<LibraryViewRefreshedEventArgs>? LibraryViewRefreshed;
+
+        public sealed class LibraryViewRefreshedEventArgs : EventArgs
+        {
+            public LibraryViewRefreshedEventArgs(IReadOnlyList<string> initialWarmupImagePaths)
+            {
+                InitialWarmupImagePaths = initialWarmupImagePaths;
+            }
+
+            public IReadOnlyList<string> InitialWarmupImagePaths { get; }
         }
 
         public ICollectionView GamesView => _gamesView;
@@ -110,7 +123,8 @@ namespace GameLauncher.ViewModels
                 }
 
                 _preferredFilter = normalized;
-                _ = RefreshGamesViewAsync(saveSettings: true);
+                SaveLibraryViewSettings();
+                _ = RefreshGamesViewAsync();
             }
         }
 
@@ -124,7 +138,8 @@ namespace GameLauncher.ViewModels
                     return;
                 }
 
-                _ = RefreshGamesViewAsync(saveSettings: true);
+                SaveLibraryViewSettings();
+                _ = RefreshGamesViewAsync();
             }
         }
 
@@ -137,12 +152,26 @@ namespace GameLauncher.ViewModels
         public ICommand LoadGamesCommand { get; }
         public ICommand RefreshCommand { get; }
 
-        public async Task LoadGamesAsync(bool loadSteamMetadataInBackground = true)
+        public async Task LoadGamesAsync(
+            bool loadSteamMetadataInBackground = true,
+            bool includeDeferredStartupGames = false)
         {
             StatusText = _localization.Get("Main.StatusLoadingGames");
             try
             {
                 var games = await _gameManager.LoadAllGamesAsync(loadSteamMetadataInBackground, _cts.Token);
+                if (includeDeferredStartupGames)
+                {
+                    var deferredGames = await _gameManager.LoadDeferredStartupGamesAsync(_cts.Token);
+                    if (deferredGames.Count > 0)
+                    {
+                        games = games
+                            .Concat(deferredGames)
+                            .GroupBy(game => game.Id, StringComparer.OrdinalIgnoreCase)
+                            .Select(group => group.First())
+                            .ToList();
+                    }
+                }
 
                 new Action(() =>
                 {
@@ -362,6 +391,7 @@ namespace GameLauncher.ViewModels
             string searchText = _searchText;
             string selectedFilter = _selectedFilter;
             GameSortMode selectedSort = _selectedSort;
+            int cardColumns = _cardColumns;
 
             try
             {
@@ -376,8 +406,9 @@ namespace GameLauncher.ViewModels
                 refreshToken.ThrowIfCancellationRequested();
 
                 var filterWatch = Stopwatch.StartNew();
-                var filteredGames = await Task.Run(() =>
-                    BuildGamesViewSnapshot(gamesSnapshot, searchText, selectedFilter, selectedSort), refreshToken);
+                var viewSnapshot = await Task.Run(
+                    () => LibraryViewSnapshotBuilder.Create(gamesSnapshot, searchText, selectedFilter, selectedSort, cardColumns),
+                    refreshToken);
                 filterWatch.Stop();
 
                 if (refreshToken.IsCancellationRequested || _cts.IsCancellationRequested || refreshVersion != _gamesViewRefreshVersion)
@@ -388,8 +419,8 @@ namespace GameLauncher.ViewModels
                 var swapWatch = Stopwatch.StartNew();
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    _gamesView = new ListCollectionView(filteredGames);
-                    ReplaceCardRows(BuildCardRowsSnapshot(filteredGames, _cardColumns));
+                    _gamesView = new ListCollectionView(viewSnapshot.Games);
+                    ReplaceCardRows(viewSnapshot.CardRows);
                     OnPropertyChanged(nameof(GamesView));
                     OnPropertyChanged(nameof(IsSearchActive));
                     UpdateStatusText();
@@ -398,12 +429,16 @@ namespace GameLauncher.ViewModels
                     {
                         SaveLibraryViewSettings();
                     }
+
+                    LibraryViewRefreshed?.Invoke(
+                        this,
+                        new LibraryViewRefreshedEventArgs(viewSnapshot.InitialWarmupImagePaths));
                 });
                 swapWatch.Stop();
                 totalWatch.Stop();
 
                 Logger.Log(
-                    $"Bibliotheksfilter aktualisiert: Filter={selectedFilter}, Suche='{searchText}', Sortierung={selectedSort}, Quelle={gamesSnapshot.Count}, Ergebnis={filteredGames.Count}, Snapshot={snapshotWatch.ElapsedMilliseconds} ms, Filterung={filterWatch.ElapsedMilliseconds} ms, View-Swap={swapWatch.ElapsedMilliseconds} ms, Gesamt={totalWatch.ElapsedMilliseconds} ms.");
+                    $"Bibliotheksfilter aktualisiert: Filter={selectedFilter}, Suche='{searchText}', Sortierung={selectedSort}, Quelle={gamesSnapshot.Count}, Ergebnis={viewSnapshot.Games.Count}, Snapshot={snapshotWatch.ElapsedMilliseconds} ms, Filterung={filterWatch.ElapsedMilliseconds} ms, View-Swap={swapWatch.ElapsedMilliseconds} ms, Gesamt={totalWatch.ElapsedMilliseconds} ms.");
             }
             catch (OperationCanceledException) when (refreshToken.IsCancellationRequested || _cts.IsCancellationRequested)
             {
@@ -417,97 +452,8 @@ namespace GameLauncher.ViewModels
             }
         }
 
-        private static List<Game> BuildGamesViewSnapshot(
-            List<Game> games,
-            string searchText,
-            string selectedFilter,
-            GameSortMode selectedSort)
-        {
-            IEnumerable<Game> filteredGames = games.Where(game => MatchesFilter(game, searchText, selectedFilter));
-
-            return selectedSort switch
-            {
-                GameSortMode.Favorites => filteredGames
-                    .OrderByDescending(game => game.IsFavorite)
-                    .ThenBy(game => game.Name, StringComparer.CurrentCultureIgnoreCase)
-                    .ToList(),
-                GameSortMode.LastPlayed => filteredGames
-                    .OrderByDescending(game => game.LastPlayed)
-                    .ThenBy(game => game.Name, StringComparer.CurrentCultureIgnoreCase)
-                    .ToList(),
-                GameSortMode.PlayTime => filteredGames
-                    .OrderByDescending(game => game.PlayTime)
-                    .ThenBy(game => game.Name, StringComparer.CurrentCultureIgnoreCase)
-                    .ToList(),
-                _ => filteredGames
-                    .OrderBy(game => game.Name, StringComparer.CurrentCultureIgnoreCase)
-                    .ToList()
-            };
-        }
-
-        private static List<GameRow> BuildCardRowsSnapshot(IReadOnlyList<Game> games, int columns)
-        {
-            var rows = new List<GameRow>();
-            int safeColumns = Math.Max(1, columns);
-
-            for (int index = 0; index < games.Count; index += safeColumns)
-            {
-                int length = Math.Min(safeColumns, games.Count - index);
-                var rowGames = new List<Game>(length);
-                for (int offset = 0; offset < length; offset++)
-                {
-                    rowGames.Add(games[index + offset]);
-                }
-
-                rows.Add(new GameRow(rowGames));
-            }
-
-            return rows;
-        }
-
-        private static bool MatchesFilter(Game game, string searchText, string selectedFilter)
-        {
-            if (!string.IsNullOrWhiteSpace(searchText))
-            {
-                bool matchesName = game.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase);
-                bool matchesTag = game.Tags.Any(tag => tag.Contains(searchText, StringComparison.OrdinalIgnoreCase));
-
-                if (!matchesName && !matchesTag)
-                {
-                    return false;
-                }
-            }
-
-            if (string.IsNullOrEmpty(selectedFilter) || selectedFilter == Constants.Filters.All)
-            {
-                return !game.IsHidden;
-            }
-
-            if (selectedFilter == Constants.Filters.Hidden)
-            {
-                return game.IsHidden;
-            }
-
-            if (game.IsHidden)
-            {
-                return false;
-            }
-
-            return selectedFilter switch
-            {
-                Constants.Filters.Favorites => game.IsFavorite,
-                Constants.Filters.Manual => game.IsManual,
-                Constants.Platforms.Steam => game.Platform == Constants.Platforms.Steam,
-                Constants.Platforms.Epic => game.Platform == Constants.Platforms.Epic,
-                "Ubisoft Connect" => game.Platform == "Ubisoft Connect",
-                "EA App" => game.Platform == "EA App",
-                "Xbox" => game.Platform == "Xbox",
-                Constants.Platforms.GOG => game.Platform == Constants.Platforms.GOG,
-                _ when selectedFilter.StartsWith(Constants.Filters.TagPrefix, StringComparison.Ordinal) =>
-                    game.Tags.Contains(selectedFilter.Substring(Constants.Filters.TagPrefix.Length)),
-                _ => true
-            };
-        }
+        private bool FilterGames(Game game) =>
+            LibraryViewSnapshotBuilder.MatchesFilter(game, _searchText, _selectedFilter);
 
         private void RebuildCardRowsFromCurrentView()
         {
@@ -517,7 +463,7 @@ namespace GameLauncher.ViewModels
                 return;
             }
 
-            ReplaceCardRows(BuildCardRowsSnapshot(games.ToList(), _cardColumns));
+            ReplaceCardRows(LibraryViewSnapshotBuilder.BuildCardRows(games.ToList(), _cardColumns));
         }
 
         private void ReplaceCardRows(IEnumerable<GameRow> rows)

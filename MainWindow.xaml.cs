@@ -42,6 +42,7 @@ namespace GameLauncher
         private ViewMode _currentViewMode = ViewMode.Cards;
         private CardSize _currentCardSize = CardSize.Medium;
         private int _currentCardColumns = 1;
+        private bool _resetViewportAfterNextRefresh;
 
         public static readonly DependencyProperty IsStartupActiveProperty =
             DependencyProperty.Register("IsStartupActive", typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
@@ -94,6 +95,7 @@ namespace GameLauncher
                 DataContext = _viewModel;
 
                 _gameManager.GamesUpdated += OnGamesUpdatedInWindow;
+                _viewModel.LibraryViewRefreshed += OnLibraryViewRefreshed;
             }
             catch (Exception ex)
             {
@@ -101,7 +103,7 @@ namespace GameLauncher
                 MessageBox.Show(_localization.Format("App.GameManagerInitError", ex.Message), _localization.Get("Common.Error"));
             }
             
-            // Save original card template and style for restoration
+            // Zeilen-Template fuer den stabilen, virtualisierten Kartenmodus merken.
             _originalCardTemplate = GameListControl.ItemTemplate;
 
             ContentRendered += MainWindow_ContentRendered;
@@ -237,6 +239,7 @@ namespace GameLauncher
                 _trayController?.Dispose();
                 _fpsCounter?.Dispose();
                 _statusMessageService?.Dispose();
+                if (_viewModel != null) _viewModel.LibraryViewRefreshed -= OnLibraryViewRefreshed;
                 _viewModel?.Dispose();
                 _gameManager?.Dispose();
                 _localization.LanguageChanged -= OnLanguageChanged;
@@ -254,8 +257,6 @@ namespace GameLauncher
             {
                 InitTrayIcon();
                 InitFpsCounter();
-                InitPlayTimeService();
-                InitOverlay();
 
                 // Check if it's the first start to show the Wizard
                 if (_gameManager.GetConfig().UISettings.FirstStart)
@@ -269,11 +270,17 @@ namespace GameLauncher
                 }
 
                 // Apply UI Settings
-                ApplyUISettings();
+                var startupUiSettings = _gameManager.GetConfig().UISettings;
+                ApplyUISettings(startupUiSettings, registerHotkey: false, writeLog: true);
 
                 // Load Games via ViewModel
                 IsInitialLoading = true;
-                await _viewModel.LoadGamesAsync(loadSteamMetadataInBackground: false);
+                await _viewModel.LoadGamesAsync(
+                    loadSteamMetadataInBackground: false,
+                    includeDeferredStartupGames: true);
+                InitPlayTimeService();
+                InitOverlay();
+                ApplyUISettings(startupUiSettings, registerHotkey: true, writeLog: false);
                 await Dispatcher.InvokeAsync(() => GameListControl.UpdateLayout(), DispatcherPriority.Loaded);
                 // Während das Lade-Overlay sichtbar ist, die Bibliothek sofort final aufbauen.
                 RefreshList(instant: true);
@@ -287,8 +294,18 @@ namespace GameLauncher
                         await BitmapCacheConverter.PreloadAsync(startupPreloadPaths);
                     }
 
+                    var visibleStartupPaths = _imageCacheController.GetBufferedImagePaths(0);
+                    if (visibleStartupPaths.Count > 0)
+                    {
+                        Logger.Log($"Startup-Sichtbereich wird gezielt vorgewärmt: {visibleStartupPaths.Count} Cover.");
+                        await BitmapCacheConverter.PreloadAsync(visibleStartupPaths);
+                    }
+
                     await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
                     await _imageCacheController.WaitForVisibleImagesReadyAsync(TimeSpan.FromSeconds(4));
+                    await _imageCacheController.RefreshVisibleImagesAsync();
+                    await Dispatcher.InvokeAsync(() => GameListControl.UpdateLayout(), DispatcherPriority.Loaded);
+                    await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
                     BitmapCacheConverter.ReleaseStartupStrongCache();
                 }
                 catch (Exception ex)
@@ -308,7 +325,6 @@ namespace GameLauncher
                 
                 
                 Logger.Log("MainWindow loaded and ready.");
-                _ = StartDeferredStartupGameLoadAsync();
                 _ = StartDeferredMetadataRefreshAsync();
             }
 
@@ -563,9 +579,24 @@ namespace GameLauncher
 
             if (ReferenceEquals(sender, FilterBox) || ReferenceEquals(sender, SortBox))
             {
-                ResetLibraryViewportToTop();
+                _resetViewportAfterNextRefresh = true;
+            }
+        }
+
+        private void OnLibraryViewRefreshed(object? sender, MainViewModel.LibraryViewRefreshedEventArgs e)
+        {
+            if (!IsLoaded || IsInitialLoading)
+            {
+                return;
             }
 
+            if (_resetViewportAfterNextRefresh)
+            {
+                ResetLibraryViewportToTop();
+                _resetViewportAfterNextRefresh = false;
+            }
+
+            _imageCacheController.StartPriorityWarmup(e.InitialWarmupImagePaths);
             _imageCacheController.ScheduleViewportRetentionUpdate();
             _imageCacheController.ScheduleViewChangeStabilization();
 
@@ -588,15 +619,10 @@ namespace GameLauncher
 
         private void ResetLibraryViewportToTop()
         {
-            Dispatcher.BeginInvoke(
-                new Action(() =>
-                {
-                    if (GameListControl.FindDescendant<ScrollViewer>() is ScrollViewer scrollViewer)
-                    {
-                        scrollViewer.ScrollToVerticalOffset(0);
-                    }
-                }),
-                DispatcherPriority.Loaded);
+            if (GameListControl.FindDescendant<ScrollViewer>() is ScrollViewer scrollViewer)
+            {
+                scrollViewer.ScrollToVerticalOffset(0);
+            }
         }
 
 
@@ -628,7 +654,7 @@ namespace GameLauncher
             {
                 AreImageLoadTransitionsEnabled = true;
                 IsInitialLoading = true;
-                await _viewModel.LoadGamesAsync();
+                await _viewModel.LoadGamesAsync(includeDeferredStartupGames: true);
                 RefreshList(instant: false);
                 refreshCompleted = true;
             }
@@ -779,10 +805,9 @@ namespace GameLauncher
                 _currentCardColumns);
 
             _currentCardColumns = layoutResult.Columns;
-
             if (_viewModel.UpdateCardColumns(layoutResult.Columns))
             {
-                Logger.Log($"Kartenzeilen neu aufgebaut: Breite={GameListControl.ActualWidth:0.#}, Spalten={layoutResult.Columns}, Kartenbreite={layoutResult.CardWidth:0.#}, Kartengröße={_currentCardSize}.");
+                Logger.Log($"Kartenzeilen aktualisiert: Breite={GameListControl.ActualWidth:0.#}, Spalten={layoutResult.Columns}, Kartenbreite={layoutResult.CardWidth:0.#}, Kartengröße={_currentCardSize}.");
             }
         }
 

@@ -17,7 +17,7 @@ namespace GameLauncher
                 return null;
             }
 
-            return GameImageBitmapCache.LoadForUi(path);
+            return GameImageBitmapCache.GetCachedForUi(path);
         }
 
         public static Task PreloadAsync(IEnumerable<string> imagePaths, CancellationToken ct = default) =>

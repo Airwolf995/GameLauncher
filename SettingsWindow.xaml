@@ -10,6 +10,7 @@
         Title="{loc:Loc Key=Settings.Title}" Icon="pack://application:,,,/game.ico" Height="800" Width="600"
         WindowStartupLocation="CenterOwner"
         Background="#1E1E1E" Foreground="White"
+        Opacity="0"
         ResizeMode="CanResize">
     
     <Window.Resources>
