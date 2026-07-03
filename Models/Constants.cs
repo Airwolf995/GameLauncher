@@ -9,6 +9,9 @@ namespace GameLauncher
             public const string Steam = "Steam";
             public const string Epic = "Epic Games";
             public const string GOG = "GOG";
+            public const string UbisoftConnect = "Ubisoft Connect";
+            public const string EAApp = "EA App";
+            public const string Xbox = "Xbox";
             public const string Manual = "Manual";
             public const string BattleNet = "Battle.net";
             

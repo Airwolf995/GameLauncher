@@ -18,8 +18,6 @@ namespace GameLauncher.ViewModels
 {
     public class MainViewModel : ObservableObject, IDisposable
     {
-        private const string TagDisplayPrefix = "🏷️ ";
-
         private readonly GameManager _gameManager;
         private readonly LocalizationService _localization;
         private readonly ObservableCollection<Game> _games;
@@ -116,7 +114,7 @@ namespace GameLauncher.ViewModels
             get => _selectedFilter;
             set
             {
-                var normalized = NormalizeFilterKey(value);
+                var normalized = LibraryFilterService.NormalizeFilterKey(value);
                 if (!SetProperty(ref _selectedFilter, normalized))
                 {
                     return;
@@ -296,7 +294,7 @@ namespace GameLauncher.ViewModels
         {
             var uiSettings = _gameManager.GetConfig().UISettings;
             _selectedSort = uiSettings.LibrarySortMode;
-            _selectedFilter = NormalizeFilterKey(uiSettings.LibraryFilter);
+            _selectedFilter = LibraryFilterService.NormalizeFilterKey(uiSettings.LibraryFilter);
             _preferredFilter = _selectedFilter;
         }
 
@@ -317,9 +315,9 @@ namespace GameLauncher.ViewModels
                 else if (game.Platform == Constants.Platforms.Steam) steam++;
                 else if (game.Platform == Constants.Platforms.GOG) gog++;
                 else if (game.Platform == Constants.Platforms.Epic) epic++;
-                else if (game.Platform == "Ubisoft Connect") ubi++;
-                else if (game.Platform == "EA App") ea++;
-                else if (game.Platform == "Xbox") xbox++;
+                else if (game.Platform == Constants.Platforms.UbisoftConnect) ubi++;
+                else if (game.Platform == Constants.Platforms.EAApp) ea++;
+                else if (game.Platform == Constants.Platforms.Xbox) xbox++;
             }
 
             StatusText = _localization.Format("Main.StatusSummary", _games.Count, steam, gog, epic, ubi, ea, xbox, manual);
@@ -330,37 +328,8 @@ namespace GameLauncher.ViewModels
             new Action(() =>
             {
                 var desiredFilter = string.IsNullOrWhiteSpace(_preferredFilter) ? Constants.Filters.All : _preferredFilter;
-                var newOptions = new List<LocalizedOption>
-                {
-                    CreateOption(Constants.Filters.All, _localization.Get("Filter.All")),
-                    CreateOption(Constants.Platforms.Steam, Constants.Platforms.Steam),
-                    CreateOption(Constants.Platforms.Epic, Constants.Platforms.Epic),
-                    CreateOption(Constants.Platforms.GOG, Constants.Platforms.GOG),
-                    CreateOption("Ubisoft Connect", "Ubisoft Connect"),
-                    CreateOption("EA App", "EA App"),
-                    CreateOption("Xbox", "Xbox"),
-                    CreateOption(Constants.Filters.Manual, _localization.Get("Filter.Manual")),
-                    CreateOption(Constants.Filters.Hidden, _localization.Get("Filter.Hidden"))
-                };
-
                 var usedTags = _gameManager.GetAllUsedTags();
-                if (usedTags.Count > 0 || Constants.Tags.DefaultTags.Length > 0)
-                {
-                    newOptions.Add(new LocalizedOption { Key = "__separator__", DisplayName = "──────────", IsSeparator = true });
-                }
-
-                foreach (var tag in Constants.Tags.DefaultTags)
-                {
-                    newOptions.Add(CreateTagOption(tag));
-                }
-
-                foreach (var tag in usedTags)
-                {
-                    if (!Constants.Tags.DefaultTags.Contains(tag, StringComparer.OrdinalIgnoreCase))
-                    {
-                        newOptions.Add(CreateTagOption(tag));
-                    }
-                }
+                var newOptions = LibraryFilterOptionsBuilder.Build(_localization, usedTags.ToList());
 
                 ReplaceFilterOptionsPreservingItems(newOptions);
 
@@ -482,20 +451,6 @@ namespace GameLauncher.ViewModels
             };
         }
 
-        private LocalizedOption CreateTagOption(string tag) =>
-            new()
-            {
-                Key = $"{Constants.Filters.TagPrefix}{tag}",
-                DisplayName = string.Format(_localization.CurrentCulture, _localization.Get("Filter.TagPrefix"), tag)
-            };
-
-        private static LocalizedOption CreateOption(string key, string displayName) =>
-            new()
-            {
-                Key = key,
-                DisplayName = displayName
-            };
-
         private void ReplaceFilterOptionsPreservingItems(IReadOnlyList<LocalizedOption> newOptions)
         {
             for (int targetIndex = 0; targetIndex < newOptions.Count; targetIndex++)
@@ -537,22 +492,6 @@ namespace GameLauncher.ViewModels
 
             return -1;
         }
-
-        private static string NormalizeFilterKey(string? filter) => filter switch
-        {
-            null or "" => Constants.Filters.All,
-            "Alle" => Constants.Filters.All,
-            "all" => Constants.Filters.All,
-            "Favoriten" => Constants.Filters.Favorites,
-            "favorites" => Constants.Filters.Favorites,
-            "Ausgeblendet" => Constants.Filters.Hidden,
-            "Versteckt" => Constants.Filters.Hidden,
-            "hidden" => Constants.Filters.Hidden,
-            "Manuell" => Constants.Filters.Manual,
-            "Manual" => Constants.Filters.Manual,
-            _ when filter.StartsWith(TagDisplayPrefix, StringComparison.Ordinal) => $"{Constants.Filters.TagPrefix}{filter.Substring(TagDisplayPrefix.Length)}",
-            _ => filter
-        };
 
         private async Task RefreshSteamMetadataForCurrentLanguageAsync()
         {
