@@ -18,6 +18,8 @@ namespace GameLauncher.Services
         private const int MaxParallelImageLoads = 2;
         private const int MaxParallelPreloadImageLoads = 1;
         private const int MaxStrongCacheEntries = 1024;
+        private const int PreloadLogImageCountThreshold = 10;
+        private const int PreloadLogDurationThresholdMs = 250;
         private const string PreloadLoadOrigin = "preload";
 
         private static readonly Dictionary<string, BitmapImage> MemoryStrongCache = new(StringComparer.OrdinalIgnoreCase);
@@ -56,13 +58,16 @@ namespace GameLauncher.Services
 
             if (pathsToLoad.Count == 0)
             {
-                Logger.Log("Image preload skipped: all cover images are already cached.");
                 return;
             }
 
             ResetCacheStats();
             var watch = Stopwatch.StartNew();
-            Logger.Log($"Image preload started: {pathsToLoad.Count} cover image(s).");
+            bool shouldLogStart = pathsToLoad.Count >= PreloadLogImageCountThreshold;
+            if (shouldLogStart)
+            {
+                Logger.Log($"Image preload started: {pathsToLoad.Count} cover image(s).");
+            }
 
             await Parallel.ForEachAsync(
                 pathsToLoad,
@@ -79,7 +84,10 @@ namespace GameLauncher.Services
                 });
 
             watch.Stop();
-            Logger.Log($"Image preload completed: {pathsToLoad.Count} cover image(s) in {watch.ElapsedMilliseconds} ms.");
+            if (shouldLogStart || watch.ElapsedMilliseconds >= PreloadLogDurationThresholdMs)
+            {
+                Logger.Log($"Image preload completed: {pathsToLoad.Count} cover image(s) in {watch.ElapsedMilliseconds} ms.");
+            }
         }
 
         public static bool IsCached(string? path)
