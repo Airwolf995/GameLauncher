@@ -9,7 +9,7 @@ namespace GameLauncher.Tests
     public class PlayTimeConfigTests
     {
         [Fact]
-        public async Task LoadAllGamesAsync_LoadsLegacyPlayTimeFormat()
+        public async Task LoadAllGamesAsync_LoadsCurrentPlayTimeFormat()
         {
             var tempRoot = CreateTempRoot();
             var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
@@ -36,7 +36,10 @@ namespace GameLauncher.Tests
                         }
                       ],
                       "play_time": {
-                        "manual_test": 120
+                        "manual_test": {
+                          "name": "Legacy Spiel",
+                          "seconds": 120
+                        }
                       },
                       "ui_settings": {}
                     }
@@ -47,57 +50,6 @@ namespace GameLauncher.Tests
                 var game = Assert.Single(games, g => g.Id == "manual_test");
 
                 Assert.Equal(120, game.PlayTime);
-            }
-            finally
-            {
-                CleanupTempRoot(tempRoot);
-            }
-        }
-
-        [Fact]
-        public async Task LoadAllGamesAsync_MigratesLegacyPlayTimeEntryToNamedObject()
-        {
-            var tempRoot = CreateTempRoot();
-            var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
-
-            try
-            {
-                Directory.CreateDirectory(tempRoot);
-                await File.WriteAllTextAsync(configPath,
-                    """
-                    {
-                      "manual_games": [
-                        {
-                          "id": "manual_test",
-                          "name": "Mein Testspiel",
-                          "platform": "Manuell",
-                          "path": "C:\\Test\\MeinTestspiel.exe",
-                          "args": "",
-                          "install_directory": "C:\\Test",
-                          "executable_name": "MeinTestspiel",
-                          "source": "Manuell",
-                          "launch_type": "exe",
-                          "is_manual": true,
-                          "image_url": ""
-                        }
-                      ],
-                      "play_time": {
-                        "manual_test": 120
-                      },
-                      "ui_settings": {}
-                    }
-                    """);
-
-                using (var manager = new GameManager(configPath))
-                {
-                    await manager.LoadAllGamesAsync(loadSteamMetadataInBackground: false);
-                }
-
-                var json = File.ReadAllText(configPath);
-
-                Assert.Contains("\"manual_test\": {", json);
-                Assert.Contains("\"name\": \"Mein Testspiel\"", json);
-                Assert.Contains("\"seconds\": 120", json);
             }
             finally
             {

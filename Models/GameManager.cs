@@ -116,7 +116,6 @@ namespace GameLauncher.Models
             // 3. Apply Favorites, Last Played, PlayTime & Hidden Status
 
             ApplyStoredState(games);
-            MigratePlayTimeEntryNames(games);
 
             var currentLanguage = Services.Localization.LocalizationService.Instance.CurrentLanguage;
             int cachedMetadataCount = 0;
@@ -181,7 +180,6 @@ namespace GameLauncher.Models
             var ubiScanner = new UbisoftScanner();
             var games = await ubiScanner.ScanAsync(ct);
             ApplyStoredState(games);
-            MigratePlayTimeEntryNames(games);
             Logger.Log($"Zeitversetzter Startup-Scan abgeschlossen. Ubisoft: {games.Count}");
             return games;
         }
@@ -481,34 +479,6 @@ namespace GameLauncher.Models
                 {
                     game.Tags = new List<string>(tags);
                 }
-            }
-        }
-
-        private void MigratePlayTimeEntryNames(IEnumerable<Game> games)
-        {
-            var config = _configService.Config;
-            var didChange = false;
-
-            foreach (var game in games)
-            {
-                if (!config.PlayTime.TryGetValue(game.Id, out var entry) || entry == null)
-                {
-                    continue;
-                }
-
-                if (string.Equals(entry.Name, game.Name, StringComparison.Ordinal) || string.IsNullOrWhiteSpace(game.Name))
-                {
-                    continue;
-                }
-
-                entry.Name = game.Name;
-                didChange = true;
-            }
-
-            if (didChange)
-            {
-                Logger.Log("Spielnamen in gespeicherten Spielzeit-Einträgen wurden migriert.");
-                _configService.SaveConfig();
             }
         }
 
