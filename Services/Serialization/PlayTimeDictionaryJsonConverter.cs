@@ -57,15 +57,12 @@ namespace GameLauncher.Services.Serialization
 
         private static PlayTimeEntry ReadEntry(ref Utf8JsonReader reader, JsonSerializerOptions options)
         {
-            return reader.TokenType switch
+            if (reader.TokenType != JsonTokenType.StartObject)
             {
-                JsonTokenType.Number => new PlayTimeEntry
-                {
-                    Seconds = reader.GetInt32()
-                },
-                JsonTokenType.StartObject => JsonSerializer.Deserialize<PlayTimeEntry>(ref reader, options) ?? new PlayTimeEntry(),
-                _ => throw new JsonException("Spielzeit-Einträge müssen eine Zahl oder ein Objekt sein.")
-            };
+                throw new JsonException("Spielzeit-Einträge müssen Objekte sein.");
+            }
+
+            return JsonSerializer.Deserialize<PlayTimeEntry>(ref reader, options) ?? new PlayTimeEntry();
         }
     }
 }

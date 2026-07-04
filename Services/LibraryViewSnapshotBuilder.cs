@@ -83,9 +83,9 @@ namespace GameLauncher.Services
                 Constants.Filters.Manual => game.IsManual,
                 Constants.Platforms.Steam => game.Platform == Constants.Platforms.Steam,
                 Constants.Platforms.Epic => game.Platform == Constants.Platforms.Epic,
-                "Ubisoft Connect" => game.Platform == "Ubisoft Connect",
-                "EA App" => game.Platform == "EA App",
-                "Xbox" => game.Platform == "Xbox",
+                Constants.Platforms.UbisoftConnect => game.Platform == Constants.Platforms.UbisoftConnect,
+                Constants.Platforms.EAApp => game.Platform == Constants.Platforms.EAApp,
+                Constants.Platforms.Xbox => game.Platform == Constants.Platforms.Xbox,
                 Constants.Platforms.GOG => game.Platform == Constants.Platforms.GOG,
                 _ when selectedFilter.StartsWith(Constants.Filters.TagPrefix, StringComparison.Ordinal) =>
                     game.Tags.Contains(selectedFilter.Substring(Constants.Filters.TagPrefix.Length)),

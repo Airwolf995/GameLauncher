@@ -194,24 +194,8 @@ namespace GameLauncher.Services
                 ? "de"
                 : "en";
 
-            config.UISettings.LibraryFilter = NormalizeFilterKey(config.UISettings.LibraryFilter);
+            config.UISettings.LibraryFilter = LibraryFilterService.NormalizeFilterKey(config.UISettings.LibraryFilter);
         }
-
-        private static string NormalizeFilterKey(string? filter) => filter switch
-        {
-            null or "" => Constants.Filters.All,
-            "Alle" => Constants.Filters.All,
-            "all" => Constants.Filters.All,
-            "Favoriten" => Constants.Filters.Favorites,
-            "favorites" => Constants.Filters.Favorites,
-            "Ausgeblendet" => Constants.Filters.Hidden,
-            "Versteckt" => Constants.Filters.Hidden,
-            "hidden" => Constants.Filters.Hidden,
-            "Manuell" => Constants.Filters.Manual,
-            "Manual" => Constants.Filters.Manual,
-            _ when filter.StartsWith("🏷️ ", StringComparison.Ordinal) => $"{Constants.Filters.TagPrefix}{filter.Substring(4)}",
-            _ => filter
-        };
 
         private static string ResolveConfigPath(string? configPathOverride, bool ensureDirectory)
         {

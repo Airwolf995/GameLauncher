@@ -691,6 +691,10 @@ namespace GameLauncher
             var snapshot = UiSettingsSnapshot.From(uiSettings);
             if (_lastAppliedUiSettings == snapshot)
             {
+                if (registerHotkey && IsLoaded)
+                {
+                    _overlayController.RegisterHotkey(this, uiSettings);
+                }
                 return;
             }
 

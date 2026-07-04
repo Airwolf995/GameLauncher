@@ -65,3 +65,6 @@ dotnet build .\GameLauncher.csproj -c Release
 - Doku-, Installer-/Build- und Feature-/Bugfix-Änderungen nach Möglichkeit in getrennten Commits oder Branches halten.
 - Vor dem Push immer kurz `git status` prüfen und nur die bewusst gemeinten Dateien committen.
 - Nur lokal geführte Hilfs- oder Archivdateien nicht committen, z. B. eine private lokal ausgeblendete `CHANGELOG.md`.
+- Commit-Messages müssen aussagekräftig sein und das tatsächliche Thema der Änderung klar benennen, nicht nur allgemein „Update“, „Fix“ oder ähnlich.
+- In Commit-Messages soll nach Möglichkeit erkennbar sein, was konkret geändert wurde und welcher Bereich betroffen ist, z. B. Overlay, Hardware-Auslese, Installer, Scanner oder UI.
+- Wenn ein Commit mehrere technische Anpassungen bündelt, soll die Message den gemeinsamen fachlichen Zusammenhang beschreiben, damit beim späteren Lesen der Historie klar bleibt, warum der Commit existiert.

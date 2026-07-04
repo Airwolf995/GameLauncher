@@ -62,23 +62,23 @@ namespace GameLauncher
 
             try
             {
-                var stats = await _hardwareMonitor.GetHardwareStatsAsync();
+                HardwareStatsSnapshot stats = await _hardwareMonitor.ReadSnapshotAsync();
 
                 // CPU
-                string cpuTempStr = (stats.cpuTemp.HasValue && stats.cpuTemp.Value > 0) ? $"{Math.Round(stats.cpuTemp.Value)}°C" : "--°C";
-                string cpuLoadStr = stats.cpuUsage.HasValue ? $"{Math.Round(stats.cpuUsage.Value)}%" : "--%";
+                string cpuTempStr = (stats.CpuTemp.HasValue && stats.CpuTemp.Value > 0) ? $"{Math.Round(stats.CpuTemp.Value)}°C" : "--°C";
+                string cpuLoadStr = stats.CpuUsage.HasValue ? $"{Math.Round(stats.CpuUsage.Value)}%" : "--%";
                 CpuText.Text = $"{cpuTempStr} | {cpuLoadStr}";
 
                 // GPU
-                string gpuTempStr = (stats.gpuTemp.HasValue && stats.gpuTemp.Value > 0) ? $"{Math.Round(stats.gpuTemp.Value)}°C" : "--°C";
-                string gpuLoadStr = stats.gpuUsage.HasValue ? $"{Math.Round(stats.gpuUsage.Value)}%" : "--%";
+                string gpuTempStr = (stats.GpuTemp.HasValue && stats.GpuTemp.Value > 0) ? $"{Math.Round(stats.GpuTemp.Value)}°C" : "--°C";
+                string gpuLoadStr = stats.GpuUsage.HasValue ? $"{Math.Round(stats.GpuUsage.Value)}%" : "--%";
                 GpuText.Text = $"{gpuTempStr} | {gpuLoadStr}";
 
                 // RAM
-                RamText.Text = FormatMemory(stats.ramUsedGb, stats.ramTotalGb, stats.ramLoad);
+                RamText.Text = FormatMemory(stats.RamUsedGb, stats.RamTotalGb, stats.RamLoad);
 
                 // VRAM
-                VramText.Text = FormatMemory(stats.vramUsedGb, stats.vramTotalGb, stats.vramLoad);
+                VramText.Text = FormatMemory(stats.VramUsedGb, stats.VramTotalGb, stats.VramLoad);
             }
             catch (Exception ex)
             {
