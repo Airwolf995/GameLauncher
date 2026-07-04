@@ -20,16 +20,16 @@ namespace GameLauncher.Services.MainWindow
         {
             try
             {
-                var updateInfo = await _updateService.CheckForUpdatesAsync();
+                var updateResult = await _updateService.CheckForUpdatesAsync();
 
-                if (updateInfo == null)
+                if (!updateResult.Succeeded || updateResult.UpdateInfo == null)
                 {
                     return;
                 }
 
                 await owner.Dispatcher.InvokeAsync(() =>
                 {
-                    var updateWindow = new UpdateWindow(_updateService, updateInfo)
+                    var updateWindow = new UpdateWindow(_updateService, updateResult.UpdateInfo)
                     {
                         Owner = owner
                     };

@@ -24,5 +24,18 @@ namespace GameLauncher.Tests
 
             Assert.Equal(expected, result);
         }
+
+        [Fact]
+        public void UpdateCheckResult_Failed_ReportsFailureWithoutUpdate()
+        {
+            var error = new InvalidOperationException("Testfehler");
+
+            var result = UpdateCheckResult.Failed(error);
+
+            Assert.False(result.Succeeded);
+            Assert.False(result.IsUpdateAvailable);
+            Assert.Null(result.UpdateInfo);
+            Assert.Same(error, result.Error);
+        }
     }
 }

@@ -30,7 +30,7 @@ namespace GameLauncher.Services
             return version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
         }
 
-        public async Task<UpdateInfo?> CheckForUpdatesAsync(CancellationToken ct = default)
+        public async Task<UpdateCheckResult> CheckForUpdatesAsync(CancellationToken ct = default)
         {
             try
             {
@@ -63,20 +63,20 @@ namespace GameLauncher.Services
 
                 if (IsNewerVersion(latestVersion, currentVersion) && !string.IsNullOrEmpty(downloadUrl))
                 {
-                    return new UpdateInfo
+                    return UpdateCheckResult.UpdateAvailable(new UpdateInfo
                     {
                         Version = latestVersion,
                         DownloadUrl = downloadUrl,
                         Changelog = changelog
-                    };
+                    });
                 }
 
-                return null; // No update available
+                return UpdateCheckResult.NoUpdateAvailable();
             }
             catch (Exception ex)
             {
                 Logger.Error("Update check failed", ex);
-                return null;
+                return UpdateCheckResult.Failed(ex);
             }
         }
 
@@ -185,5 +185,29 @@ namespace GameLauncher.Services
         public string Version { get; set; } = "";
         public string DownloadUrl { get; set; } = "";
         public string Changelog { get; set; } = "";
+    }
+
+    public sealed class UpdateCheckResult
+    {
+        private UpdateCheckResult(bool succeeded, UpdateInfo? updateInfo, Exception? error)
+        {
+            Succeeded = succeeded;
+            UpdateInfo = updateInfo;
+            Error = error;
+        }
+
+        public bool Succeeded { get; }
+        public UpdateInfo? UpdateInfo { get; }
+        public Exception? Error { get; }
+        public bool IsUpdateAvailable => UpdateInfo != null;
+
+        public static UpdateCheckResult UpdateAvailable(UpdateInfo updateInfo) =>
+            new(true, updateInfo, null);
+
+        public static UpdateCheckResult NoUpdateAvailable() =>
+            new(true, null, null);
+
+        public static UpdateCheckResult Failed(Exception error) =>
+            new(false, null, error);
     }
 }

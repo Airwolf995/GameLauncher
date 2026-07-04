@@ -22,10 +22,21 @@ namespace GameLauncher.Services.Settings
             try
             {
                 using var updateService = new UpdateService(GitHubRepository);
-                UpdateInfo? updateInfo = await updateService.CheckForUpdatesAsync();
-                if (updateInfo != null)
+                UpdateCheckResult updateResult = await updateService.CheckForUpdatesAsync();
+
+                if (!updateResult.Succeeded)
                 {
-                    var updateWindow = new UpdateWindow(updateService, updateInfo)
+                    ModernMessageWindow.Show(
+                        _localization.Get("Settings.UpdateErrorBody"),
+                        _localization.Get("Common.Error"),
+                        ModernMessageWindow.ModernMessageButton.OK,
+                        GetActiveWindow());
+                    return;
+                }
+
+                if (updateResult.UpdateInfo != null)
+                {
+                    var updateWindow = new UpdateWindow(updateService, updateResult.UpdateInfo)
                     {
                         Owner = GetActiveWindow()
                     };
