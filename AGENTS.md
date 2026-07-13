@@ -27,6 +27,11 @@ dotnet build .\GameLauncher.csproj -c Release
 - Erwartet vorherigen Publish nach `publish\win-x64\`
 - Liest Version und Dateien aus `publish\win-x64\`
 
+## Lizenzen und Drittanbieter
+- Das Projekt steht unter GPLv3; `LICENSE` und `COPYRIGHT.txt` dürfen nicht entfernt oder durch abweichende Texte ersetzt werden.
+- Bei neuen oder aktualisierten NuGet-Abhängigkeiten vor dem Release prüfen, ob `THIRD-PARTY-NOTICES.txt` sowie die passenden vollständigen Lizenztexte unter `licenses\` ergänzt werden müssen.
+- `build-release.ps1` kopiert Lizenz- und Hinweisdateien in den Publish-Ordner. Releases immer aus diesem Ordner paketieren, damit der Installer sie mitliefert.
+
 ## Wichtige Bereiche
 - UI: `MainWindow.xaml`, `OverlayWindow.xaml`
 - Logik: `MainWindow.xaml.cs`, `ViewModels/`
