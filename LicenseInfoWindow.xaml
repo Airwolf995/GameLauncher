@@ -1,0 +1,64 @@
+<Window x:Class="GameLauncher.LicenseInfoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
+        Title="{loc:Loc Key=License.Title}"
+        Icon="pack://application:,,,/game.ico"
+        Width="520"
+        Height="470"
+        MinWidth="520"
+        MinHeight="470"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#1E1E1E"
+        Foreground="White">
+    <Grid Margin="30">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="{loc:Loc Key=License.Header}"
+                       FontSize="26"
+                       FontWeight="Bold"
+                       Foreground="White"/>
+            <TextBlock Text="Game Launcher"
+                       Margin="0,6,0,0"
+                       FontSize="14"
+                       Foreground="#AAAAAA"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Margin="0,28,0,24">
+            <TextBlock Text="{loc:Loc Key=License.Copyright}"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="White"/>
+            <TextBlock Text="{loc:Loc Key=License.Permission}"
+                       Margin="0,18,0,0"
+                       FontSize="14"
+                       Foreground="#CCCCCC"
+                       TextWrapping="Wrap"/>
+            <TextBlock Text="{loc:Loc Key=License.Warranty}"
+                       Margin="0,14,0,0"
+                       FontSize="14"
+                       Foreground="#CCCCCC"
+                       TextWrapping="Wrap"/>
+            <Border Margin="0,22,0,0"
+                    Padding="14,10"
+                    Background="#292929"
+                    CornerRadius="6">
+                <TextBlock Text="{loc:Loc Key=License.FileHint}"
+                           FontSize="12"
+                           Foreground="#AAAAAA"
+                           TextWrapping="Wrap"/>
+            </Border>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="{loc:Loc Key=License.OpenFile}"
+                    Click="OpenLicense_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

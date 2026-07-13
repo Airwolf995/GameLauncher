@@ -640,6 +640,15 @@ namespace GameLauncher
             }
         }
 
+        private void LicenseInfo_Click(object sender, RoutedEventArgs e)
+        {
+            var licenseInfo = new LicenseInfoWindow
+            {
+                Owner = this
+            };
+            licenseInfo.ShowDialog();
+        }
+
         private async void RefreshLibrary_Click(object sender, RoutedEventArgs e)
         {
             if (IsInitialLoading)
