@@ -640,6 +640,15 @@ namespace GameLauncher
             }
         }
 
+        private void LicenseInfo_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show(
+                _localization.Get("Main.LicenseNotice"),
+                _localization.Get("Main.LicenseTitle"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+
         private async void RefreshLibrary_Click(object sender, RoutedEventArgs e)
         {
             if (IsInitialLoading)

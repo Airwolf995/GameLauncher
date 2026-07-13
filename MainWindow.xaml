@@ -533,6 +533,29 @@
                         </Button.Style>
                     </Button>
 
+                    <Button Click="LicenseInfo_Click" Padding="8" Margin="0,0,15,0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="{loc:Loc Key=Main.LicenseInfo}" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="4">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#333333"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
                     <!-- Add Game Button -->
                     <Button Content="{loc:Loc Key=Main.AddGame}" Click="AddGame_Click" Height="34" Padding="15,0" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" MinWidth="140"/>
                 </StackPanel>

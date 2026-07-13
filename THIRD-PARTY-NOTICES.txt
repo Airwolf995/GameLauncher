@@ -39,7 +39,7 @@ Lizenziert unter der MIT-Lizenz.
 Vollständiger Lizenztext: licenses\LICENSE.Mono.txt
 Quellcode: https://github.com/mono/mono
 
-System.Management 10.0.5
+System.Management, System.CodeDom, System.IO.Ports und System.Threading.AccessControl 10.0.5
 Copyright © .NET Foundation and Contributors
 Lizenziert unter der MIT-Lizenz.
 Vollständiger Lizenztext: licenses\LICENSE.DotNet-MIT.txt
