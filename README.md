@@ -64,4 +64,4 @@ Der Installer liest anschließend aus `publish\win-x64`.
 
 ## Lizenz
 
-Dieses Projekt steht unter der [MIT-Lizenz](./LICENSE).
+Dieses Projekt steht unter der [GNU General Public License v3.0](./LICENSE).
