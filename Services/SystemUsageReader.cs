@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 
 namespace GameLauncher.Services
 {
-    internal sealed class SystemUsageReader : IDisposable
+    internal sealed class SystemUsageReader : ISystemUsageReader
     {
         private const string GpuEngineCategoryName = "GPU Engine";
         private const string GpuAdapterMemoryCategoryName = "GPU Adapter Memory";
@@ -17,6 +17,12 @@ namespace GameLauncher.Services
         private readonly List<PerformanceCounter> _gpuMemoryCounters = new();
         private readonly IHardwareTelemetrySource _hardwareTelemetrySource;
         private readonly string? _nvidiaSmiPath;
+        private readonly Func<float?> _readCpuUsage;
+        private readonly Func<(float? usedGb, float? totalGb, float? loadPercent)> _readMemoryStats;
+        private readonly Func<float?> _readGpuUsage;
+        private readonly Func<(float? usedGb, float? totalGb, float? loadPercent)> _readVramStats;
+        private readonly Action<string, Exception> _logError;
+        private readonly HashSet<string> _loggedReadErrors = new(StringComparer.Ordinal);
 
         private bool _gpuCountersInitialized;
         private bool _gpuCountersAvailable = true;
@@ -29,17 +35,33 @@ namespace GameLauncher.Services
         private ulong? _lastCpuUserTime;
 
         public SystemUsageReader(IHardwareTelemetrySource hardwareTelemetrySource)
+            : this(hardwareTelemetrySource, null, null, null, null)
+        {
+        }
+
+        internal SystemUsageReader(
+            IHardwareTelemetrySource hardwareTelemetrySource,
+            Func<float?>? readCpuUsage,
+            Func<(float? usedGb, float? totalGb, float? loadPercent)>? readMemoryStats,
+            Func<float?>? readGpuUsage,
+            Func<(float? usedGb, float? totalGb, float? loadPercent)>? readVramStats,
+            Action<string, Exception>? logError = null)
         {
             _hardwareTelemetrySource = hardwareTelemetrySource ?? throw new ArgumentNullException(nameof(hardwareTelemetrySource));
             _nvidiaSmiPath = NvidiaSmiHelper.ResolvePath();
+            _readCpuUsage = readCpuUsage ?? ReadCpuUsage;
+            _readMemoryStats = readMemoryStats ?? ReadMemoryStats;
+            _readGpuUsage = readGpuUsage ?? ReadGpuUsage;
+            _readVramStats = readVramStats ?? ReadVramStats;
+            _logError = logError ?? Models.Logger.Error;
         }
 
         public HardwareStatsSnapshot ReadSnapshot()
         {
-            float? cpuUsage = ReadCpuUsage();
-            var memory = ReadMemoryStats();
-            float? gpuUsage = ReadGpuUsage();
-            var vram = ReadVramStats();
+            float? cpuUsage = TryReadCpuUsage();
+            var memory = TryReadMemoryStats();
+            float? gpuUsage = TryReadGpuUsage();
+            var vram = TryReadVramStats();
 
             return new HardwareStatsSnapshot(
                 CpuTemp: null,
@@ -52,6 +74,68 @@ namespace GameLauncher.Services
                 VramUsedGb: vram.usedGb,
                 VramTotalGb: vram.totalGb,
                 VramLoad: vram.loadPercent);
+        }
+
+        private float? TryReadCpuUsage()
+        {
+            try
+            {
+                return _readCpuUsage();
+            }
+            catch (Exception ex)
+            {
+                LogReadErrorOnce("CpuUsage", "HardwareMonitor: CPU-Auslastung konnte nicht gelesen werden", ex);
+                return null;
+            }
+        }
+
+        private (float? usedGb, float? totalGb, float? loadPercent) TryReadMemoryStats()
+        {
+            try
+            {
+                return _readMemoryStats();
+            }
+            catch (Exception ex)
+            {
+                LogReadErrorOnce("Memory", "HardwareMonitor: RAM-Auslastung konnte nicht gelesen werden", ex);
+                return (null, null, null);
+            }
+        }
+
+        private float? TryReadGpuUsage()
+        {
+            try
+            {
+                return _readGpuUsage();
+            }
+            catch (Exception ex)
+            {
+                LogReadErrorOnce("GpuUsage", "HardwareMonitor: GPU-Auslastung konnte nicht gelesen werden", ex);
+                return null;
+            }
+        }
+
+        private (float? usedGb, float? totalGb, float? loadPercent) TryReadVramStats()
+        {
+            try
+            {
+                return _readVramStats();
+            }
+            catch (Exception ex)
+            {
+                LogReadErrorOnce("Vram", "HardwareMonitor: VRAM-Auslastung konnte nicht gelesen werden", ex);
+                return (null, null, null);
+            }
+        }
+
+        private void LogReadErrorOnce(string errorKey, string message, Exception ex)
+        {
+            if (!_loggedReadErrors.Add(errorKey))
+            {
+                return;
+            }
+
+            _logError(message, ex);
         }
 
         private float? ReadCpuUsage()
