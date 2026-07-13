@@ -20,4 +20,7 @@ dotnet publish $projectPath `
     --no-restore `
     -o $PublishDir
 
+Copy-Item .\LICENSE (Join-Path $PublishDir "LICENSE") -Force
+Copy-Item .\THIRD-PARTY-NOTICES.txt (Join-Path $PublishDir "THIRD-PARTY-NOTICES.txt") -Force
+
 Write-Host "Release-Publish fertig: $PublishDir"

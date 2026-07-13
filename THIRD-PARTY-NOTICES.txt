@@ -1,0 +1,15 @@
+Drittanbieter-Hinweise
+=======================
+
+Dieses Produkt enthält die folgenden Drittanbieterkomponenten:
+
+LibreHardwareMonitorLib 0.9.7-pre656
+Copyright © LibreHardwareMonitor contributors
+Lizenziert unter der Mozilla Public License, Version 2.0 (MPL-2.0).
+Lizenztext: https://www.mozilla.org/MPL/2.0/
+Quellcode: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
+
+System.Management 10.0.5
+Copyright © .NET Foundation and Contributors
+Lizenziert unter der MIT-Lizenz.
+Lizenztext und Quellcode: https://github.com/dotnet/runtime
