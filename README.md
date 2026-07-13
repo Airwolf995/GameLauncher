@@ -64,4 +64,5 @@ Der Installer liest anschließend aus `publish\win-x64`.
 
 ## Lizenz
 
-Dieses Projekt steht unter der [GNU General Public License v3.0](./LICENSE).
+Dieses Projekt steht unter der [GNU General Public License, Version 3](./LICENSE).
+Die projektspezifischen Copyright- und Lizenzhinweise stehen in der [NOTICE](./NOTICE).
