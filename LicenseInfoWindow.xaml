@@ -58,11 +58,7 @@
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="{loc:Loc Key=License.OpenFile}"
-                    Click="OpenLicense_Click"
-                    Margin="0,0,12,0"/>
-            <Button Content="{loc:Loc Key=Common.Done}"
-                    IsDefault="True"
-                    IsCancel="True"/>
+                    Click="OpenLicense_Click"/>
         </StackPanel>
     </Grid>
 </Window>

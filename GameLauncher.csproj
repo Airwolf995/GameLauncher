@@ -23,6 +23,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="LICENSE">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Remove="GameLauncher.Tests\**\*.cs" />
     <EmbeddedResource Remove="GameLauncher.Tests\**\*" />
     <None Remove="GameLauncher.Tests\**\*" />
