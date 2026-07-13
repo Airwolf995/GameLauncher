@@ -9,6 +9,35 @@ Lizenziert unter der Mozilla Public License, Version 2.0 (MPL-2.0).
 Lizenztext: https://www.mozilla.org/MPL/2.0/
 Quellcode: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
 
+BlackSharp.Core 1.0.12
+Copyright © Blacktempel contributors
+Lizenziert unter der Mozilla Public License, Version 2.0 (MPL-2.0).
+Lizenztext: https://www.mozilla.org/MPL/2.0/
+Quellcode: https://github.com/Blacktempel/BlackSharp
+
+DiskInfoToolkit 1.2.1
+Copyright © Blacktempel contributors
+Lizenziert unter der Mozilla Public License, Version 2.0 (MPL-2.0).
+Lizenztext: https://www.mozilla.org/MPL/2.0/
+Quellcode: https://github.com/Blacktempel/DiskInfoToolkit
+
+RAMSPDToolkit-NDD 1.5.0
+Copyright © Blacktempel contributors
+Lizenziert unter der Mozilla Public License, Version 2.0 (MPL-2.0).
+Lizenztext: https://www.mozilla.org/MPL/2.0/
+Quellcode: https://github.com/Blacktempel/RAMSPDToolkit
+
+HidSharp 2.6.4
+Copyright © 2010-2025 James F. Bellinger
+Lizenziert unter der Apache License, Version 2.0.
+Lizenztext: https://www.apache.org/licenses/LICENSE-2.0
+Projekt: https://software.seekye.com/hidsharp
+
+Mono.Posix.NETStandard 1.0.0 sowie MonoPosixHelper
+Copyright © Microsoft Corporation
+Lizenziert unter der MIT-Lizenz.
+Lizenztext und Quellcode: https://github.com/mono/mono
+
 System.Management 10.0.5
 Copyright © .NET Foundation and Contributors
 Lizenziert unter der MIT-Lizenz.
