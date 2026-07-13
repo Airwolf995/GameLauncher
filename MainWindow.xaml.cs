@@ -642,11 +642,11 @@ namespace GameLauncher
 
         private void LicenseInfo_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show(
-                _localization.Get("Main.LicenseNotice"),
-                _localization.Get("Main.LicenseTitle"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            var licenseInfo = new LicenseInfoWindow
+            {
+                Owner = this
+            };
+            licenseInfo.ShowDialog();
         }
 
         private async void RefreshLibrary_Click(object sender, RoutedEventArgs e)
