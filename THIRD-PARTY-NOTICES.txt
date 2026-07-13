@@ -6,41 +6,41 @@ Dieses Produkt enthält die folgenden Drittanbieterkomponenten:
 LibreHardwareMonitorLib 0.9.7-pre656
 Copyright © LibreHardwareMonitor contributors
 Lizenziert unter der Mozilla Public License, Version 2.0 (MPL-2.0).
-Vollständiger Lizenztext: ThirdPartyLicenses\MPL-2.0.txt
+Vollständiger Lizenztext: licenses\MPL-2.0.txt
 Quellcode: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
 
 BlackSharp.Core 1.0.12
 Copyright © Blacktempel contributors
 Lizenziert unter der Mozilla Public License, Version 2.0 (MPL-2.0).
-Vollständiger Lizenztext: ThirdPartyLicenses\MPL-2.0.txt
+Vollständiger Lizenztext: licenses\MPL-2.0.txt
 Quellcode: https://github.com/Blacktempel/BlackSharp
 
 DiskInfoToolkit 1.2.1
 Copyright © Blacktempel contributors
 Lizenziert unter der Mozilla Public License, Version 2.0 (MPL-2.0).
-Vollständiger Lizenztext: ThirdPartyLicenses\MPL-2.0.txt
+Vollständiger Lizenztext: licenses\MPL-2.0.txt
 Quellcode: https://github.com/Blacktempel/DiskInfoToolkit
 
 RAMSPDToolkit-NDD 1.5.0
 Copyright © Blacktempel contributors
 Lizenziert unter der Mozilla Public License, Version 2.0 (MPL-2.0).
-Vollständiger Lizenztext: ThirdPartyLicenses\MPL-2.0.txt
+Vollständiger Lizenztext: licenses\MPL-2.0.txt
 Quellcode: https://github.com/Blacktempel/RAMSPDToolkit
 
 HidSharp 2.6.4
 Copyright © 2010-2025 James F. Bellinger
 Lizenziert unter der Apache License, Version 2.0.
-Vollständiger Lizenztext: ThirdPartyLicenses\Apache-2.0.txt
+Vollständiger Lizenztext: licenses\Apache-2.0.txt
 Projekt: https://software.seekye.com/hidsharp
 
 Mono.Posix.NETStandard 1.0.0 sowie MonoPosixHelper
 Copyright © Microsoft Corporation
 Lizenziert unter der MIT-Lizenz.
-Vollständiger Lizenztext: ThirdPartyLicenses\Mono-LICENSE.txt
+Vollständiger Lizenztext: licenses\Mono-LICENSE.txt
 Quellcode: https://github.com/mono/mono
 
 System.Management 10.0.5
 Copyright © .NET Foundation and Contributors
 Lizenziert unter der MIT-Lizenz.
-Vollständiger Lizenztext: ThirdPartyLicenses\MIT-DotNet.txt
+Vollständiger Lizenztext: licenses\MIT-DotNet.txt
 Quellcode: https://github.com/dotnet/runtime

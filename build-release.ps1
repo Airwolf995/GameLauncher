@@ -23,6 +23,6 @@ dotnet publish $projectPath `
 Copy-Item .\LICENSE (Join-Path $PublishDir "LICENSE") -Force
 Copy-Item .\NOTICE (Join-Path $PublishDir "NOTICE") -Force
 Copy-Item .\THIRD-PARTY-NOTICES.txt (Join-Path $PublishDir "THIRD-PARTY-NOTICES.txt") -Force
-Copy-Item .\ThirdPartyLicenses (Join-Path $PublishDir "ThirdPartyLicenses") -Recurse -Force
+Copy-Item .\licenses (Join-Path $PublishDir "licenses") -Recurse -Force
 
 Write-Host "Release-Publish fertig: $PublishDir"
