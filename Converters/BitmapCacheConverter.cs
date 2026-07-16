@@ -26,6 +26,12 @@ namespace GameLauncher
         public static bool IsCachedForUi(string? path) =>
             GameImageBitmapCache.IsCached(path);
 
+        public static bool IsReadyForUi(string? path) =>
+            GameImageBitmapCache.IsReadyForUi(path);
+
+        public static void BeginStartupCacheTracking() =>
+            GameImageBitmapCache.BeginStartupTracking();
+
         public static void ReleaseStartupStrongCache() =>
             GameImageBitmapCache.ReleaseStartupStrongCache();
 

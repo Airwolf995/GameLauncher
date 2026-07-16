@@ -297,6 +297,7 @@ namespace GameLauncher
 
                 // Load Games via ViewModel
                 IsInitialLoading = true;
+                BitmapCacheConverter.BeginStartupCacheTracking();
                 await _viewModel.LoadGamesAsync(
                     loadSteamMetadataInBackground: false,
                     includeDeferredStartupGames: true);

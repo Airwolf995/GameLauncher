@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +22,7 @@ namespace GameLauncher.Services
         private const long MaxStrongCacheBytes = 128L * 1024 * 1024;
         private const int PreloadLogImageCountThreshold = 10;
         private const int PreloadLogDurationThresholdMs = 250;
+        private static readonly TimeSpan FailedImageRetryDelay = TimeSpan.FromSeconds(30);
 
         private static readonly Dictionary<string, BitmapImage> MemoryStrongCache = new(StringComparer.OrdinalIgnoreCase);
         private static readonly LinkedList<string> MemoryStrongCacheLru = [];
@@ -34,6 +36,8 @@ namespace GameLauncher.Services
             Timeout = TimeSpan.FromSeconds(8)
         };
         private static readonly SemaphoreSlim ImageLoadLimiter = new(MaxParallelImageLoads);
+        private static readonly ConcurrentDictionary<string, DateTime> FailedImageRetryAfterUtc =
+            new(StringComparer.OrdinalIgnoreCase);
 
         private static int _strongCacheHits;
         private static int _preloadLoadCount;
@@ -56,7 +60,7 @@ namespace GameLauncher.Services
             var pathsToLoad = imagePaths
                 .Where(path => !string.IsNullOrWhiteSpace(path))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Where(path => !IsCached(path))
+                .Where(path => !IsCached(path) && !IsTemporarilyFailed(path))
                 .ToList();
 
             if (pathsToLoad.Count == 0)
@@ -64,7 +68,6 @@ namespace GameLauncher.Services
                 return;
             }
 
-            ResetCacheStats();
             var watch = Stopwatch.StartNew();
             bool shouldLogStart = pathsToLoad.Count >= PreloadLogImageCountThreshold;
             if (shouldLogStart)
@@ -102,6 +105,21 @@ namespace GameLauncher.Services
             return TryGetMemoryStrongCache(path, out _);
         }
 
+        public static bool IsReadyForUi(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+
+            return TryGetMemoryStrongCache(path, out _) || IsTemporarilyFailed(path);
+        }
+
+        public static void BeginStartupTracking()
+        {
+            ResetCacheStats();
+        }
+
         public static void ReleaseStartupStrongCache()
         {
             Logger.Log(
@@ -111,11 +129,13 @@ namespace GameLauncher.Services
         public static void Invalidate(string path)
         {
             RemoveFromMemoryStrongCache(path);
+            FailedImageRetryAfterUtc.TryRemove(path, out _);
         }
 
         public static void Clear()
         {
             ClearMemoryStrongCache();
+            FailedImageRetryAfterUtc.Clear();
 
             Logger.Log("Image caches cleared for manual library refresh.");
         }
@@ -151,15 +171,35 @@ namespace GameLauncher.Services
                         return cachedBitmap;
                     }
 
+                    // Ein paralleler Vorladevorgang kann denselben Pfad bereits erfolglos
+                    // verarbeitet haben, während dieser Aufruf auf die Pfadsperre wartete.
+                    if (IsTemporarilyFailed(path))
+                    {
+                        return null;
+                    }
+
                     Interlocked.Increment(ref _preloadLoadCount);
 
                     await ImageLoadLimiter.WaitAsync(cancellationToken);
                     try
                     {
-                        BitmapImage bitmap = await LoadBitmapAsync(path, cancellationToken);
+                        try
+                        {
+                            BitmapImage bitmap = await LoadBitmapAsync(path, cancellationToken);
 
-                        AddToMemoryStrongCache(path, bitmap);
-                        return bitmap;
+                            AddToMemoryStrongCache(path, bitmap);
+                            FailedImageRetryAfterUtc.TryRemove(path, out _);
+                            return bitmap;
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            RegisterLoadFailure(path, ex);
+                            return null;
+                        }
                     }
                     finally
                     {
@@ -175,8 +215,9 @@ namespace GameLauncher.Services
             {
                 throw;
             }
-            catch
+            catch (Exception ex)
             {
+                RegisterLoadFailure(path, ex);
                 return null;
             }
             finally
@@ -249,6 +290,35 @@ namespace GameLauncher.Services
             Interlocked.Exchange(ref _strongCacheHits, 0);
             Interlocked.Exchange(ref _preloadLoadCount, 0);
             Interlocked.Exchange(ref _uiMissCount, 0);
+        }
+
+        private static bool IsTemporarilyFailed(string path)
+        {
+            if (!FailedImageRetryAfterUtc.TryGetValue(path, out DateTime retryAfterUtc))
+            {
+                return false;
+            }
+
+            if (retryAfterUtc > DateTime.UtcNow)
+            {
+                return true;
+            }
+
+            FailedImageRetryAfterUtc.TryRemove(path, out _);
+            return false;
+        }
+
+        private static void RegisterLoadFailure(string path, Exception exception)
+        {
+            FailedImageRetryAfterUtc[path] = DateTime.UtcNow.Add(FailedImageRetryDelay);
+
+            if (exception is HttpRequestException { StatusCode: HttpStatusCode.NotFound })
+            {
+                Logger.Warning($"Cover nicht verfügbar (HTTP 404): {path}");
+                return;
+            }
+
+            Logger.Error($"Bild konnte nicht geladen werden: {path}", exception);
         }
 
         private static bool TryGetMemoryStrongCache(string path, out BitmapImage? bitmap)
