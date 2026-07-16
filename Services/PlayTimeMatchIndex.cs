@@ -58,7 +58,6 @@ namespace GameLauncher.Services
                         }
 
                         gameList.Add(game);
-                        continue;
                     }
                 }
 
@@ -101,7 +100,7 @@ namespace GameLauncher.Services
 
             var normalizedProcessName = Path.GetFileName(processName);
             if (_gamesByExecutableName.TryGetValue(normalizedProcessName, out var executableMatches) &&
-                executableMatches.Count > 0)
+                executableMatches.Count == 1)
             {
                 gameId = executableMatches[0].Id;
                 return true;
@@ -112,7 +111,7 @@ namespace GameLauncher.Services
             {
                 var nameWithExe = normalizedProcessName + ".exe";
                 if (_gamesByExecutableName.TryGetValue(nameWithExe, out var exeMatches) &&
-                    exeMatches.Count > 0)
+                    exeMatches.Count == 1)
                 {
                     gameId = exeMatches[0].Id;
                     return true;
@@ -129,7 +128,7 @@ namespace GameLauncher.Services
             var normalizedProcessName = Path.GetFileName(processName);
             if (!string.IsNullOrWhiteSpace(normalizedProcessName) &&
                 _gamesByExecutableName.TryGetValue(normalizedProcessName, out var executableMatches) &&
-                executableMatches.Count > 0)
+                executableMatches.Count == 1)
             {
                 gameId = executableMatches[0].Id;
                 return true;

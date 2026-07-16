@@ -36,7 +36,11 @@ namespace GameLauncher.Services.Serialization
                     throw new JsonException("Unvollständiger Spielzeit-Eintrag in der Konfiguration.");
                 }
 
-                result[gameId] = ReadEntry(ref reader, options);
+                using var entryDocument = JsonDocument.ParseValue(ref reader);
+                if (TryReadEntry(entryDocument.RootElement, options, out var entry))
+                {
+                    result[gameId] = entry;
+                }
             }
 
             throw new JsonException("Spielzeitdaten wurden nicht korrekt beendet.");
@@ -55,14 +59,46 @@ namespace GameLauncher.Services.Serialization
             writer.WriteEndObject();
         }
 
-        private static PlayTimeEntry ReadEntry(ref Utf8JsonReader reader, JsonSerializerOptions options)
+        private static bool TryReadEntry(
+            JsonElement element,
+            JsonSerializerOptions options,
+            out PlayTimeEntry entry)
         {
-            if (reader.TokenType != JsonTokenType.StartObject)
+            entry = new PlayTimeEntry();
+
+            if (element.ValueKind == JsonValueKind.Number)
             {
-                throw new JsonException("Spielzeit-Einträge müssen Objekte sein.");
+                if (!element.TryGetInt64(out var legacySeconds) ||
+                    legacySeconds < 0 ||
+                    legacySeconds > int.MaxValue)
+                {
+                    return false;
+                }
+
+                entry.Seconds = (int)legacySeconds;
+                return true;
             }
 
-            return JsonSerializer.Deserialize<PlayTimeEntry>(ref reader, options) ?? new PlayTimeEntry();
+            if (element.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            try
+            {
+                var parsedEntry = element.Deserialize<PlayTimeEntry>(options);
+                if (parsedEntry == null || parsedEntry.Seconds < 0)
+                {
+                    return false;
+                }
+
+                entry = parsedEntry;
+                return true;
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
         }
     }
 }

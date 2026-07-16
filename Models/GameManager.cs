@@ -139,31 +139,14 @@ namespace GameLauncher.Models
 
             if (loadSteamMetadataInBackground && gamesNeedingMetadata.Count > 0)
             {
-                var semaphore = new System.Threading.SemaphoreSlim(3);
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        var tasks = gamesNeedingMetadata.Select(async game =>
-                        {
-                            await semaphore.WaitAsync(ct);
-                            try
-                            {
-                                if (await _metadataService.FetchSteamMetadataAsync(game, ct))
-                                {
-                                    _steamMetadataCache.Update(game, currentLanguage);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Logger.Error($"Metadata fetch failed for {game.Name}", ex);
-                            }
-                            finally
-                            {
-                                semaphore.Release();
-                            }
-                        });
-                        await Task.WhenAll(tasks);
+                        await RefreshSteamMetadataBatchAsync(gamesNeedingMetadata, currentLanguage, ct);
+                    }
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                    {
                     }
                     catch (Exception ex)
                     {
@@ -218,20 +201,32 @@ namespace GameLauncher.Models
                 return;
             }
 
+            await RefreshSteamMetadataBatchAsync(steamGamesNeedingRefresh, currentLanguage, ct);
+        }
+
+        private async Task RefreshSteamMetadataBatchAsync(
+            IReadOnlyCollection<Game> games,
+            Services.Localization.AppLanguage language,
+            System.Threading.CancellationToken cancellationToken)
+        {
             using var semaphore = new System.Threading.SemaphoreSlim(3);
-            var tasks = steamGamesNeedingRefresh.Select(async game =>
+            var tasks = games.Select(async game =>
             {
-                await semaphore.WaitAsync(ct);
+                await semaphore.WaitAsync(cancellationToken);
                 try
                 {
-                    if (await _metadataService.FetchSteamMetadataAsync(game, ct))
+                    if (await _metadataService.FetchSteamMetadataAsync(game, cancellationToken))
                     {
-                        _steamMetadataCache.Update(game, currentLanguage);
+                        _steamMetadataCache.Update(game, language);
                     }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
-                    Logger.Error($"Metadata refresh failed for {game.Name}", ex);
+                    Logger.Error($"Steam-Metadaten konnten für {game.Name} nicht geladen werden", ex);
                 }
                 finally
                 {
@@ -346,41 +341,14 @@ namespace GameLauncher.Models
                 config.ManualGames.Remove(toRemove);
                 
                 // Cleanup config
-                if (config.Favorites.Contains(game.Id)) config.Favorites.Remove(game.Id);
-                if (config.LastPlayed.ContainsKey(game.Id)) config.LastPlayed.Remove(game.Id);
-                
-                // Cleanup cached image
-                if (!string.IsNullOrEmpty(game.ImageUrl) && File.Exists(game.ImageUrl))
-                {
-                    try 
-                    {
-                        // Check if any other manual game or override uses the same image URL
-                        bool isShared = config.ManualGames.Any(g => g.Id != game.Id && string.Equals(g.ImageUrl, game.ImageUrl, StringComparison.OrdinalIgnoreCase)) ||
-                                        (config.ImageOverrides != null && config.ImageOverrides.Any(kvp => kvp.Key != game.Id && string.Equals(kvp.Value, game.ImageUrl, StringComparison.OrdinalIgnoreCase)));
+                config.Favorites.Remove(game.Id);
+                config.LastPlayed.Remove(game.Id);
+                config.PlayTime.Remove(game.Id);
+                config.HiddenGames.Remove(game.Id);
+                config.GameTags.Remove(game.Id);
+                config.ImageOverrides.Remove(game.Id);
 
-                        if (!isShared)
-                        {
-                            // Only delete if it is in one of our managed image directories
-                            string downloadedCoversDir = Services.AppPaths.GetDownloadedCoversDirectory();
-                            string extractedIconsDir = Services.AppPaths.GetExtractedIconsDirectory();
-                            string fullImagePath = Path.GetFullPath(game.ImageUrl);
-                            if (fullImagePath.StartsWith(Path.GetFullPath(downloadedCoversDir), StringComparison.OrdinalIgnoreCase) ||
-                                fullImagePath.StartsWith(Path.GetFullPath(extractedIconsDir), StringComparison.OrdinalIgnoreCase))
-                            {
-                                File.Delete(game.ImageUrl);
-                                Logger.Log($"Deleted cached image for: {game.Name}");
-                            }
-                        }
-                        else
-                        {
-                            Logger.Log($"Skipped deleting image {game.ImageUrl} as it is still shared by another game.");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Failed to delete image: {game.ImageUrl}", ex);
-                    }
-                }
+                _imageService.CleanupImageIfUnused(game.Id, game.ImageUrl);
                 
                 _configService.SaveConfig();
                 Logger.Log($"Removed manual game: {game.Name}");
@@ -432,11 +400,10 @@ namespace GameLauncher.Models
 
         public void SetTheme(string themeName) => _stateService.SetTheme(themeName);
 
-        public void UpdatePlayTime(string gameId, int seconds, string gameName = "") => _stateService.UpdatePlayTime(gameId, seconds, gameName);
-
         public void UpdateLastPlayed(string gameId, DateTime lastPlayed) => _stateService.UpdateLastPlayed(gameId, lastPlayed);
 
-        public void UpdatePlaySessions(IEnumerable<PlaySessionUpdate> updates) => _stateService.UpdatePlaySessions(updates);
+        public void UpdatePlaySessions(IEnumerable<PlaySessionUpdate> updates, bool persistConfig = true) =>
+            _stateService.UpdatePlaySessions(updates, persistConfig);
 
         public void NotifyGamesUpdated() => _stateService.RaiseGamesUpdated();
 
