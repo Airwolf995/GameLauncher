@@ -195,16 +195,16 @@ namespace GameLauncher
 
         protected override void OnClosing(CancelEventArgs e)
         {
-            // Force immediate save of any pending changes before closing
             var gameManager = _gameManager;
             var config = gameManager?.GetConfig();
-            if (gameManager != null && config != null)
-            {
-                gameManager.SaveConfigImmediate(config);
-            }
-             
+
             if (ShouldMinimizeToTrayOnClose(_isExiting, config?.UISettings.MinimizeToTray ?? false))
             {
+                if (gameManager != null && config != null)
+                {
+                    gameManager.SaveConfigImmediate(config);
+                }
+
                 e.Cancel = true;
                 _fpsCounter.Stop();
                 Hide();
@@ -222,6 +222,14 @@ namespace GameLauncher
                         _ = PrepareShutdownAsync();
                     }
                     return;
+                }
+
+                // OnClosing wird beim vorbereiteten Herunterfahren ein zweites Mal aufgerufen.
+                // Erst in diesem finalen Durchlauf speichern, damit der letzte Spielzeit-Tick
+                // enthalten ist und die Konfiguration nicht doppelt geschrieben wird.
+                if (gameManager != null && config != null)
+                {
+                    gameManager.SaveConfigImmediate(config);
                 }
 
                 if (_gameManager != null) _gameManager.GamesUpdated -= OnGamesUpdatedInWindow;
