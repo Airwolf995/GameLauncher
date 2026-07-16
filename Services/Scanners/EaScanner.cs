@@ -13,7 +13,7 @@ namespace GameLauncher.Services.Scanners
     /// </summary>
     public class EaScanner : IPlatformScanner
     {
-        public string PlatformName => "EA App";
+        public string PlatformName => Constants.Platforms.EAApp;
 
         public static List<string> GetAutoDetectedPaths()
         {
@@ -117,7 +117,7 @@ namespace GameLauncher.Services.Scanners
                                     Name = cleanName,
                                     Path = BuildLaunchUri(subKeyName),
                                     Args = "",
-                                    Platform = "EA App",
+                                    Platform = Constants.Platforms.EAApp,
                                     LaunchType = "uri",
                                     ImageUrl = iconUrl,
                                     InstallDirectory = installLocation
@@ -127,12 +127,20 @@ namespace GameLauncher.Services.Scanners
                                 Logger.Log($"Found EA game: {cleanName}");
                             }
                         }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
                         catch (Exception ex)
                         {
                             Logger.Error($"Error scanning EA game {subKeyName}", ex);
                         }
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

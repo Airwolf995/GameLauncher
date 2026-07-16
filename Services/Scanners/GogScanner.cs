@@ -108,12 +108,20 @@ namespace GameLauncher.Services.Scanners
                                 Logger.Log($"Found GOG game: {gameName}");
                             }
                         }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
                         catch (Exception ex)
                         {
                             Logger.Error($"Error scanning GOG game {subKeyName}", ex);
                         }
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

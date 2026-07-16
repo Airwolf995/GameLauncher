@@ -178,11 +178,19 @@ namespace GameLauncher.Services.Scanners
                                 });
                             }
                         }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
                         catch (Exception ex)
                         {
                             Logger.Error($"Error parsing Steam manifest {file}", ex);
                         }
                     }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
