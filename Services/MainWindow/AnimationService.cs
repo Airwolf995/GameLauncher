@@ -21,9 +21,8 @@ namespace GameLauncher.Services.MainWindow
         /// Runs the staggered card animation on the given ListBox.
         /// </summary>
         /// <param name="listBox">The ListBox containing game cards.</param>
-        /// <param name="setStartupActive">Action to set the IsStartupActive dependency property.</param>
         /// <param name="instant">If true, skip animation and show items immediately.</param>
-        public async Task AnimateItemsStaggeredAsync(ListBox listBox, Action<bool> setStartupActive, bool instant = false)
+        public async Task AnimateItemsStaggeredAsync(ListBox listBox, bool instant = false)
         {
             int count = listBox.Items.Count;
             if (count == 0) return;
@@ -34,7 +33,6 @@ namespace GameLauncher.Services.MainWindow
                 AnimateInstant(listBox, count);
                 instantWatch.Stop();
                 Models.Logger.Log($"Card animation skipped: instant update for {count} item(s) in {instantWatch.ElapsedMilliseconds} ms.");
-                setStartupActive(false);
                 return;
             }
 
@@ -42,8 +40,6 @@ namespace GameLauncher.Services.MainWindow
             var totalWatch = Stopwatch.StartNew();
             var frameStats = new AnimationFrameStats();
             Models.Logger.Log($"Card animation start: {count} item(s), visible containers before layout={CountGeneratedContainers(listBox, count)}.");
-            setStartupActive(true);
-
             // Let WPF finish generating visible containers, then schedule all animations at once.
             var layoutWatch = Stopwatch.StartNew();
             await listBox.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
@@ -58,8 +54,6 @@ namespace GameLauncher.Services.MainWindow
             int cleanupDelay = animatedCount == 0 ? 80 : Math.Min(700, 420 + (animatedCount - 1) * 18);
             Models.Logger.Log($"Card animation scheduled: animated={animatedCount}/{count}, generated containers={CountGeneratedContainers(listBox, count)}, layout wait={layoutWatch.ElapsedMilliseconds} ms, scheduling={scheduleWatch.ElapsedMilliseconds} ms, cleanup delay={cleanupDelay} ms.");
             await Task.Delay(cleanupDelay);
-            setStartupActive(false);
-
             // Final safety cleanup: remove animations to return control to XAML triggers
             var cleanupWatch = Stopwatch.StartNew();
             CleanupAnimations(listBox, count);

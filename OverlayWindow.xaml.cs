@@ -14,7 +14,6 @@ namespace GameLauncher
         private readonly PlayTimeService _playTimeService;
         private readonly DispatcherTimer _hardwareTimer;
         private readonly DispatcherTimer _clockTimer;
-        private readonly DateTime _launcherStartTime;
         private readonly LocalizationService _localization = LocalizationService.Instance;
         private string? _lastActiveGameId;
         private bool _isUpdating;
@@ -24,7 +23,6 @@ namespace GameLauncher
             InitializeComponent();
             _hardwareMonitor = hardwareMonitor;
             _playTimeService = playTimeService;
-            _launcherStartTime = DateTime.Now;
             _localization.LanguageChanged += OnLanguageChanged;
 
             // Position at top-right by default

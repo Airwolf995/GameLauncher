@@ -7,7 +7,8 @@ namespace GameLauncher
 {
     public partial class App : Application
     {
-        private static Mutex? _mutex = null;
+        private static Mutex? _mutex;
+        private static bool _ownsMutex;
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -17,6 +18,7 @@ namespace GameLauncher
             localization.ApplyLanguageCode(Services.ConfigService.GetStoredLanguageCode());
 
             _mutex = new Mutex(true, appName, out createdNew);
+            _ownsMutex = createdNew;
 
             if (!createdNew)
             {
@@ -56,7 +58,15 @@ namespace GameLauncher
         {
             Models.Logger.Log("Application shutting down.");
             Models.Logger.Shutdown();
-            _mutex?.ReleaseMutex();
+
+            if (_ownsMutex)
+            {
+                _mutex?.ReleaseMutex();
+                _ownsMutex = false;
+            }
+
+            _mutex?.Dispose();
+            _mutex = null;
             base.OnExit(e);
         }
     }

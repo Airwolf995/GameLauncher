@@ -5,6 +5,7 @@ namespace GameLauncher.Services.MainWindow
     public interface IFpsCounter : IDisposable
     {
         void Start(Action<int> onFpsCalculated);
+        void Resume();
         void Stop();
     }
 }
