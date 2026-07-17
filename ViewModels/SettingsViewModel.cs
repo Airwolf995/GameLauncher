@@ -1,8 +1,5 @@
 using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
@@ -12,10 +9,11 @@ using GameLauncher.Models;
 using GameLauncher.Services;
 using GameLauncher.Services.Localization;
 using GameLauncher.Services.Settings;
+using GameLauncher.ViewModels.Settings;
 
 namespace GameLauncher.ViewModels
 {
-    public class SettingsViewModel : ObservableObject, IDisposable
+    public sealed class SettingsViewModel : ObservableObject, IDisposable
     {
         private readonly GameManager _gameManager;
         private readonly LocalizationService _localization;
@@ -26,37 +24,8 @@ namespace GameLauncher.ViewModels
         private readonly ISettingsUpdateService _updateService;
         private readonly IPlatformStatusService _platformStatusService;
         private bool _isInitialLoading = true;
-        private bool _suppressUiCallbacks;
-        public IEnumerable<Models.CardSize> CardSizeOptions => Enum.GetValues(typeof(Models.CardSize)).Cast<Models.CardSize>();
-        public IEnumerable<Models.ViewMode> ViewModeOptions => Enum.GetValues(typeof(Models.ViewMode)).Cast<Models.ViewMode>();
-        
-        // Settings Properties
-        private string _selectedTheme = "";
-        private Models.CardSize _cardSize;
-        private Models.ViewMode _viewMode;
-        private bool _animationsEnabled;
-        private bool _autostartEnabled;
-        private bool _minimizeToTray;
-        private bool _minimizeOnGameStart;
-        private bool _closeOnGameStart;
-        private bool _overlayHotkeyCtrl;
-        private bool _overlayHotkeyAlt;
-        private bool _overlayHotkeyShift;
-        private bool _overlayHotkeyWin;
-        private string _overlayHotkeyKey = "";
-        private double _fontScale;
-        private bool _autoCheckUpdates;
-        private string _steamGridDbApiKey = "";
-        private string _ignoredProcessesText = "";
-        private string _steamPathsText = "";
-        private string _epicPathsText = "";
-        private string _xboxPathsText = "";
-        private string _gogPathsText = "";
-        private string _ubisoftPathsText = "";
-        private string _eaPathsText = "";
-        private string _versionText = "";
-        private string _backgroundImage = "";
-        private string _selectedLanguageCode = "en";
+        private bool _isCheckingUpdates;
+        private string _updateButtonText = "";
 
         public SettingsViewModel(GameManager gameManager, Action<string> onThemeChanged, Action<UISettings> onSettingsChanged)
             : this(
@@ -88,7 +57,10 @@ namespace GameLauncher.ViewModels
             _updateService = updateService;
             _platformStatusService = platformStatusService;
 
-            // Initialize Commands
+            Appearance = new AppearanceSettingsViewModel(PreviewUiSettings, _onThemeChanged);
+            Behavior = new BehaviorSettingsViewModel(_localization);
+            Library = new LibrarySettingsViewModel();
+
             CloseCommand = new RelayCommand(CloseWindow);
             SelectBackgroundCommand = new RelayCommand(_ => SelectBackground());
             ClearBackgroundCommand = new RelayCommand(_ => ClearBackground());
@@ -100,382 +72,227 @@ namespace GameLauncher.ViewModels
             _isInitialLoading = false;
         }
 
-        // Commands
+        public AppearanceSettingsViewModel Appearance { get; }
+        public BehaviorSettingsViewModel Behavior { get; }
+        public LibrarySettingsViewModel Library { get; }
+
         public ICommand CloseCommand { get; }
         public ICommand SelectBackgroundCommand { get; }
         public ICommand ClearBackgroundCommand { get; }
         public ICommand CheckUpdatesCommand { get; }
         public ICommand ResetToDefaultsCommand { get; }
 
-        public IReadOnlyList<string> OverlayHotkeyKeys { get; } = BuildOverlayHotkeyKeys();
-
-        private bool _isCheckingUpdates;
         public bool IsCheckingUpdates
         {
             get => _isCheckingUpdates;
-            set => SetProperty(ref _isCheckingUpdates, value);
+            private set => SetProperty(ref _isCheckingUpdates, value);
         }
 
-        private string _updateButtonText = "";
         public string UpdateButtonText
         {
             get => _updateButtonText;
-            set => SetProperty(ref _updateButtonText, value);
+            private set => SetProperty(ref _updateButtonText, value);
         }
 
-        // Properties
-        public string SelectedTheme
-        {
-            get => _selectedTheme;
-            set
-            {
-                if (SetProperty(ref _selectedTheme, value))
-                {
-                    string colorCode = Constants.UI.GetColorCodeForTheme(value);
-                    if (!_suppressUiCallbacks && !string.IsNullOrEmpty(colorCode))
-                    {
-                        _onThemeChanged?.Invoke(colorCode);
-                    }
-                }
-            }
-        }
-
-        public Models.CardSize CardSize
-        {
-            get => _cardSize;
-            set
-            {
-                if (SetProperty(ref _cardSize, value))
-                {
-                    PreviewUiSettings();
-                }
-            }
-        }
-
-        public string SelectedLanguageCode
-        {
-            get => _selectedLanguageCode;
-            set
-            {
-                var normalized = string.Equals(value, "de", StringComparison.OrdinalIgnoreCase) ? "de" : "en";
-                SetProperty(ref _selectedLanguageCode, normalized);
-            }
-        }
-
-        public Models.ViewMode ViewMode
-        {
-            get => _viewMode;
-            set
-            {
-                if (SetProperty(ref _viewMode, value))
-                {
-                    PreviewUiSettings();
-                }
-            }
-        }
-
-        public bool AnimationsEnabled
-        {
-            get => _animationsEnabled;
-            set
-            {
-                if (SetProperty(ref _animationsEnabled, value))
-                {
-                    PreviewUiSettings();
-                }
-            }
-        }
-
-        public bool AutostartEnabled
-        {
-            get => _autostartEnabled;
-            set => SetProperty(ref _autostartEnabled, value);
-        }
-
-        public bool MinimizeToTray
-        {
-            get => _minimizeToTray;
-            set => SetProperty(ref _minimizeToTray, value);
-        }
-
-        public bool MinimizeOnGameStart
-        {
-            get => _minimizeOnGameStart;
-            set
-            {
-                if (SetProperty(ref _minimizeOnGameStart, value))
-                {
-                    if (!_isInitialLoading)
-                    {
-                        if (value && CloseOnGameStart)
-                        {
-                            CloseOnGameStart = false; 
-                        }
-
-                    }
-                }
-            }
-        }
-
-        public bool CloseOnGameStart
-        {
-            get => _closeOnGameStart;
-            set
-            {
-                if (SetProperty(ref _closeOnGameStart, value))
-                {
-                    if (!_isInitialLoading)
-                    {
-                        if (value && MinimizeOnGameStart)
-                        {
-                            MinimizeOnGameStart = false; 
-                        }
-
-                    }
-                }
-            }
-        }
-
-        public double FontScale
-        {
-            get => _fontScale;
-            set
-            {
-                if (SetProperty(ref _fontScale, value))
-                {
-                    PreviewUiSettings();
-                    OnPropertyChanged(nameof(FontScalePercentage));
-                }
-            }
-        }
-
-        public string FontScalePercentage => $"{(int)(FontScale * 100)}%";
-
-        public bool OverlayHotkeyCtrl
-        {
-            get => _overlayHotkeyCtrl;
-            set
-            {
-                if (SetProperty(ref _overlayHotkeyCtrl, value))
-                {
-                    SaveOverlayHotkeySettings();
-                }
-            }
-        }
-
-        public bool OverlayHotkeyAlt
-        {
-            get => _overlayHotkeyAlt;
-            set
-            {
-                if (SetProperty(ref _overlayHotkeyAlt, value))
-                {
-                    SaveOverlayHotkeySettings();
-                }
-            }
-        }
-
-        public bool OverlayHotkeyShift
-        {
-            get => _overlayHotkeyShift;
-            set
-            {
-                if (SetProperty(ref _overlayHotkeyShift, value))
-                {
-                    SaveOverlayHotkeySettings();
-                }
-            }
-        }
-
-        public bool OverlayHotkeyWin
-        {
-            get => _overlayHotkeyWin;
-            set
-            {
-                if (SetProperty(ref _overlayHotkeyWin, value))
-                {
-                    SaveOverlayHotkeySettings();
-                }
-            }
-        }
-
-        public string OverlayHotkeyKey
-        {
-            get => _overlayHotkeyKey;
-            set
-            {
-                if (SetProperty(ref _overlayHotkeyKey, value))
-                {
-                    SaveOverlayHotkeySettings();
-                }
-            }
-        }
-
-        public string OverlayHotkeyDisplay => BuildOverlayHotkeyDisplay();
-        public string OverlayHotkeyDisplayText => _localization.Format("Settings.CurrentHotkey", BuildOverlayHotkeyDisplay());
-
-        public bool AutoCheckUpdates
-        {
-            get => _autoCheckUpdates;
-            set => SetProperty(ref _autoCheckUpdates, value);
-        }
-
-        public string SteamGridDbApiKey
-        {
-            get => _steamGridDbApiKey;
-            set => SetProperty(ref _steamGridDbApiKey, value);
-        }
-
-        public string IgnoredProcessesText
-        {
-            get => _ignoredProcessesText;
-            set => SetProperty(ref _ignoredProcessesText, value);
-        }
-
-        public string SteamPathsText
-        {
-            get => _steamPathsText;
-            set => SetProperty(ref _steamPathsText, value);
-        }
-
-        public string EpicPathsText
-        {
-            get => _epicPathsText;
-            set => SetProperty(ref _epicPathsText, value);
-        }
-
-        public string XboxPathsText
-        {
-            get => _xboxPathsText;
-            set => SetProperty(ref _xboxPathsText, value);
-        }
-
-        public string GogPathsText
-        {
-            get => _gogPathsText;
-            set => SetProperty(ref _gogPathsText, value);
-        }
-
-        public string UbisoftPathsText
-        {
-            get => _ubisoftPathsText;
-            set => SetProperty(ref _ubisoftPathsText, value);
-        }
-
-        public string EaPathsText
-        {
-            get => _eaPathsText;
-            set => SetProperty(ref _eaPathsText, value);
-        }
-
-        public string VersionText
-        {
-            get => _versionText;
-            set => SetProperty(ref _versionText, value);
-        }
-
-        // Methods
-        private void LoadSettings()
-        {
-            bool wasInitialLoading = _isInitialLoading;
-            _isInitialLoading = true;
-
-            var config = _gameManager.GetConfig();
-            var ui = config.UISettings;
-
-            // Load values
-            _selectedTheme = Constants.UI.NormalizeThemeKey(config.Theme);
-            _selectedLanguageCode = string.Equals(ui.LanguageCode, "de", StringComparison.OrdinalIgnoreCase) ? "de" : "en";
-            _cardSize = ui.CardSize;
-            _viewMode = ui.ViewMode;
-            _animationsEnabled = ui.AnimationsEnabled;
-            // Autostart Checked Real Status
-            _autostartEnabled = _autostartService.IsEnabled(ui.AutostartEnabled);
-            _minimizeToTray = ui.MinimizeToTray;
-            _minimizeOnGameStart = ui.MinimizeOnGameStart;
-            _closeOnGameStart = ui.CloseOnGameStart;
-            _overlayHotkeyCtrl = ui.OverlayHotkeyCtrl;
-            _overlayHotkeyAlt = ui.OverlayHotkeyAlt;
-            _overlayHotkeyShift = ui.OverlayHotkeyShift;
-            _overlayHotkeyWin = ui.OverlayHotkeyWin;
-            _overlayHotkeyKey = string.IsNullOrWhiteSpace(ui.OverlayHotkeyKey) ? "G" : ui.OverlayHotkeyKey;
-            _fontScale = ui.FontScale > 0 ? ui.FontScale : 1.0;
-            _autoCheckUpdates = ui.AutoCheckUpdates;
-            _steamGridDbApiKey = ui.SteamGridDbApiKey ?? "";
-            _backgroundImage = ui.BackgroundImage ?? "";
-            
-            // Text Fields
-            if (config.IgnoredProcesses != null)
-                _ignoredProcessesText = string.Join(Environment.NewLine, config.IgnoredProcesses);
-                
-            SteamPathsText = PathListFormatter.FormatLines(config.SteamLibraryPaths);
-            EpicPathsText = PathListFormatter.FormatLines(config.EpicLibraryPaths);
-            XboxPathsText = PathListFormatter.FormatLines(config.XboxLibraryPaths);
-
-            LoadAutomaticPlatformPaths();
-            UpdateLocalizedTexts();
-
-            var version = Assembly.GetExecutingAssembly().GetName().Version;
-            VersionText = version != null
-                ? $"v{version.Major}.{version.Minor}.{version.Build}"
-                : "v0.0.0";
-
-            // Trigger UI refresh for all properties
-            OnPropertyChanged(string.Empty);
-            _isInitialLoading = wasInitialLoading;
-        }
-
-        private void PreviewUiSettings()
-        {
-            if (_isInitialLoading || _suppressUiCallbacks)
-            {
-                return;
-            }
-
-            _onSettingsChanged?.Invoke(BuildDraftUiSettings());
-        }
+        public string VersionText { get; private set; } = "";
 
         public void RevertPreview()
         {
-            var config = _gameManager.GetConfig();
+            var config = _gameManager.Config;
             _localization.ApplyLanguageCode(config.UISettings.LanguageCode);
 
             string colorCode = Constants.UI.GetColorCodeForTheme(Constants.UI.NormalizeThemeKey(config.Theme));
             if (!string.IsNullOrEmpty(colorCode))
             {
-                _onThemeChanged?.Invoke(colorCode);
+                _onThemeChanged(colorCode);
             }
 
-            _onSettingsChanged?.Invoke(CloneUiSettings(config.UISettings));
+            _onSettingsChanged(CloneUiSettings(config.UISettings));
+        }
+
+        public void Dispose()
+        {
+            _localization.LanguageChanged -= OnLanguageChanged;
+        }
+
+        private void LoadSettings()
+        {
+            bool wasInitialLoading = _isInitialLoading;
+            _isInitialLoading = true;
+            try
+            {
+                var config = _gameManager.Config;
+                Appearance.Load(config);
+                Behavior.Load(
+                    config.UISettings,
+                    _autostartService.IsEnabled(config.UISettings.AutostartEnabled));
+                Library.Load(config);
+                LoadAutomaticPlatformPaths();
+                UpdateLocalizedTexts();
+
+                var version = Assembly.GetExecutingAssembly().GetName().Version;
+                VersionText = version == null
+                    ? "v0.0.0"
+                    : $"v{version.Major}.{version.Minor}.{version.Build}";
+                OnPropertyChanged(nameof(VersionText));
+            }
+            finally
+            {
+                _isInitialLoading = wasInitialLoading;
+            }
+        }
+
+        private void PreviewUiSettings()
+        {
+            if (!_isInitialLoading)
+            {
+                _onSettingsChanged(BuildDraftUiSettings());
+            }
         }
 
         private UISettings BuildDraftUiSettings()
         {
-            var current = _gameManager.GetConfig().UISettings;
+            var current = _gameManager.Config.UISettings;
             return new UISettings
             {
-                CardSize = CardSize,
-                ViewMode = ViewMode,
+                CardSize = Appearance.CardSize,
+                ViewMode = Appearance.ViewMode,
                 LibrarySortMode = current.LibrarySortMode,
                 LibraryFilter = current.LibraryFilter,
-                AnimationsEnabled = AnimationsEnabled,
-                FontScale = FontScale,
-                BackgroundImage = _backgroundImage,
-                AutostartEnabled = AutostartEnabled,
-                AutoCheckUpdates = AutoCheckUpdates,
+                AnimationsEnabled = Appearance.AnimationsEnabled,
+                FontScale = Appearance.FontScale,
+                BackgroundImage = Appearance.BackgroundImage,
+                AutostartEnabled = Behavior.AutostartEnabled,
+                AutoCheckUpdates = Behavior.AutoCheckUpdates,
                 EncryptedSteamGridDbApiKey = current.EncryptedSteamGridDbApiKey,
-                LanguageCode = SelectedLanguageCode,
-                MinimizeToTray = MinimizeToTray,
-                MinimizeOnGameStart = MinimizeOnGameStart,
-                CloseOnGameStart = CloseOnGameStart,
-                OverlayHotkeyCtrl = OverlayHotkeyCtrl,
-                OverlayHotkeyAlt = OverlayHotkeyAlt,
-                OverlayHotkeyShift = OverlayHotkeyShift,
-                OverlayHotkeyWin = OverlayHotkeyWin,
-                OverlayHotkeyKey = string.IsNullOrWhiteSpace(OverlayHotkeyKey) ? "G" : OverlayHotkeyKey,
+                LanguageCode = Appearance.SelectedLanguageCode,
+                MinimizeToTray = Behavior.MinimizeToTray,
+                MinimizeOnGameStart = Behavior.MinimizeOnGameStart,
+                CloseOnGameStart = Behavior.CloseOnGameStart,
+                OverlayHotkeyCtrl = Behavior.OverlayHotkeyCtrl,
+                OverlayHotkeyAlt = Behavior.OverlayHotkeyAlt,
+                OverlayHotkeyShift = Behavior.OverlayHotkeyShift,
+                OverlayHotkeyWin = Behavior.OverlayHotkeyWin,
+                OverlayHotkeyKey = NormalizeHotkeyKey(Behavior.OverlayHotkeyKey),
                 FirstStart = current.FirstStart
             };
         }
+
+        private void ApplySettings()
+        {
+            var config = _gameManager.Config;
+            var ui = config.UISettings;
+
+            config.Theme = Appearance.SelectedTheme;
+            ui.CardSize = Appearance.CardSize;
+            ui.ViewMode = Appearance.ViewMode;
+            ui.LanguageCode = Appearance.SelectedLanguageCode;
+            ui.AnimationsEnabled = Appearance.AnimationsEnabled;
+            ui.FontScale = Appearance.FontScale;
+            ui.BackgroundImage = Appearance.BackgroundImage;
+            ui.AutostartEnabled = Behavior.AutostartEnabled;
+            ui.MinimizeToTray = Behavior.MinimizeToTray;
+            ui.MinimizeOnGameStart = Behavior.MinimizeOnGameStart;
+            ui.CloseOnGameStart = Behavior.CloseOnGameStart;
+            ui.OverlayHotkeyCtrl = Behavior.OverlayHotkeyCtrl;
+            ui.OverlayHotkeyAlt = Behavior.OverlayHotkeyAlt;
+            ui.OverlayHotkeyShift = Behavior.OverlayHotkeyShift;
+            ui.OverlayHotkeyWin = Behavior.OverlayHotkeyWin;
+            ui.OverlayHotkeyKey = NormalizeHotkeyKey(Behavior.OverlayHotkeyKey);
+            ui.AutoCheckUpdates = Behavior.AutoCheckUpdates;
+            ui.SteamGridDbApiKey = Library.SteamGridDbApiKey;
+
+            config.IgnoredProcesses = PathListFormatter.ParseLines(Library.IgnoredProcessesText);
+            config.SteamLibraryPaths = PathListFormatter.ParseLines(Library.SteamPathsText);
+            config.EpicLibraryPaths = PathListFormatter.ParseLines(Library.EpicPathsText);
+            config.XboxLibraryPaths = PathListFormatter.ParseLines(Library.XboxPathsText);
+
+            _localization.ApplyLanguageCode(ui.LanguageCode);
+            _autostartService.SetEnabled(Behavior.AutostartEnabled);
+        }
+
+        private void CloseWindow(object? parameter)
+        {
+            if (parameter is not Window window)
+            {
+                return;
+            }
+
+            ApplySettings();
+            _gameManager.SaveConfig();
+            window.DialogResult = true;
+            window.Close();
+        }
+
+        private void SelectBackground()
+        {
+            string? selectedPath = _dialogService.SelectBackgroundImage();
+            if (!string.IsNullOrWhiteSpace(selectedPath))
+            {
+                Appearance.BackgroundImage = selectedPath;
+                PreviewUiSettings();
+            }
+        }
+
+        private void ClearBackground()
+        {
+            Appearance.BackgroundImage = "";
+            PreviewUiSettings();
+        }
+
+        private async Task CheckUpdatesAsync()
+        {
+            try
+            {
+                IsCheckingUpdates = true;
+                UpdateButtonText = _localization.Get("Settings.Checking");
+                await _updateService.CheckForUpdatesAsync();
+            }
+            finally
+            {
+                UpdateButtonText = _localization.Get("Settings.CheckUpdatesNow");
+                IsCheckingUpdates = false;
+            }
+        }
+
+        private void ResetToDefaults()
+        {
+            if (!_dialogService.ConfirmReset())
+            {
+                return;
+            }
+
+            Appearance.Reset();
+            Behavior.Reset();
+            PreviewUiSettings();
+
+            string colorCode = Constants.UI.GetColorCodeForTheme(Appearance.SelectedTheme);
+            if (!string.IsNullOrEmpty(colorCode))
+            {
+                _onThemeChanged(colorCode);
+            }
+        }
+
+        private void LoadAutomaticPlatformPaths()
+        {
+            Library.GogPathsText = PathListFormatter.FormatLines(_platformStatusService.GetGogLibraryPaths());
+            Library.UbisoftPathsText = PathListFormatter.FormatLines(_platformStatusService.GetUbisoftLibraryPaths());
+            Library.EaPathsText = PathListFormatter.FormatLines(_platformStatusService.GetEaLibraryPaths());
+        }
+
+        private void UpdateLocalizedTexts()
+        {
+            UpdateButtonText = _localization.Get("Settings.CheckUpdatesNow");
+            Behavior.RefreshLocalizedTexts();
+        }
+
+        private void OnLanguageChanged(object? sender, EventArgs e)
+        {
+            LoadAutomaticPlatformPaths();
+            UpdateLocalizedTexts();
+        }
+
+        private static string NormalizeHotkeyKey(string key) => string.IsNullOrWhiteSpace(key) ? "G" : key;
 
         private static UISettings CloneUiSettings(UISettings settings) =>
             new()
@@ -501,191 +318,5 @@ namespace GameLauncher.ViewModels
                 OverlayHotkeyKey = settings.OverlayHotkeyKey,
                 FirstStart = settings.FirstStart
             };
-
-        private void LoadAutomaticPlatformPaths()
-        {
-            GogPathsText = PathListFormatter.FormatLines(_platformStatusService.GetGogLibraryPaths());
-            UbisoftPathsText = PathListFormatter.FormatLines(_platformStatusService.GetUbisoftLibraryPaths());
-            EaPathsText = PathListFormatter.FormatLines(_platformStatusService.GetEaLibraryPaths());
-        }
-
-        private void SelectBackground()
-        {
-            string? selectedPath = _dialogService.SelectBackgroundImage();
-            if (!string.IsNullOrWhiteSpace(selectedPath))
-            {
-                _backgroundImage = selectedPath;
-                PreviewUiSettings();
-            }
-        }
-
-        private void ClearBackground()
-        {
-            _backgroundImage = "";
-            PreviewUiSettings();
-        }
-
-        private async Task CheckUpdatesAsync()
-        {
-            try
-            {
-                IsCheckingUpdates = true;
-                UpdateButtonText = _localization.Get("Settings.Checking");
-                await _updateService.CheckForUpdatesAsync();
-            }
-            finally
-            {
-                UpdateButtonText = _localization.Get("Settings.CheckUpdatesNow");
-                IsCheckingUpdates = false;
-            }
-        }
-
-        private void CloseWindow(object? param)
-        {
-            if (param is Window window)
-            {
-                ApplySettings();
-                _gameManager.SaveConfig();
-                window.DialogResult = true;
-                window.Close();
-            }
-        }
-
-        private void ApplySettings()
-        {
-            var config = _gameManager.GetConfig();
-            var ui = config.UISettings;
-
-            config.Theme = SelectedTheme;
-            ui.CardSize = CardSize;
-            ui.ViewMode = ViewMode;
-            ui.LanguageCode = SelectedLanguageCode;
-            _localization.ApplyLanguageCode(ui.LanguageCode);
-            ui.AnimationsEnabled = AnimationsEnabled;
-            ui.AutostartEnabled = AutostartEnabled;
-            ui.MinimizeToTray = MinimizeToTray;
-            ui.MinimizeOnGameStart = MinimizeOnGameStart;
-            ui.CloseOnGameStart = CloseOnGameStart;
-            ui.FontScale = FontScale;
-            ui.OverlayHotkeyCtrl = OverlayHotkeyCtrl;
-            ui.OverlayHotkeyAlt = OverlayHotkeyAlt;
-            ui.OverlayHotkeyShift = OverlayHotkeyShift;
-            ui.OverlayHotkeyWin = OverlayHotkeyWin;
-            ui.OverlayHotkeyKey = string.IsNullOrWhiteSpace(OverlayHotkeyKey) ? "G" : OverlayHotkeyKey;
-            ui.AutoCheckUpdates = AutoCheckUpdates;
-            ui.SteamGridDbApiKey = SteamGridDbApiKey;
-            ui.BackgroundImage = _backgroundImage;
-
-            config.IgnoredProcesses = PathListFormatter.ParseLines(IgnoredProcessesText);
-            config.SteamLibraryPaths = PathListFormatter.ParseLines(SteamPathsText);
-            config.EpicLibraryPaths = PathListFormatter.ParseLines(EpicPathsText);
-            config.XboxLibraryPaths = PathListFormatter.ParseLines(XboxPathsText);
-
-            _autostartService.SetEnabled(AutostartEnabled);
-        }
-
-        private void ResetToDefaults()
-        {
-            if (_dialogService.ConfirmReset())
-            {
-                _suppressUiCallbacks = true;
-                try
-                {
-                    SelectedTheme = "Blue";
-                    SelectedLanguageCode = "en";
-                    CardSize = Models.CardSize.Medium;
-                    ViewMode = Models.ViewMode.Cards;
-                    AnimationsEnabled = true;
-                    FontScale = 1.0;
-                    AutoCheckUpdates = true;
-                    MinimizeToTray = false;
-                    MinimizeOnGameStart = false;
-                    CloseOnGameStart = false;
-                    OverlayHotkeyCtrl = false;
-                    OverlayHotkeyAlt = true;
-                    OverlayHotkeyShift = false;
-                    OverlayHotkeyWin = false;
-                    OverlayHotkeyKey = "G";
-                    _backgroundImage = "";
-                }
-                finally
-                {
-                    _suppressUiCallbacks = false;
-                }
-
-                PreviewUiSettings();
-                
-                string colorCode = Constants.UI.GetColorCodeForTheme("Blue");
-                if (!string.IsNullOrEmpty(colorCode))
-                {
-                    _onThemeChanged?.Invoke(colorCode);
-                }
-            }
-        }
-
-        private void SaveOverlayHotkeySettings()
-        {
-            if (!_overlayHotkeyCtrl && !_overlayHotkeyAlt && !_overlayHotkeyShift && !_overlayHotkeyWin)
-            {
-                _overlayHotkeyAlt = true;
-                OnPropertyChanged(nameof(OverlayHotkeyAlt));
-            }
-
-            OnPropertyChanged(nameof(OverlayHotkeyDisplay));
-            OnPropertyChanged(nameof(OverlayHotkeyDisplayText));
-        }
-
-        private string BuildOverlayHotkeyDisplay()
-        {
-            var parts = new List<string>();
-
-            if (OverlayHotkeyCtrl) parts.Add(_localization.CurrentLanguage == AppLanguage.German ? "Strg" : "Ctrl");
-            if (OverlayHotkeyAlt) parts.Add("Alt");
-            if (OverlayHotkeyShift) parts.Add("Shift");
-            if (OverlayHotkeyWin) parts.Add("Win");
-
-            parts.Add(string.IsNullOrWhiteSpace(OverlayHotkeyKey) ? "G" : OverlayHotkeyKey);
-            return string.Join("+", parts);
-        }
-
-        private static IReadOnlyList<string> BuildOverlayHotkeyKeys()
-        {
-            var keys = new List<string>();
-
-            for (char c = 'A'; c <= 'Z'; c++)
-            {
-                keys.Add(c.ToString());
-            }
-
-            for (int i = 0; i <= 9; i++)
-            {
-                keys.Add(i.ToString());
-            }
-
-            for (int i = 1; i <= 12; i++)
-            {
-                keys.Add($"F{i}");
-            }
-
-            return keys;
-        }
-
-        public void Dispose()
-        {
-            _localization.LanguageChanged -= OnLanguageChanged;
-        }
-
-        private void UpdateLocalizedTexts()
-        {
-            UpdateButtonText = _localization.Get("Settings.CheckUpdatesNow");
-            OnPropertyChanged(nameof(OverlayHotkeyDisplay));
-            OnPropertyChanged(nameof(OverlayHotkeyDisplayText));
-        }
-
-        private void OnLanguageChanged(object? sender, EventArgs e)
-        {
-            LoadAutomaticPlatformPaths();
-            UpdateLocalizedTexts();
-        }
     }
 }
