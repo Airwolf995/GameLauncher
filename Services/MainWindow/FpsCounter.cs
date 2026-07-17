@@ -3,7 +3,7 @@ using System.Windows.Media;
 
 namespace GameLauncher.Services.MainWindow
 {
-    public sealed class FpsCounter : IFpsCounter
+    public sealed class FpsCounter : IDisposable
     {
         private Action<int>? _onFpsCalculated;
         private FpsFrameCalculator _calculator = new(DateTime.Now);

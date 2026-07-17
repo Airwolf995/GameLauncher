@@ -7,7 +7,7 @@ using GameLauncher.Services.Localization;
 
 namespace GameLauncher.Services.MainWindow
 {
-    public sealed class TrayController : ITrayController
+    public sealed class TrayController : IDisposable
     {
         private readonly LocalizationService _localization = LocalizationService.Instance;
         private NotifyIcon? _notifyIcon;

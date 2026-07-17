@@ -6,7 +6,7 @@ using GameLauncher.Services;
 
 namespace GameLauncher.Services.MainWindow
 {
-    public sealed class UpdateCoordinator : IUpdateCoordinator
+    public sealed class UpdateCoordinator : IDisposable
     {
         private readonly UpdateService _updateService;
 
