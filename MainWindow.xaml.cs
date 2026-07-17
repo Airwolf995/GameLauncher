@@ -681,13 +681,6 @@ namespace GameLauncher
             _lastAppliedUiSettings = snapshot;
         }
 
-        private void ApplyCardSize(Models.CardSize size, bool refresh = true)
-        {
-            _currentCardSize = size;
-            _gameCardLayoutService.ApplyCardSize(GameListControl, Resources, size, refresh);
-            UpdateCardRowsLayout();
-        }
-
         private void ApplyViewMode(Models.ViewMode mode, Models.CardSize size, bool refresh = true)
         {
             _currentViewMode = mode;
