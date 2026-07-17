@@ -58,6 +58,14 @@ dotnet build .\GameLauncher.csproj -c Release
 - Für Releases bevorzugt den Publish-Workflow nutzen, nicht direkt aus `bin\Release\` paketieren.
 - `main` ist der stabile Ziel-Branch; nicht mit `master` arbeiten.
 
+## YAGNI und Einfachheit
+- Das YAGNI-Prinzip („You Aren't Gonna Need It“) befolgen: Nur Funktionen, Abstraktionen und Erweiterungspunkte implementieren, für die es einen aktuellen, konkreten Anwendungsfall gibt.
+- Keine vorsorglichen Interfaces, Wrapper, Konfigurationsoptionen, generischen Frameworks oder Architektur-Schichten für lediglich mögliche spätere Anforderungen einführen.
+- Vor einer neuen Abstraktion muss benennbar sein, welches gegenwärtige Problem sie löst und welche aktuellen Aufrufer oder Implementierungen sie benötigen.
+- Wenn Änderungen Aufrufer oder Funktionen ersetzen, anschließend zurückgebliebene unerreichbare Methoden, ungenutzte Felder und redundante Weiterleitungen entfernen.
+- Abstraktionen für konkrete Anforderungen wie Testbarkeit, Framework-Grenzen oder tatsächlich mehrere Implementierungen bleiben zulässig; der Grund soll im Code oder in der Änderung nachvollziehbar sein.
+- YAGNI ist keine Rechtfertigung für große, unstrukturierte Dateien: Bestehende Verantwortlichkeiten weiterhin sinnvoll auf `Services/`, `ViewModels/` und `Models/` verteilen.
+
 ## Git-Workflow
 - Änderungen thematisch getrennt committen, nicht blind alle geänderten Dateien in einen Sammel-Commit ziehen.
 - Neue Arbeiten zuerst lokal auf einem eigenen Branch beginnen, z. B. `codex/update-fix` oder `feature/xbox-scan`.
