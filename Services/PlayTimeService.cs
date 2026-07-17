@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Timers;
 using System.Windows;
 using GameLauncher.Models;
+using GameLauncher.Services.GameManagement;
 
 namespace GameLauncher.Services
 {

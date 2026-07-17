@@ -13,6 +13,7 @@ using System.Windows.Threading;
 using GameLauncher.Models;
 using GameLauncher.Core;
 using GameLauncher.Services.Localization;
+using GameLauncher.Services.GameManagement;
 
 namespace GameLauncher
 {

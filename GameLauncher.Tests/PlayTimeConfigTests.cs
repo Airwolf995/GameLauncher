@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using GameLauncher.Models;
+using GameLauncher.Services.GameManagement;
 
 namespace GameLauncher.Tests
 {

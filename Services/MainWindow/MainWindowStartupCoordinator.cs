@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Threading;
 using GameLauncher.Converters;
 using GameLauncher.Models;
+using GameLauncher.Services.GameManagement;
 using GameLauncher.Services.Localization;
 using GameLauncher.ViewModels;
 

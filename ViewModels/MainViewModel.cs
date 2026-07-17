@@ -13,6 +13,7 @@ using GameLauncher.Core;
 using GameLauncher.Models;
 using GameLauncher.Services;
 using GameLauncher.Services.Localization;
+using GameLauncher.Services.GameManagement;
 
 namespace GameLauncher.ViewModels
 {

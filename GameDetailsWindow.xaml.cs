@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Controls;
 using GameLauncher.Models;
 using GameLauncher.Services.Localization;
+using GameLauncher.Services.GameManagement;
 
 namespace GameLauncher
 {

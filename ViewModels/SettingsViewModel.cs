@@ -8,6 +8,7 @@ using GameLauncher.Core;
 using GameLauncher.Models;
 using GameLauncher.Services;
 using GameLauncher.Services.Localization;
+using GameLauncher.Services.GameManagement;
 using GameLauncher.Services.Settings;
 using GameLauncher.ViewModels.Settings;
 
