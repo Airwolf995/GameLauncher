@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Timers;
 using System.Windows;
 using GameLauncher.Models;
@@ -15,15 +16,21 @@ namespace GameLauncher.Services
     {
         private const int TickIntervalSeconds = 15;
         private const int SummaryLogEveryNTicks = 8; // 8 * 15s = 2 minutes
+        private const int PersistEveryNTicks = 4; // Spielzeit höchstens einmal pro Minute regulär schreiben
         private readonly GameManager _gameManager;
         private readonly IEnumerable<Game> _games;
         private readonly System.Timers.Timer _timer;
+        private readonly Action? _tickBody;
+        private readonly object _lifecycleSync = new();
         private readonly PlayTimeMatchIndex _matchIndex = new();
         private readonly ActiveGameTracker _activeGameTracker = new();
         private int _isTickRunning;
         private int _tickCounter;
         private int _lastIndexedGameCount;
         private volatile bool _indexDirty;
+        private TaskCompletionSource<bool> _tickCompleted = CreateCompletedTickSource();
+        private bool _isRunning;
+        private bool _disposed;
         private HashSet<string> _cachedIgnoredProcesses = new(StringComparer.OrdinalIgnoreCase);
         
         private static readonly HashSet<string> WindowsSystemProcesses = new(StringComparer.OrdinalIgnoreCase)
@@ -40,14 +47,22 @@ namespace GameLauncher.Services
         private int _debugLogThrottle;
 #endif
 
-        public event EventHandler<Game>? PlayTimeUpdated;
         public Game? ActiveGame { get; private set; }
         public DateTime? SessionStartTime { get; private set; }
 
         public PlayTimeService(GameManager gameManager, IEnumerable<Game> games)
+            : this(gameManager, games, null)
+        {
+        }
+
+        internal PlayTimeService(
+            GameManager gameManager,
+            IEnumerable<Game> games,
+            Action? tickBody)
         {
             _gameManager = gameManager;
             _games = games;
+            _tickBody = tickBody;
             
             // Index bei Spieleänderungen automatisch als dirty markieren
             _gameManager.GamesUpdated += OnGamesUpdated;
@@ -60,28 +75,73 @@ namespace GameLauncher.Services
 
         public void Start()
         {
-            var gamesSnapshot = CaptureGamesSnapshotOnUiThread();
-            _matchIndex.Rebuild(gamesSnapshot);
-            _lastIndexedGameCount = gamesSnapshot.Count;
-            _cachedIgnoredProcesses = new HashSet<string>(
-                _gameManager.Config.IgnoredProcesses ?? new List<string>(),
-                StringComparer.OrdinalIgnoreCase);
-            _indexDirty = false;
-            _timer.Start();
-            Logger.Log("PlayTimeService started (15s interval, tracking in seconds).");
+            lock (_lifecycleSync)
+            {
+                ObjectDisposedException.ThrowIf(_disposed, this);
+
+                var gamesSnapshot = CaptureGamesSnapshotOnUiThread();
+                _matchIndex.Rebuild(gamesSnapshot);
+                _lastIndexedGameCount = gamesSnapshot.Count;
+                _cachedIgnoredProcesses = new HashSet<string>(
+                    _gameManager.Config.IgnoredProcesses ?? new List<string>(),
+                    StringComparer.OrdinalIgnoreCase);
+                _indexDirty = false;
+                _isRunning = true;
+                _timer.Start();
+                Logger.Log("PlayTimeService started (15s interval, tracking in seconds).");
+            }
         }
 
         public void Stop()
         {
-            _timer.Stop();
-            Logger.Log("PlayTimeService stopped.");
+            lock (_lifecycleSync)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _isRunning = false;
+                _timer.Stop();
+                Logger.Log("PlayTimeService stopped.");
+            }
+        }
+
+        public Task StopAsync()
+        {
+            lock (_lifecycleSync)
+            {
+                if (!_disposed)
+                {
+                    _isRunning = false;
+                    _timer.Stop();
+                }
+
+                return _tickCompleted.Task;
+            }
         }
 
         public void Dispose()
         {
-            Stop();
+            Task runningTick;
+            lock (_lifecycleSync)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                _isRunning = false;
+                _timer.Stop();
+                _timer.Elapsed -= OnTimerElapsed;
+                runningTick = _tickCompleted.Task;
+            }
+
+            runningTick.GetAwaiter().GetResult();
             _gameManager.GamesUpdated -= OnGamesUpdated;
             _timer.Dispose();
+            Logger.Log("PlayTimeService stopped.");
         }
 
         private void OnGamesUpdated(object? sender, EventArgs e)
@@ -91,13 +151,31 @@ namespace GameLauncher.Services
 
         private void OnTimerElapsed(object? sender, ElapsedEventArgs e)
         {
-            if (Interlocked.Exchange(ref _isTickRunning, 1) == 1)
+            RunTick();
+        }
+
+        internal void RunTick()
+        {
+            TaskCompletionSource<bool> currentTickCompletion;
+            lock (_lifecycleSync)
             {
-                return;
+                if (_disposed || !_isRunning || Interlocked.Exchange(ref _isTickRunning, 1) == 1)
+                {
+                    return;
+                }
+
+                currentTickCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _tickCompleted = currentTickCompletion;
             }
 
             try
             {
+                if (_tickBody != null)
+                {
+                    _tickBody();
+                    return;
+                }
+
                 var now = DateTime.Now;
                 int indexedGameCount = Volatile.Read(ref _lastIndexedGameCount);
 
@@ -187,17 +265,23 @@ namespace GameLauncher.Services
                     : null;
                 var updatedGameNames = new List<string>();
                 var sessionUpdates = new List<PlaySessionUpdate>();
+                bool hadTrackedSession = ActiveGame != null || SessionStartTime != null;
                 if (runningGameIds.Count > 0 || ActiveGame != null || SessionStartTime != null)
                 {
                     sessionUpdates = ApplyPlayTimeUpdatesOnUiThread(now, activeGameId, activeGameStartedAt, runningGameIds, updatedGameNames);
                 }
 
+                var tickNumber = Interlocked.Increment(ref _tickCounter);
                 if (sessionUpdates.Count > 0)
                 {
-                    _gameManager.UpdatePlaySessions(sessionUpdates);
+                    bool persistConfig = (tickNumber % PersistEveryNTicks) == 0;
+                    _gameManager.UpdatePlaySessions(sessionUpdates, persistConfig);
+                }
+                else if (hadTrackedSession)
+                {
+                    _gameManager.SaveConfig();
                 }
 
-                var tickNumber = Interlocked.Increment(ref _tickCounter);
                 if (updatedGameNames.Count > 0 && (tickNumber % SummaryLogEveryNTicks) == 0)
                 {
 #if DEBUG
@@ -213,8 +297,19 @@ namespace GameLauncher.Services
             }
             finally
             {
-                Interlocked.Exchange(ref _isTickRunning, 0);
+                lock (_lifecycleSync)
+                {
+                    currentTickCompletion.TrySetResult(true);
+                    Interlocked.Exchange(ref _isTickRunning, 0);
+                }
             }
+        }
+
+        private static TaskCompletionSource<bool> CreateCompletedTickSource()
+        {
+            var source = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            source.SetResult(true);
+            return source;
         }
 
         private List<Game> CaptureGamesSnapshotOnUiThread()
@@ -311,7 +406,6 @@ namespace GameLauncher.Services
 
                 game.PlayTime += TickIntervalSeconds;
                 game.LastPlayed = now;
-                PlayTimeUpdated?.Invoke(this, game);
                 updatedGameNames.Add(game.Name);
                 sessionUpdates.Add(new PlaySessionUpdate(gameId, game.Name, game.PlayTime, now));
             }

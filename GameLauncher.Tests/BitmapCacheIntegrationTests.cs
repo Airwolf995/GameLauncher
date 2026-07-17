@@ -110,5 +110,53 @@ namespace GameLauncher.Tests
                 }
             }
         }
+
+        [Fact]
+        public async Task FailedPreload_IsSettledForUiUntilInvalidated()
+        {
+            var tempRoot = Path.Combine(
+                Path.GetTempPath(),
+                "GameLauncherTests",
+                Guid.NewGuid().ToString("N"));
+            var missingImagePath = Path.Combine(tempRoot, "missing-cover.png");
+            var pngBytes = Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
+
+            BitmapCacheConverter.ClearImageCaches();
+
+            try
+            {
+                await BitmapCacheConverter.PreloadAsync([missingImagePath]);
+
+                Assert.False(BitmapCacheConverter.IsCachedForUi(missingImagePath));
+                Assert.True(BitmapCacheConverter.IsReadyForUi(missingImagePath));
+
+                Directory.CreateDirectory(tempRoot);
+                File.WriteAllBytes(missingImagePath, pngBytes);
+                await BitmapCacheConverter.PreloadAsync([missingImagePath]);
+                Assert.False(BitmapCacheConverter.IsCachedForUi(missingImagePath));
+
+                BitmapCacheConverter.Invalidate(missingImagePath);
+                Assert.False(BitmapCacheConverter.IsReadyForUi(missingImagePath));
+
+                await BitmapCacheConverter.PreloadAsync([missingImagePath]);
+                Assert.True(BitmapCacheConverter.IsCachedForUi(missingImagePath));
+            }
+            finally
+            {
+                BitmapCacheConverter.ClearImageCaches();
+
+                try
+                {
+                    if (Directory.Exists(tempRoot))
+                    {
+                        Directory.Delete(tempRoot, recursive: true);
+                    }
+                }
+                catch
+                {
+                }
+            }
+        }
     }
 }

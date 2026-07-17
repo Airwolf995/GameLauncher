@@ -26,6 +26,7 @@ namespace GameLauncher.ViewModels
         private readonly ISettingsUpdateService _updateService;
         private readonly IPlatformStatusService _platformStatusService;
         private bool _isInitialLoading = true;
+        private bool _suppressUiCallbacks;
         public IEnumerable<Models.CardSize> CardSizeOptions => Enum.GetValues(typeof(Models.CardSize)).Cast<Models.CardSize>();
         public IEnumerable<Models.ViewMode> ViewModeOptions => Enum.GetValues(typeof(Models.ViewMode)).Cast<Models.ViewMode>();
         
@@ -131,7 +132,7 @@ namespace GameLauncher.ViewModels
                 if (SetProperty(ref _selectedTheme, value))
                 {
                     string colorCode = Constants.UI.GetColorCodeForTheme(value);
-                    if (!string.IsNullOrEmpty(colorCode))
+                    if (!_suppressUiCallbacks && !string.IsNullOrEmpty(colorCode))
                     {
                         _onThemeChanged?.Invoke(colorCode);
                     }
@@ -188,23 +189,13 @@ namespace GameLauncher.ViewModels
         public bool AutostartEnabled
         {
             get => _autostartEnabled;
-            set
-            {
-                if (SetProperty(ref _autostartEnabled, value))
-                {
-                }
-            }
+            set => SetProperty(ref _autostartEnabled, value);
         }
 
         public bool MinimizeToTray
         {
             get => _minimizeToTray;
-            set
-            {
-                if (SetProperty(ref _minimizeToTray, value))
-                {
-                }
-            }
+            set => SetProperty(ref _minimizeToTray, value);
         }
 
         public bool MinimizeOnGameStart
@@ -326,67 +317,37 @@ namespace GameLauncher.ViewModels
         public bool AutoCheckUpdates
         {
             get => _autoCheckUpdates;
-            set
-            {
-                if (SetProperty(ref _autoCheckUpdates, value))
-                {
-                }
-            }
+            set => SetProperty(ref _autoCheckUpdates, value);
         }
 
         public string SteamGridDbApiKey
         {
             get => _steamGridDbApiKey;
-            set
-            {
-                if (SetProperty(ref _steamGridDbApiKey, value))
-                {
-                }
-            }
+            set => SetProperty(ref _steamGridDbApiKey, value);
         }
 
         public string IgnoredProcessesText
         {
             get => _ignoredProcessesText;
-            set
-            {
-                if (SetProperty(ref _ignoredProcessesText, value))
-                {
-                }
-            }
+            set => SetProperty(ref _ignoredProcessesText, value);
         }
 
         public string SteamPathsText
         {
             get => _steamPathsText;
-            set
-            {
-                if (SetProperty(ref _steamPathsText, value) && !_isInitialLoading)
-                {
-                }
-            }
+            set => SetProperty(ref _steamPathsText, value);
         }
 
         public string EpicPathsText
         {
             get => _epicPathsText;
-            set
-            {
-                if (SetProperty(ref _epicPathsText, value) && !_isInitialLoading)
-                {
-                }
-            }
+            set => SetProperty(ref _epicPathsText, value);
         }
 
         public string XboxPathsText
         {
             get => _xboxPathsText;
-            set
-            {
-                if (SetProperty(ref _xboxPathsText, value) && !_isInitialLoading)
-                {
-                }
-            }
+            set => SetProperty(ref _xboxPathsText, value);
         }
 
         public string GogPathsText
@@ -447,9 +408,9 @@ namespace GameLauncher.ViewModels
             if (config.IgnoredProcesses != null)
                 _ignoredProcessesText = string.Join(Environment.NewLine, config.IgnoredProcesses);
                 
-            SteamPathsText = FormatPathLines(config.SteamLibraryPaths);
-            EpicPathsText = FormatPathLines(config.EpicLibraryPaths);
-            XboxPathsText = FormatPathLines(config.XboxLibraryPaths);
+            SteamPathsText = PathListFormatter.FormatLines(config.SteamLibraryPaths);
+            EpicPathsText = PathListFormatter.FormatLines(config.EpicLibraryPaths);
+            XboxPathsText = PathListFormatter.FormatLines(config.XboxLibraryPaths);
 
             LoadAutomaticPlatformPaths();
             UpdateLocalizedTexts();
@@ -464,19 +425,9 @@ namespace GameLauncher.ViewModels
             _isInitialLoading = wasInitialLoading;
         }
 
-        private static List<string> ParsePathLines(string value) =>
-            value.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
-                 .Select(line => line.Trim())
-                 .Where(line => !string.IsNullOrWhiteSpace(line))
-                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                 .ToList();
-
-        private static string FormatPathLines(IEnumerable<string> paths) =>
-            string.Join(Environment.NewLine, paths);
-
         private void PreviewUiSettings()
         {
-            if (_isInitialLoading)
+            if (_isInitialLoading || _suppressUiCallbacks)
             {
                 return;
             }
@@ -553,9 +504,9 @@ namespace GameLauncher.ViewModels
 
         private void LoadAutomaticPlatformPaths()
         {
-            GogPathsText = FormatPathLines(_platformStatusService.GetGogLibraryPaths());
-            UbisoftPathsText = FormatPathLines(_platformStatusService.GetUbisoftLibraryPaths());
-            EaPathsText = FormatPathLines(_platformStatusService.GetEaLibraryPaths());
+            GogPathsText = PathListFormatter.FormatLines(_platformStatusService.GetGogLibraryPaths());
+            UbisoftPathsText = PathListFormatter.FormatLines(_platformStatusService.GetUbisoftLibraryPaths());
+            EaPathsText = PathListFormatter.FormatLines(_platformStatusService.GetEaLibraryPaths());
         }
 
         private void SelectBackground()
@@ -625,10 +576,10 @@ namespace GameLauncher.ViewModels
             ui.SteamGridDbApiKey = SteamGridDbApiKey;
             ui.BackgroundImage = _backgroundImage;
 
-            config.IgnoredProcesses = ParsePathLines(IgnoredProcessesText);
-            config.SteamLibraryPaths = ParsePathLines(SteamPathsText);
-            config.EpicLibraryPaths = ParsePathLines(EpicPathsText);
-            config.XboxLibraryPaths = ParsePathLines(XboxPathsText);
+            config.IgnoredProcesses = PathListFormatter.ParseLines(IgnoredProcessesText);
+            config.SteamLibraryPaths = PathListFormatter.ParseLines(SteamPathsText);
+            config.EpicLibraryPaths = PathListFormatter.ParseLines(EpicPathsText);
+            config.XboxLibraryPaths = PathListFormatter.ParseLines(XboxPathsText);
 
             _autostartService.SetEnabled(AutostartEnabled);
         }
@@ -637,22 +588,31 @@ namespace GameLauncher.ViewModels
         {
             if (_dialogService.ConfirmReset())
             {
-                SelectedTheme = "Blue";
-                SelectedLanguageCode = "en";
-                CardSize = Models.CardSize.Medium;
-                ViewMode = Models.ViewMode.Cards;
-                AnimationsEnabled = true;
-                FontScale = 1.0;
-                AutoCheckUpdates = true;
-                MinimizeToTray = false;
-                MinimizeOnGameStart = false;
-                CloseOnGameStart = false;
-                OverlayHotkeyCtrl = false;
-                OverlayHotkeyAlt = true;
-                OverlayHotkeyShift = false;
-                OverlayHotkeyWin = false;
-                OverlayHotkeyKey = "G";
-                _backgroundImage = "";
+                _suppressUiCallbacks = true;
+                try
+                {
+                    SelectedTheme = "Blue";
+                    SelectedLanguageCode = "en";
+                    CardSize = Models.CardSize.Medium;
+                    ViewMode = Models.ViewMode.Cards;
+                    AnimationsEnabled = true;
+                    FontScale = 1.0;
+                    AutoCheckUpdates = true;
+                    MinimizeToTray = false;
+                    MinimizeOnGameStart = false;
+                    CloseOnGameStart = false;
+                    OverlayHotkeyCtrl = false;
+                    OverlayHotkeyAlt = true;
+                    OverlayHotkeyShift = false;
+                    OverlayHotkeyWin = false;
+                    OverlayHotkeyKey = "G";
+                    _backgroundImage = "";
+                }
+                finally
+                {
+                    _suppressUiCallbacks = false;
+                }
+
                 PreviewUiSettings();
                 
                 string colorCode = Constants.UI.GetColorCodeForTheme("Blue");

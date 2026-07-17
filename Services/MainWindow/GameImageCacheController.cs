@@ -245,7 +245,7 @@ namespace GameLauncher.Services.MainWindow
 
             foreach (string path in visiblePaths)
             {
-                if (!BitmapCacheConverter.IsCachedForUi(path))
+                if (!BitmapCacheConverter.IsReadyForUi(path))
                 {
                     return false;
                 }

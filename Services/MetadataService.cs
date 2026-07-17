@@ -133,7 +133,7 @@ namespace GameLauncher.Services
                 using var request = new HttpRequestMessage(HttpMethod.Get, $"https://www.steamgriddb.com/api/v2/search/autocomplete/{Uri.EscapeDataString(gameName)}");
                 request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
                 
-                var response = await _httpClient.SendAsync(request, ct);
+                using var response = await _httpClient.SendAsync(request, ct);
                 if (!response.IsSuccessStatusCode) return null;
 
                 var json = await response.Content.ReadAsStringAsync(ct);
@@ -146,7 +146,7 @@ namespace GameLauncher.Services
                     using var gridRequest = new HttpRequestMessage(HttpMethod.Get, $"https://www.steamgriddb.com/api/v2/grids/game/{gameId}?dimensions=600x900,342x482");
                     gridRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
                     
-                    var gridResponse = await _httpClient.SendAsync(gridRequest, ct);
+                    using var gridResponse = await _httpClient.SendAsync(gridRequest, ct);
                     if (gridResponse.IsSuccessStatusCode)
                     {
                          var gridJson = await gridResponse.Content.ReadAsStringAsync(ct);

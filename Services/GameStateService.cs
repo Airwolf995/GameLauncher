@@ -71,14 +71,6 @@ namespace GameLauncher.Services
         }
 
         /// <summary>
-        /// Updates play time and last played for a single game.
-        /// </summary>
-        public void UpdatePlayTime(string gameId, int totalPlayTimeSeconds, string gameName = "")
-        {
-            Config.PlayTime[gameId] = CreatePlayTimeEntry(gameName, totalPlayTimeSeconds, gameId);
-        }
-
-        /// <summary>
         /// Updates last played timestamp for a single game.
         /// </summary>
         public void UpdateLastPlayed(string gameId, DateTime lastPlayed)
@@ -89,14 +81,17 @@ namespace GameLauncher.Services
         /// <summary>
         /// Batch update for play sessions (called from PlayTimeService).
         /// </summary>
-        public void UpdatePlaySessions(IEnumerable<PlaySessionUpdate> updates)
+        public void UpdatePlaySessions(IEnumerable<PlaySessionUpdate> updates, bool persistConfig = true)
         {
             foreach (var update in updates)
             {
                 Config.PlayTime[update.GameId] = CreatePlayTimeEntry(update.GameName, update.PlayTimeSeconds, update.GameId);
                 Config.LastPlayed[update.GameId] = update.LastPlayed;
             }
-            _configService.SaveConfig();
+            if (persistConfig)
+            {
+                _configService.SaveConfig();
+            }
         }
 
         private PlayTimeEntry CreatePlayTimeEntry(string? gameName, int totalPlayTimeSeconds, string gameId)

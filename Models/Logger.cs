@@ -90,6 +90,11 @@ namespace GameLauncher.Models
             Log(fullMessage);
         }
 
+        public static void Warning(string message)
+        {
+            Log($"WARNUNG: {message}");
+        }
+
         public static void Flush()
         {
             lock (_lock)

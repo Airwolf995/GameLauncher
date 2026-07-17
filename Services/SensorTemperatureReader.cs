@@ -216,25 +216,6 @@ namespace GameLauncher.Services
             }
         }
 
-        private static bool TryGetValidTemperature(object? rawValue, out float value)
-        {
-            value = 0;
-            if (rawValue == null)
-            {
-                return false;
-            }
-
-            try
-            {
-                value = Convert.ToSingle(rawValue);
-                return value > 0 && value < 150;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
         private static float ConvertRawTemperature(float rawValue, bool allowDirectCelsius)
         {
             float celsiusFromKelvinTenths = (rawValue / 10f) - 273.15f;

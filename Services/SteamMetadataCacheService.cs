@@ -58,16 +58,9 @@ namespace GameLauncher.Services
                 return true;
             }
 
-            if (DateTime.UtcNow - entry.UpdatedAtUtc > RefreshInterval)
-            {
-                return true;
-            }
-
-            return string.IsNullOrWhiteSpace(entry.Description) ||
-                   string.IsNullOrWhiteSpace(entry.ReleaseDate) ||
-                   string.IsNullOrWhiteSpace(entry.Developer) ||
-                   string.IsNullOrWhiteSpace(entry.Publisher) ||
-                   entry.Genres.Count == 0;
+            // Fehlende Felder können bei Steam regulär leer sein. Entscheidend ist
+            // deshalb das Alter des letzten erfolgreichen Abrufs, nicht dessen Vollständigkeit.
+            return DateTime.UtcNow - entry.UpdatedAtUtc > RefreshInterval;
         }
 
         public void Update(Game game, AppLanguage language)

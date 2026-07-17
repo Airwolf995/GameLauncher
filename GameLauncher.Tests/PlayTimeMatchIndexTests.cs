@@ -43,6 +43,23 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
+        public void TryMatchProcess_DisambiguatesDuplicateExecutableNamesByPath()
+        {
+            var index = new PlayTimeMatchIndex();
+            var games = new List<Game>
+            {
+                new() { Id = "g1", Name = "Game 1", ExecutableName = "game.exe", InstallDirectory = @"C:\Games\One", IsManual = false },
+                new() { Id = "g2", Name = "Game 2", ExecutableName = "game.exe", InstallDirectory = @"C:\Games\Two", IsManual = false }
+            };
+
+            index.Rebuild(games);
+
+            Assert.False(index.TryMatchProcessByName("game", out _));
+            Assert.True(index.TryMatchProcess("game", @"C:\Games\Two\game.exe", out var gameId));
+            Assert.Equal("g2", gameId);
+        }
+
+        [Fact]
         public void TryMatchProcess_SkipsManualGames()
         {
             var index = new PlayTimeMatchIndex();

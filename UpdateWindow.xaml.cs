@@ -8,8 +8,8 @@ namespace GameLauncher
 {
     public partial class UpdateWindow : Window
     {
-        private UpdateService _updateService;
-        private UpdateInfo _updateInfo;
+        private readonly UpdateService _updateService;
+        private readonly UpdateInfo _updateInfo;
         private readonly LocalizationService _localization = LocalizationService.Instance;
 
         public UpdateWindow(UpdateService updateService, UpdateInfo updateInfo)
@@ -27,18 +27,8 @@ namespace GameLauncher
                 ? _localization.Get("Update.NoChangelog") 
                 : updateInfo.Changelog;
 
-            // Dark mode title bar
-            try
-            {
-                var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-                int darkMode = 1;
-                DwmSetWindowAttribute(hwnd, 20, ref darkMode, sizeof(int));
-            }
-            catch { }
+            SourceInitialized += (_, _) => DarkModeHelper.EnableDarkTitleBar(this);
         }
-
-        [System.Runtime.InteropServices.DllImport("dwmapi.dll", PreserveSig = true)]
-        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
 
         private async void UpdateButton_Click(object sender, RoutedEventArgs e)
         {
@@ -51,11 +41,8 @@ namespace GameLauncher
 
                 var progress = new Progress<int>(percent =>
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        ProgressBar.Value = percent;
-                        ProgressText.Text = _localization.Format("Update.DownloadingProgress", percent);
-                    });
+                    ProgressBar.Value = percent;
+                    ProgressText.Text = _localization.Format("Update.DownloadingProgress", percent);
                 });
 
                 bool downloadSuccess = await _updateService.DownloadUpdateAsync(_updateInfo.DownloadUrl, progress);
@@ -84,18 +71,6 @@ namespace GameLauncher
         private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
             Close();
-        }
-
-        protected override void OnSourceInitialized(EventArgs e)
-        {
-            base.OnSourceInitialized(e);
-            try
-            {
-                IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-                int darkMode = 1;
-                DwmSetWindowAttribute(hwnd, 20, ref darkMode, sizeof(int));
-            }
-            catch { }
         }
     }
 }

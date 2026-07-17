@@ -49,8 +49,6 @@ namespace GameLauncher.ViewModels
             PopulateFilterOptions();
             RefreshStatusText();
 
-            LoadGamesCommand = new RelayCommand(async _ => await LoadGamesAsync());
-            RefreshCommand = new RelayCommand(async _ => await LoadGamesAsync(includeDeferredStartupGames: true));
 
             _gameManager.GamesUpdated += OnGamesUpdated;
             _localization.LanguageChanged += OnLanguageChanged;
@@ -147,9 +145,6 @@ namespace GameLauncher.ViewModels
             set => SetProperty(ref _statusText, value);
         }
 
-        public ICommand LoadGamesCommand { get; }
-        public ICommand RefreshCommand { get; }
-
         public async Task LoadGamesAsync(
             bool loadSteamMetadataInBackground = true,
             bool includeDeferredStartupGames = false)
@@ -195,48 +190,9 @@ namespace GameLauncher.ViewModels
             UpdateStatusText();
         }
 
-        public Task RebuildLibraryViewAsync(bool saveSettings = false) => RefreshGamesViewAsync(saveSettings);
+        public Task RebuildLibraryViewAsync() => RefreshGamesViewAsync();
 
         public Task RefreshSteamMetadataAsync() => RefreshSteamMetadataForCurrentLanguageAsync();
-
-        public async Task MergeGamesAsync(IEnumerable<Game> games)
-        {
-            var incomingGames = games
-                .Where(game => game != null)
-                .GroupBy(game => game.Id, StringComparer.OrdinalIgnoreCase)
-                .Select(group => group.First())
-                .ToList();
-
-            if (incomingGames.Count == 0)
-            {
-                return;
-            }
-
-            await Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                var existingIds = new HashSet<string>(_games.Select(game => game.Id), StringComparer.OrdinalIgnoreCase);
-                int addedCount = 0;
-
-                foreach (var game in incomingGames)
-                {
-                    if (!existingIds.Add(game.Id))
-                    {
-                        continue;
-                    }
-
-                    game.RefreshLocalizedProperties();
-                    _games.Add(game);
-                    addedCount++;
-                }
-
-                if (addedCount > 0)
-                {
-                    PopulateFilterOptions();
-                }
-            });
-
-            await RefreshGamesViewAsync();
-        }
 
         public bool UpdateCardColumns(int columns)
         {
@@ -347,7 +303,7 @@ namespace GameLauncher.ViewModels
             }).RunOnUI();
         }
 
-        private async Task RefreshGamesViewAsync(bool saveSettings = false)
+        private async Task RefreshGamesViewAsync()
         {
             using var refreshCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
             var previousRefreshCts = Interlocked.Exchange(ref _gamesViewRefreshCts, refreshCts);
@@ -393,11 +349,6 @@ namespace GameLauncher.ViewModels
                     OnPropertyChanged(nameof(GamesView));
                     OnPropertyChanged(nameof(IsSearchActive));
                     UpdateStatusText();
-
-                    if (saveSettings)
-                    {
-                        SaveLibraryViewSettings();
-                    }
 
                     LibraryViewRefreshed?.Invoke(
                         this,

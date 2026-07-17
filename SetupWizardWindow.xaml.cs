@@ -108,9 +108,9 @@ namespace GameLauncher
             var config = _gameManager.GetConfig();
             var ui = config.UISettings;
 
-            config.SteamLibraryPaths = ParsePathLines(WizardSteamPathsBox.Text);
-            config.EpicLibraryPaths = ParsePathLines(WizardEpicPathsBox.Text);
-            config.XboxLibraryPaths = ParsePathLines(WizardXboxPathsBox.Text);
+            config.SteamLibraryPaths = Services.PathListFormatter.ParseLines(WizardSteamPathsBox.Text);
+            config.EpicLibraryPaths = Services.PathListFormatter.ParseLines(WizardEpicPathsBox.Text);
+            config.XboxLibraryPaths = Services.PathListFormatter.ParseLines(WizardXboxPathsBox.Text);
             ui.LanguageCode = _selectedLanguageCode;
 
             // Theme
@@ -175,12 +175,12 @@ namespace GameLauncher
                     Ea = EaScanner.GetAutoDetectedPaths()
                 });
 
-                WizardSteamPathsBox.Text = FormatPathLines(detectedPaths.Steam);
-                WizardEpicPathsBox.Text = FormatPathLines(detectedPaths.Epic);
-                WizardXboxPathsBox.Text = FormatPathLines(detectedPaths.Xbox);
-                WizardGogPathsBox.Text = FormatPathLines(detectedPaths.Gog);
-                WizardUbisoftPathsBox.Text = FormatPathLines(detectedPaths.Ubisoft);
-                WizardEaPathsBox.Text = FormatPathLines(detectedPaths.Ea);
+                WizardSteamPathsBox.Text = Services.PathListFormatter.FormatLines(detectedPaths.Steam);
+                WizardEpicPathsBox.Text = Services.PathListFormatter.FormatLines(detectedPaths.Epic);
+                WizardXboxPathsBox.Text = Services.PathListFormatter.FormatLines(detectedPaths.Xbox);
+                WizardGogPathsBox.Text = Services.PathListFormatter.FormatLines(detectedPaths.Gog);
+                WizardUbisoftPathsBox.Text = Services.PathListFormatter.FormatLines(detectedPaths.Ubisoft);
+                WizardEaPathsBox.Text = Services.PathListFormatter.FormatLines(detectedPaths.Ea);
 
                 var statusParts = new[]
                 {
@@ -198,9 +198,9 @@ namespace GameLauncher
             catch (Exception ex)
             {
                 Logger.Error("Library path detection in setup wizard failed", ex);
-                WizardSteamPathsBox.Text = FormatPathLines(config.SteamLibraryPaths);
-                WizardEpicPathsBox.Text = FormatPathLines(config.EpicLibraryPaths);
-                WizardXboxPathsBox.Text = FormatPathLines(config.XboxLibraryPaths);
+                WizardSteamPathsBox.Text = Services.PathListFormatter.FormatLines(config.SteamLibraryPaths);
+                WizardEpicPathsBox.Text = Services.PathListFormatter.FormatLines(config.EpicLibraryPaths);
+                WizardXboxPathsBox.Text = Services.PathListFormatter.FormatLines(config.XboxLibraryPaths);
                 WizardGogPathsBox.Text = string.Empty;
                 WizardUbisoftPathsBox.Text = string.Empty;
                 WizardEaPathsBox.Text = string.Empty;
@@ -221,16 +221,6 @@ namespace GameLauncher
 
         private static List<string> GetConfiguredOrDetectedPaths(List<string> configuredPaths, Func<List<string>> detectPaths) =>
             configuredPaths.Count > 0 ? configuredPaths.ToList() : detectPaths();
-
-        private static string FormatPathLines(IEnumerable<string> paths) =>
-            string.Join(Environment.NewLine, paths);
-
-        private static List<string> ParsePathLines(string value) =>
-            value.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
-                 .Select(line => line.Trim())
-                 .Where(line => !string.IsNullOrWhiteSpace(line))
-                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                 .ToList();
 
         private void InitializeSelections()
         {

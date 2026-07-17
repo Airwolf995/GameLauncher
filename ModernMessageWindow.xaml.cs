@@ -8,8 +8,7 @@ namespace GameLauncher
         public enum ModernMessageButton
         {
             OK,
-            YesNo,
-            YesNoCancel
+            YesNo
         }
 
         public MessageBoxResult Result { get; private set; } = MessageBoxResult.None;
@@ -23,21 +22,8 @@ namespace GameLauncher
 
             SetupButtons(buttons);
 
-            // Dark mode title bar logic
-            try
-            {
-                Loaded += (s, e) => 
-                {
-                    IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-                    int darkMode = 1;
-                    DwmSetWindowAttribute(hwnd, 20, ref darkMode, sizeof(int));
-                };
-            }
-            catch { }
+            SourceInitialized += (_, _) => Services.DarkModeHelper.EnableDarkTitleBar(this);
         }
-
-        [System.Runtime.InteropServices.DllImport("dwmapi.dll", PreserveSig = true)]
-        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
 
         private void SetupButtons(ModernMessageButton buttons)
         {

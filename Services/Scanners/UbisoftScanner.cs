@@ -13,7 +13,7 @@ namespace GameLauncher.Services.Scanners
     /// </summary>
     public class UbisoftScanner : IPlatformScanner
     {
-        public string PlatformName => "Ubisoft Connect";
+        public string PlatformName => Constants.Platforms.UbisoftConnect;
 
         public static List<string> GetAutoDetectedPaths()
         {
@@ -98,7 +98,7 @@ namespace GameLauncher.Services.Scanners
                                     Name = gameName,
                                     Path = $"uplay://launch/{gameIdStr}/0",
                                     Args = "",
-                                    Platform = "Ubisoft Connect",
+                                    Platform = Constants.Platforms.UbisoftConnect,
                                     LaunchType = "uri",
                                     ImageUrl = iconUrl,
                                     InstallDirectory = installDir
@@ -108,12 +108,20 @@ namespace GameLauncher.Services.Scanners
                                 Logger.Log($"Found Ubisoft game: {gameName} (ID: {gameIdStr})");
                             }
                         }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
                         catch (Exception ex)
                         {
                             Logger.Error($"Error scanning Ubisoft game ID {gameIdStr}", ex);
                         }
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

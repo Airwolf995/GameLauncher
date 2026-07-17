@@ -43,15 +43,8 @@ namespace GameLauncher
         private CardSize _currentCardSize = CardSize.Medium;
         private int _currentCardColumns = 1;
         private bool _resetViewportAfterNextRefresh;
-
-        public static readonly DependencyProperty IsStartupActiveProperty =
-            DependencyProperty.Register("IsStartupActive", typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
-
-        public bool IsStartupActive
-        {
-            get => (bool)GetValue(IsStartupActiveProperty);
-            set => SetValue(IsStartupActiveProperty, value);
-        }
+        private bool _shutdownPrepared;
+        private bool _shutdownInProgress;
 
         public static readonly DependencyProperty IsInitialLoadingProperty =
             DependencyProperty.Register("IsInitialLoading", typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
@@ -69,15 +62,6 @@ namespace GameLauncher
         {
             get => (bool)GetValue(AreAnimationsEnabledProperty);
             set => SetValue(AreAnimationsEnabledProperty, value);
-        }
-
-        public static readonly DependencyProperty AreImageLoadTransitionsEnabledProperty =
-            DependencyProperty.Register("AreImageLoadTransitionsEnabled", typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
-
-        public bool AreImageLoadTransitionsEnabled
-        {
-            get => (bool)GetValue(AreImageLoadTransitionsEnabledProperty);
-            set => SetValue(AreImageLoadTransitionsEnabledProperty, value);
         }
 
         public MainWindow()
@@ -100,7 +84,10 @@ namespace GameLauncher
             catch (Exception ex)
             {
                 Logger.Error("GameManager Init Failed", ex);
-                MessageBox.Show(_localization.Format("App.GameManagerInitError", ex.Message), _localization.Get("Common.Error"));
+                _gameManager?.Dispose();
+                throw new InvalidOperationException(
+                    _localization.Format("App.GameManagerInitError", ex.Message),
+                    ex);
             }
             
             // Zeilen-Template fuer den stabilen, virtualisierten Kartenmodus merken.
@@ -155,14 +142,7 @@ namespace GameLauncher
         private void InitPlayTimeService()
         {
             _playTimeService = new Services.PlayTimeService(_gameManager, _viewModel.Games);
-            _playTimeService.PlayTimeUpdated += OnPlayTimeUpdated;
             _playTimeService.Start();
-        }
-
-        private void OnPlayTimeUpdated(object? sender, Game game)
-        {
-            // Game implements INotifyPropertyChanged — bindings update automatically.
-            // No explicit Dispatcher.Invoke needed.
         }
 
         private void InitFpsCounter()
@@ -174,11 +154,11 @@ namespace GameLauncher
         {
             if (WindowState == WindowState.Minimized)
             {
-                (_fpsCounter as Services.MainWindow.FpsCounter)?.Stop();
+                _fpsCounter.Stop();
             }
             else
             {
-                (_fpsCounter as Services.MainWindow.FpsCounter)?.Resume();
+                _fpsCounter.Resume();
             }
         }
 
@@ -192,6 +172,7 @@ namespace GameLauncher
             Show();
             WindowState = WindowState.Normal;
             Activate();
+            _fpsCounter.Resume();
             _trayController.HideTrayIcon();
         }
 
@@ -209,42 +190,83 @@ namespace GameLauncher
         {
             BeginExit();
             _trayController?.Dispose();
-            Application.Current.Shutdown();
+            Close();
         }
 
         protected override void OnClosing(CancelEventArgs e)
         {
-            // Force immediate save of any pending changes before closing
             var gameManager = _gameManager;
             var config = gameManager?.GetConfig();
-            if (gameManager != null && config != null)
-            {
-                gameManager.SaveConfigImmediate(config);
-            }
-             
+
             if (ShouldMinimizeToTrayOnClose(_isExiting, config?.UISettings.MinimizeToTray ?? false))
             {
+                if (gameManager != null && config != null)
+                {
+                    gameManager.SaveConfigImmediate(config);
+                }
+
                 e.Cancel = true;
+                _fpsCounter.Stop();
                 Hide();
                 _trayController?.ShowTrayIcon();
                 _trayController?.ShowBalloon(_localization.Get("Main.TrayMinimizedTitle"), _localization.Get("Main.TrayMinimizedBody"), Constants.Timings.TrayBalloonDurationMs);
             }
             else
             {
-                if (_gameManager != null) _gameManager.GamesUpdated -= OnGamesUpdatedInWindow;
-                if (_playTimeService != null) _playTimeService.PlayTimeUpdated -= OnPlayTimeUpdated;
+                if (!_shutdownPrepared)
+                {
+                    e.Cancel = true;
+                    if (!_shutdownInProgress)
+                    {
+                        _shutdownInProgress = true;
+                        _ = PrepareShutdownAsync();
+                    }
+                    return;
+                }
 
+                // OnClosing wird beim vorbereiteten Herunterfahren ein zweites Mal aufgerufen.
+                // Erst in diesem finalen Durchlauf speichern, damit der letzte Spielzeit-Tick
+                // enthalten ist und die Konfiguration nicht doppelt geschrieben wird.
+                if (gameManager != null && config != null)
+                {
+                    gameManager.SaveConfigImmediate(config);
+                }
+
+                if (_gameManager != null) _gameManager.GamesUpdated -= OnGamesUpdatedInWindow;
                 _playTimeService?.Dispose();
                 _overlayController?.Dispose();
                 _trayController?.Dispose();
                 _fpsCounter?.Dispose();
                 _statusMessageService?.Dispose();
+                _updateCoordinator?.Dispose();
                 if (_viewModel != null) _viewModel.LibraryViewRefreshed -= OnLibraryViewRefreshed;
                 _viewModel?.Dispose();
                 _gameManager?.Dispose();
                 _localization.LanguageChanged -= OnLanguageChanged;
                 _imageCacheController?.Dispose();
                 base.OnClosing(e);
+            }
+        }
+
+        private async Task PrepareShutdownAsync()
+        {
+            try
+            {
+                if (_playTimeService != null)
+                {
+                    await _playTimeService.StopAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Spielzeiterfassung konnte nicht kontrolliert beendet werden", ex);
+            }
+            finally
+            {
+                _shutdownPrepared = true;
+                _shutdownInProgress = false;
+                await Task.Yield();
+                Close();
             }
         }
 
@@ -275,6 +297,7 @@ namespace GameLauncher
 
                 // Load Games via ViewModel
                 IsInitialLoading = true;
+                BitmapCacheConverter.BeginStartupCacheTracking();
                 await _viewModel.LoadGamesAsync(
                     loadSteamMetadataInBackground: false,
                     includeDeferredStartupGames: true);
@@ -313,7 +336,6 @@ namespace GameLauncher
                     BitmapCacheConverter.ReleaseStartupStrongCache();
                     Logger.Error("Warten auf sichtbare Startbilder fehlgeschlagen.", ex);
                 }
-                AreImageLoadTransitionsEnabled = false;
                 IsInitialLoading = false;
                 
                 // Check for updates (if enabled in settings)
@@ -353,29 +375,6 @@ namespace GameLauncher
             }
         }
 
-        private async Task StartDeferredStartupGameLoadAsync()
-        {
-            try
-            {
-                var deferredGames = await _gameManager.LoadDeferredStartupGamesAsync();
-                if (deferredGames.Count == 0)
-                {
-                    return;
-                }
-
-                await _viewModel.MergeGamesAsync(deferredGames);
-                Logger.Log($"Zeitversetzte Startup-Spiele übernommen: {deferredGames.Count} Einträge.");
-                RefreshList(instant: true);
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Zeitversetztes Startup-Nachladen fehlgeschlagen.", ex);
-            }
-        }
-
         private void ApplySavedTheme()
         {
             string savedTheme = _gameManager.GetConfig().Theme;
@@ -391,47 +390,6 @@ namespace GameLauncher
 
 
 
-
-        private bool NavigateList(int direction)
-        {
-            if (_currentViewMode == ViewMode.Cards)
-            {
-                return false;
-            }
-
-            if (GameListControl.Items.Count == 0) return false;
-
-            int currentIndex = GameListControl.SelectedIndex;
-            if (currentIndex == -1) currentIndex = 0;
-
-            int newIndex = currentIndex;
-            int columns = (int)(GameListControl.ActualWidth / 420); 
-            if (columns < 1) columns = 1;
-
-            switch (direction)
-            {
-                case 1: newIndex++; break; // Right
-                case -1: newIndex--; break; // Left
-                case 2: newIndex += columns; break; // Down
-                case -2: newIndex -= columns; break; // Up
-            }
-
-            // Boundary Check for UP (Escaping to Header)
-            if (newIndex < 0 && direction == -2) return false;
-
-            // Clamp
-            if (newIndex < 0) newIndex = 0;
-            if (newIndex >= GameListControl.Items.Count) newIndex = GameListControl.Items.Count - 1;
-
-            if (newIndex != currentIndex)
-            {
-                GameListControl.SelectedIndex = newIndex;
-                GameListControl.ScrollIntoView(GameListControl.Items[newIndex]);
-                var container = GameListControl.ItemContainerGenerator.ContainerFromIndex(newIndex) as ListBoxItem;
-                container?.Focus();
-            }
-            return true;
-        }
 
         private void ComboBox_DropDownOpened(object sender, EventArgs e)
         {
@@ -476,17 +434,6 @@ namespace GameLauncher
             {
                 scrollViewer.ScrollToVerticalOffset(Math.Max(0, scrollViewer.VerticalOffset + top));
             }
-        }
-
-        private static T? FindAncestor<T>(DependencyObject current) where T : DependencyObject
-        {
-            do
-            {
-                if (current is T typedCurrent) return typedCurrent;
-                current = VisualTreeHelper.GetParent(current);
-            }
-            while (current != null);
-            return null;
         }
 
         private void RefreshList(bool instant = true)
@@ -656,16 +603,11 @@ namespace GameLauncher
                 return;
             }
 
-            bool previousImageLoadTransitionsEnabled = AreImageLoadTransitionsEnabled;
-            bool refreshCompleted = false;
-
             try
             {
-                AreImageLoadTransitionsEnabled = true;
                 IsInitialLoading = true;
                 await _viewModel.LoadGamesAsync(includeDeferredStartupGames: true);
                 RefreshList(instant: false);
-                refreshCompleted = true;
             }
             catch (Exception ex)
             {
@@ -674,11 +616,6 @@ namespace GameLauncher
             }
             finally
             {
-                if (!refreshCompleted)
-                {
-                    AreImageLoadTransitionsEnabled = previousImageLoadTransitionsEnabled;
-                }
-
                 IsInitialLoading = false;
             }
         }
@@ -708,11 +645,6 @@ namespace GameLauncher
             }
 
             var previous = _lastAppliedUiSettings;
-            
-            if (previous == null || previous.CardSize != snapshot.CardSize)
-            {
-                ApplyCardSize(uiSettings.CardSize, false);
-            }
             
             if (previous == null ||
                 previous.ViewMode != snapshot.ViewMode ||
@@ -747,13 +679,6 @@ namespace GameLauncher
             }
 
             _lastAppliedUiSettings = snapshot;
-        }
-
-        private void ApplyCardSize(Models.CardSize size, bool refresh = true)
-        {
-            _currentCardSize = size;
-            _gameCardLayoutService.ApplyCardSize(GameListControl, Resources, size, refresh);
-            UpdateCardRowsLayout();
         }
 
         private void ApplyViewMode(Models.ViewMode mode, Models.CardSize size, bool refresh = true)
@@ -1059,15 +984,10 @@ namespace GameLauncher
 
         private async void AnimateItemsStaggered(bool instant = false)
         {
+            instant = instant || !AreAnimationsEnabled;
             await _animationService.AnimateItemsStaggeredAsync(
                 GameListControl,
-                active => IsStartupActive = active,
                 instant);
-
-            if (!instant)
-            {
-                AreImageLoadTransitionsEnabled = false;
-            }
 
             _imageCacheController.ScheduleViewportRetentionUpdate();
         }
