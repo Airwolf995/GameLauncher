@@ -13,6 +13,7 @@ using System.Windows.Threading;
 using GameLauncher.Models;
 using GameLauncher.Core;
 using GameLauncher.Services.Localization;
+using GameLauncher.Services.GameManagement;
 
 namespace GameLauncher
 {
@@ -20,21 +21,20 @@ namespace GameLauncher
 
     public partial class MainWindow : Window
     {
-        private const double StartupPreloadVerticalBuffer = 1200;
-        private const int StartupWarmupImageCount = 24;
-        private static readonly TimeSpan StartupMetadataDelay = TimeSpan.FromMilliseconds(1200);
         private GameManager _gameManager = null!;
         private MainViewModel _viewModel = null!;
         private DataTemplate? _originalCardTemplate; // Store original XAML template
         
         private Services.PlayTimeService _playTimeService = null!;
         private Services.UISettingsService _uiSettingsService = null!;
-        private Services.MainWindow.IGameCardLayoutService _gameCardLayoutService = null!;
-        private Services.MainWindow.ITrayController _trayController = null!;
-        private Services.MainWindow.IFpsCounter _fpsCounter = null!;
-        private Services.MainWindow.IOverlayController _overlayController = null!;
-        private Services.MainWindow.IStatusMessageService _statusMessageService = null!;
-        private Services.MainWindow.IUpdateCoordinator _updateCoordinator = null!;
+        private Services.MainWindow.GameCardLayoutService _gameCardLayoutService = null!;
+        private Services.MainWindow.TrayController _trayController = null!;
+        private Services.MainWindow.FpsCounter _fpsCounter = null!;
+        private Services.MainWindow.OverlayController _overlayController = null!;
+        private Services.MainWindow.StatusMessageService _statusMessageService = null!;
+        private Services.MainWindow.UpdateCoordinator _updateCoordinator = null!;
+        private Services.MainWindow.MainWindowStartupCoordinator _startupCoordinator = null!;
+        private readonly Services.MainWindow.MainWindowShutdownCoordinator _shutdownCoordinator = new();
         private Services.MainWindow.AnimationService _animationService = null!;
         private readonly LocalizationService _localization = LocalizationService.Instance;
         private UiSettingsSnapshot? _lastAppliedUiSettings;
@@ -43,8 +43,6 @@ namespace GameLauncher
         private CardSize _currentCardSize = CardSize.Medium;
         private int _currentCardColumns = 1;
         private bool _resetViewportAfterNextRefresh;
-        private bool _shutdownPrepared;
-        private bool _shutdownInProgress;
 
         public static readonly DependencyProperty IsInitialLoadingProperty =
             DependencyProperty.Register("IsInitialLoading", typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
@@ -118,6 +116,12 @@ namespace GameLauncher
                     }
                 });
             _updateCoordinator = new Services.MainWindow.UpdateCoordinator("Airwolf995/GameLauncher");
+            _startupCoordinator = new Services.MainWindow.MainWindowStartupCoordinator(
+                _gameManager,
+                _viewModel,
+                _imageCacheController,
+                _updateCoordinator,
+                _localization);
             _localization.LanguageChanged += OnLanguageChanged;
 
             ApplySavedTheme();
@@ -126,8 +130,10 @@ namespace GameLauncher
             StateChanged += MainWindow_StateChanged;
         }
 
-        private void InitOverlay()
+        internal void InitializeRuntimeServices()
         {
+            _playTimeService = new Services.PlayTimeService(_gameManager, _viewModel.Games);
+            _playTimeService.Start();
             _overlayController.Initialize(this, _playTimeService);
         }
 
@@ -139,13 +145,7 @@ namespace GameLauncher
             new Action(() => RefreshList(instant: true)).RunOnUI();
         }
 
-        private void InitPlayTimeService()
-        {
-            _playTimeService = new Services.PlayTimeService(_gameManager, _viewModel.Games);
-            _playTimeService.Start();
-        }
-
-        private void InitFpsCounter()
+        internal void InitializeFpsCounter()
         {
             _fpsCounter.Start(fps => new Action(() => FpsText.Text = _localization.Format("Main.Fps", fps)).RunOnUI());
         }
@@ -162,7 +162,7 @@ namespace GameLauncher
             }
         }
 
-        private void InitTrayIcon()
+        internal void InitializeTrayIcon()
         {
             _trayController.Initialize(RestoreFromTray, ExitApplication);
         }
@@ -176,14 +176,12 @@ namespace GameLauncher
             _trayController.HideTrayIcon();
         }
 
-        private bool _isExiting = false;
-
         internal static bool ShouldMinimizeToTrayOnClose(bool isExiting, bool minimizeToTray) =>
             !isExiting && minimizeToTray;
 
         private void BeginExit()
         {
-            _isExiting = true;
+            _shutdownCoordinator.RequestExit();
         }
 
         private void ExitApplication()
@@ -198,7 +196,7 @@ namespace GameLauncher
             var gameManager = _gameManager;
             var config = gameManager?.GetConfig();
 
-            if (ShouldMinimizeToTrayOnClose(_isExiting, config?.UISettings.MinimizeToTray ?? false))
+            if (config != null && _shutdownCoordinator.ShouldMinimizeToTray(config.UISettings))
             {
                 if (gameManager != null && config != null)
                 {
@@ -213,12 +211,11 @@ namespace GameLauncher
             }
             else
             {
-                if (!_shutdownPrepared)
+                if (!_shutdownCoordinator.IsPrepared)
                 {
                     e.Cancel = true;
-                    if (!_shutdownInProgress)
+                    if (_shutdownCoordinator.TryBeginPreparation())
                     {
-                        _shutdownInProgress = true;
                         _ = PrepareShutdownAsync();
                     }
                     return;
@@ -250,129 +247,16 @@ namespace GameLauncher
 
         private async Task PrepareShutdownAsync()
         {
-            try
-            {
-                if (_playTimeService != null)
-                {
-                    await _playTimeService.StopAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Spielzeiterfassung konnte nicht kontrolliert beendet werden", ex);
-            }
-            finally
-            {
-                _shutdownPrepared = true;
-                _shutdownInProgress = false;
-                await Task.Yield();
-                Close();
-            }
+            await _shutdownCoordinator.PrepareAsync(_playTimeService);
+            await Task.Yield();
+            Close();
         }
 
 
         private async void MainWindow_ContentRendered(object? sender, EventArgs e)
         {
             ContentRendered -= MainWindow_ContentRendered;
-
-            try
-            {
-                InitTrayIcon();
-                InitFpsCounter();
-
-                // Check if it's the first start to show the Wizard
-                if (_gameManager.GetConfig().UISettings.FirstStart)
-                {
-                    IsInitialLoading = false;
-                    var wizard = new SetupWizardWindow(_gameManager)
-                    {
-                        Owner = this
-                    };
-                    wizard.ShowDialog();
-                }
-
-                // Apply UI Settings
-                var startupUiSettings = _gameManager.GetConfig().UISettings;
-                ApplyUISettings(startupUiSettings, registerHotkey: false, writeLog: true);
-
-                // Load Games via ViewModel
-                IsInitialLoading = true;
-                BitmapCacheConverter.BeginStartupCacheTracking();
-                await _viewModel.LoadGamesAsync(
-                    loadSteamMetadataInBackground: false,
-                    includeDeferredStartupGames: true);
-                InitPlayTimeService();
-                InitOverlay();
-                ApplyUISettings(startupUiSettings, registerHotkey: true, writeLog: false);
-                await Dispatcher.InvokeAsync(() => GameListControl.UpdateLayout(), DispatcherPriority.Loaded);
-                // Während das Lade-Overlay sichtbar ist, die Bibliothek sofort final aufbauen.
-                RefreshList(instant: true);
-                await Dispatcher.InvokeAsync(() => GameListControl.UpdateLayout(), DispatcherPriority.Loaded);
-                try
-                {
-                    var startupPreloadPaths = CollectStartupPreloadPaths(StartupPreloadVerticalBuffer, StartupWarmupImageCount);
-                    if (startupPreloadPaths.Count > 0)
-                    {
-                        Logger.Log($"Startup-Bildvorwärmung gestartet: {startupPreloadPaths.Count} Cover.");
-                        await BitmapCacheConverter.PreloadAsync(startupPreloadPaths);
-                    }
-
-                    var visibleStartupPaths = _imageCacheController.GetBufferedImagePaths(0);
-                    if (visibleStartupPaths.Count > 0)
-                    {
-                        Logger.Log($"Startup-Sichtbereich wird gezielt vorgewärmt: {visibleStartupPaths.Count} Cover.");
-                        await BitmapCacheConverter.PreloadAsync(visibleStartupPaths);
-                    }
-
-                    await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
-                    await _imageCacheController.WaitForVisibleImagesReadyAsync(TimeSpan.FromSeconds(4));
-                    await _imageCacheController.RefreshVisibleImagesAsync();
-                    await Dispatcher.InvokeAsync(() => GameListControl.UpdateLayout(), DispatcherPriority.Loaded);
-                    await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
-                    BitmapCacheConverter.ReleaseStartupStrongCache();
-                }
-                catch (Exception ex)
-                {
-                    BitmapCacheConverter.ReleaseStartupStrongCache();
-                    Logger.Error("Warten auf sichtbare Startbilder fehlgeschlagen.", ex);
-                }
-                IsInitialLoading = false;
-                
-                // Check for updates (if enabled in settings)
-                var settings = _gameManager?.GetConfig()?.UISettings;
-                if (settings?.AutoCheckUpdates ?? true)
-                {
-                    _ = CheckForUpdatesAsync();
-                }
-                
-                
-                Logger.Log("MainWindow loaded and ready.");
-                _ = StartDeferredMetadataRefreshAsync();
-            }
-
-            catch (Exception ex)
-            {
-                 IsInitialLoading = false;
-                 Logger.Error("Error loading games in MainWindow", ex);
-                 MessageBox.Show(_localization.Format("App.LoadError", ex.Message), _localization.Get("Common.Error"));
-            }
-
-        }
-
-        private async Task StartDeferredMetadataRefreshAsync()
-        {
-            try
-            {
-                await Task.Delay(StartupMetadataDelay);
-                await _viewModel.RefreshSteamMetadataAsync();
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Zeitversetzte Steam-Metadatenaktualisierung fehlgeschlagen.", ex);
-            }
+            await _startupCoordinator.RunAsync(this);
         }
 
         private void ApplySavedTheme()
@@ -444,7 +328,9 @@ namespace GameLauncher
             }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
-        private IReadOnlyList<string> CollectStartupPreloadPaths(double verticalBuffer, int maxImageCount)
+        internal void RefreshLibrary(bool instant) => RefreshList(instant);
+
+        internal IReadOnlyList<string> CollectStartupPreloadPaths(double verticalBuffer, int maxImageCount)
         {
             var imagePaths = new List<string>(maxImageCount);
             var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -680,6 +566,9 @@ namespace GameLauncher
 
             _lastAppliedUiSettings = snapshot;
         }
+
+        internal void ApplyUiSettings(UISettings uiSettings, bool registerHotkey, bool writeLog) =>
+            ApplyUISettings(uiSettings, registerHotkey, writeLog);
 
         private void ApplyViewMode(Models.ViewMode mode, Models.CardSize size, bool refresh = true)
         {
@@ -995,8 +884,6 @@ namespace GameLauncher
         private void ShowStatus(string message, int delayMs = 3000) =>
             _statusMessageService.ShowStatus(message, delayMs);
 
-        private Task CheckForUpdatesAsync() =>
-            _updateCoordinator.CheckForUpdatesAsync(this);
 
 
         #endregion

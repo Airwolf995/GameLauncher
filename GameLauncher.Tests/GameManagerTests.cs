@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using GameLauncher.Models;
+using GameLauncher.Services.GameManagement;
 
 namespace GameLauncher.Tests
 {

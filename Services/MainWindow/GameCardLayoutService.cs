@@ -11,7 +11,9 @@ using GameLauncher.Models;
 
 namespace GameLauncher.Services.MainWindow
 {
-    public sealed class GameCardLayoutService : IGameCardLayoutService
+    public readonly record struct CardRowLayoutResult(int Columns, double CardWidth, bool Changed);
+
+    public sealed class GameCardLayoutService
     {
         private const double CardLayoutHorizontalPadding = 70;
         private const double RowModeMinimumCardWidth = 320;

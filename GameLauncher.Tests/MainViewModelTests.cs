@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using System.Threading;
 using GameLauncher.Models;
+using GameLauncher.Services.GameManagement;
 using GameLauncher.Services.Localization;
 using GameLauncher.ViewModels;
 

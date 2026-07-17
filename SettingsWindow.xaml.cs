@@ -3,6 +3,7 @@ using System.Windows;
 using GameLauncher.Models;
 using GameLauncher.Services;
 using GameLauncher.Services.Localization;
+using GameLauncher.Services.GameManagement;
 using GameLauncher.ViewModels;
 
 namespace GameLauncher

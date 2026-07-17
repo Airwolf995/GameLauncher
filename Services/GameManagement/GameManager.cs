@@ -5,10 +5,10 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Diagnostics;
-using GameLauncher.Services;
+using GameLauncher.Models;
 using GameLauncher.Services.Scanners;
 
-namespace GameLauncher.Models
+namespace GameLauncher.Services.GameManagement
 {
     /// <summary>
     /// Facade for game management. Delegates to specialized services:
@@ -21,8 +21,9 @@ namespace GameLauncher.Models
         private readonly ConfigService _configService;
         private readonly GameStateService _stateService;
         private readonly GameImageService _imageService;
-        private readonly Services.MetadataService _metadataService = new();
+        private readonly MetadataService _metadataService = new();
         private readonly SteamMetadataCacheService _steamMetadataCache = new();
+        private readonly GameLibraryLoader _libraryLoader = new();
 
         public GameConfig Config => _configService.Config;
         
@@ -38,8 +39,8 @@ namespace GameLauncher.Models
 
         internal GameManager(string? configPathOverride)
         {
-            _configService = configPathOverride != null 
-                ? new ConfigService(configPathOverride) 
+            _configService = configPathOverride != null
+                ? new ConfigService(configPathOverride)
                 : new ConfigService();
             _stateService = new GameStateService(_configService);
             _imageService = new GameImageService(_configService);
@@ -62,58 +63,8 @@ namespace GameLauncher.Models
 
         public async Task<List<Game>> LoadAllGamesAsync(bool loadSteamMetadataInBackground = true, System.Threading.CancellationToken ct = default)
         {
-            var games = new List<Game>();
             var config = _configService.Config;
-
-            // 1. Scan Platforms in Parallel using dedicated scanners
-            Logger.Log("Starting scanning games parallel...");
-
-            var steamScanner = new SteamScanner(config.SteamLibraryPaths);
-            var gogScanner = new GogScanner();
-            var epicScanner = new EpicScanner(config.EpicLibraryPaths);
-            var eaScanner = new EaScanner();
-            var xboxScanner = new XboxScanner(config.XboxLibraryPaths);
-
-            var steamTask = steamScanner.ScanAsync(ct);
-            var gogTask = gogScanner.ScanAsync(ct);
-            var epicTask = epicScanner.ScanAsync(ct);
-            var eaTask = eaScanner.ScanAsync(ct);
-            var xboxTask = xboxScanner.ScanAsync(ct);
-
-            await Task.WhenAll(steamTask, gogTask, epicTask, eaTask, xboxTask);
-
-            Logger.Log($"Parallel scan finished. Steam: {steamTask.Result.Count}, GOG: {gogTask.Result.Count}, Epic: {epicTask.Result.Count}, EA: {eaTask.Result.Count}, Xbox: {xboxTask.Result.Count}");
-
-            games.AddRange(steamTask.Result);
-            games.AddRange(gogTask.Result);
-            games.AddRange(epicTask.Result);
-            games.AddRange(eaTask.Result);
-            games.AddRange(xboxTask.Result);
-
-            // 2. Manual Games
-            if (config.ManualGames != null)
-            {
-                foreach (var mGame in config.ManualGames)
-                {
-                    mGame.IsManual = true; // Ensure logic consistency
-                    
-                    // Backfill icon if missing and it is an exe
-                    if (string.IsNullOrEmpty(mGame.ImageUrl) && mGame.LaunchType == "exe" && File.Exists(mGame.Path))
-                    {
-                         mGame.ImageUrl = IconExtractor.GetIconFromExe(mGame.Path, mGame.Id);
-                    }
-
-                    // Populate InstallDirectory for manual games if not set
-                    if (string.IsNullOrEmpty(mGame.InstallDirectory) && !string.IsNullOrEmpty(mGame.Path) && mGame.LaunchType == "exe")
-                    {
-                        mGame.InstallDirectory = Path.GetDirectoryName(mGame.Path) ?? "";
-                    }
-                }
-                games.AddRange(config.ManualGames);
-                Logger.Log($"Loaded {config.ManualGames.Count} manual games.");
-            }
-
-            // 3. Apply Favorites, Last Played, PlayTime & Hidden Status
+            var games = await _libraryLoader.LoadAsync(config, ct);
 
             ApplyStoredState(games);
 
@@ -160,10 +111,8 @@ namespace GameLauncher.Models
 
         public async Task<List<Game>> LoadDeferredStartupGamesAsync(System.Threading.CancellationToken ct = default)
         {
-            var ubiScanner = new UbisoftScanner();
-            var games = await ubiScanner.ScanAsync(ct);
+            var games = await _libraryLoader.LoadDeferredAsync(ct);
             ApplyStoredState(games);
-            Logger.Log($"Zeitversetzter Startup-Scan abgeschlossen. Ubisoft: {games.Count}");
             return games;
         }
 

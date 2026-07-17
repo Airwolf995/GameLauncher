@@ -8,6 +8,7 @@ using System.Windows.Media;
 using GameLauncher.Models;
 using GameLauncher.Services.Scanners;
 using GameLauncher.Services.Localization;
+using GameLauncher.Services.GameManagement;
 
 namespace GameLauncher
 {

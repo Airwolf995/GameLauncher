@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace GameLauncher.Services.MainWindow
 {
-    public sealed class StatusMessageService : IStatusMessageService
+    public sealed class StatusMessageService : IDisposable
     {
         private readonly Action<string> _setStatusText;
         private readonly Action _restoreDefaultStatus;

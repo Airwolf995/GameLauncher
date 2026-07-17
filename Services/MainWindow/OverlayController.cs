@@ -5,7 +5,7 @@ using GameLauncher.Services;
 
 namespace GameLauncher.Services.MainWindow
 {
-    public sealed class OverlayController : IOverlayController
+    public sealed class OverlayController : IDisposable
     {
         private HardwareMonitorService? _hardwareMonitorService;
         private HotkeyService? _hotkeyService;
