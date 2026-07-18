@@ -169,12 +169,8 @@ namespace GameLauncher.Services.MainWindow
 
         private static void AddImageColumn(FrameworkElementFactory gridFactory, ResourceDictionary resources)
         {
-            var imageFactory = new FrameworkElementFactory(typeof(Image));
-            imageFactory.SetBinding(Image.SourceProperty, new Binding("ImageUrl")
-            {
-                Converter = resources["BitmapCacheConverter"] as IValueConverter,
-                IsAsync = true
-            });
+            var imageFactory = new FrameworkElementFactory(typeof(AsyncCoverImage));
+            imageFactory.SetBinding(AsyncCoverImage.ImagePathProperty, new Binding("ImageUrl"));
             // List mode image size (85x40 fits the Steam ratio 2.14 almost perfectly)
             imageFactory.SetValue(Image.WidthProperty, 85.0);
             imageFactory.SetValue(Image.HeightProperty, 40.0);

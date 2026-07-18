@@ -33,8 +33,8 @@ dotnet build .\GameLauncher.csproj -c Release
 - `build-release.ps1` kopiert Lizenz- und Hinweisdateien in den Publish-Ordner. Releases immer aus diesem Ordner paketieren, damit der Installer sie mitliefert.
 
 ## Wichtige Bereiche
-- UI: `MainWindow.xaml`, `OverlayWindow.xaml`
-- Logik: `MainWindow.xaml.cs`, `ViewModels/`
+- UI: `Views/MainWindow.xaml`, `Views/OverlayWindow.xaml`
+- Logik: `Views/MainWindow.xaml.cs`, `ViewModels/`
 - Hardware‑Monitoring: `Services/HardwareMonitorService.cs`
 - Spielzeit: `Services/PlayTimeService.cs`
 - Fenster-/UI-Orchestrierung: `Services/MainWindow/`
@@ -46,6 +46,7 @@ dotnet build .\GameLauncher.csproj -c Release
 - `Services/Scanners/`: Plattform-Scanner für Steam, Epic, GOG, Xbox / Game Pass, EA und Ubisoft.
 - `Services/Localization/`: Sprachlogik und lokalisierte Texte.
 - `Controls/`: Spezielle WPF-Controls, insbesondere Virtualisierung für die Bibliotheksansicht.
+- `Views/`: WPF-Fenster und deren Code-behind-Dateien.
 - `ViewModels/`: UI-Zustand und Einstellungslogik.
 - `Models/`: Konfiguration, Spielmodelle, Konstanten und zentrale Zustandsobjekte.
 - `GameLauncher.Tests/`: Unit- und Integrationstests.

@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
         Title="{loc:Loc Key=License.Title}"
-        Icon="pack://application:,,,/game.ico"
+        Icon="pack://application:,,,/Resources/Images/game.ico"
         Width="520"
         Height="470"
         MinWidth="520"

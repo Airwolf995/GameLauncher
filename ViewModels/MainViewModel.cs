@@ -55,17 +55,7 @@ namespace GameLauncher.ViewModels
             _localization.LanguageChanged += OnLanguageChanged;
         }
 
-        public event EventHandler<LibraryViewRefreshedEventArgs>? LibraryViewRefreshed;
-
-        public sealed class LibraryViewRefreshedEventArgs : EventArgs
-        {
-            public LibraryViewRefreshedEventArgs(IReadOnlyList<string> initialWarmupImagePaths)
-            {
-                InitialWarmupImagePaths = initialWarmupImagePaths;
-            }
-
-            public IReadOnlyList<string> InitialWarmupImagePaths { get; }
-        }
+        public event EventHandler? LibraryViewRefreshed;
 
         public ICollectionView GamesView => _gamesView;
         public ObservableCollection<Game> Games => _games;
@@ -351,9 +341,7 @@ namespace GameLauncher.ViewModels
                     OnPropertyChanged(nameof(IsSearchActive));
                     UpdateStatusText();
 
-                    LibraryViewRefreshed?.Invoke(
-                        this,
-                        new LibraryViewRefreshedEventArgs(viewSnapshot.InitialWarmupImagePaths));
+                    LibraryViewRefreshed?.Invoke(this, EventArgs.Empty);
                 });
                 swapWatch.Stop();
                 totalWatch.Stop();

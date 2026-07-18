@@ -38,7 +38,6 @@ namespace GameLauncher
         private Services.MainWindow.AnimationService _animationService = null!;
         private readonly LocalizationService _localization = LocalizationService.Instance;
         private UiSettingsSnapshot? _lastAppliedUiSettings;
-        private Services.MainWindow.GameImageCacheController _imageCacheController = null!;
         private ViewMode _currentViewMode = ViewMode.Cards;
         private CardSize _currentCardSize = CardSize.Medium;
         private int _currentCardColumns = 1;
@@ -96,7 +95,6 @@ namespace GameLauncher
             _uiSettingsService = new Services.UISettingsService();
             _gameCardLayoutService = new Services.MainWindow.GameCardLayoutService(_uiSettingsService);
             _animationService = new Services.MainWindow.AnimationService();
-            _imageCacheController = new Services.MainWindow.GameImageCacheController(GameListControl);
             _trayController = new Services.MainWindow.TrayController();
             _fpsCounter = new Services.MainWindow.FpsCounter();
             _overlayController = new Services.MainWindow.OverlayController();
@@ -119,7 +117,6 @@ namespace GameLauncher
             _startupCoordinator = new Services.MainWindow.MainWindowStartupCoordinator(
                 _gameManager,
                 _viewModel,
-                _imageCacheController,
                 _updateCoordinator,
                 _localization);
             _localization.LanguageChanged += OnLanguageChanged;
@@ -240,7 +237,6 @@ namespace GameLauncher
                 _viewModel?.Dispose();
                 _gameManager?.Dispose();
                 _localization.LanguageChanged -= OnLanguageChanged;
-                _imageCacheController?.Dispose();
                 base.OnClosing(e);
             }
         }
@@ -330,59 +326,6 @@ namespace GameLauncher
 
         internal void RefreshLibrary(bool instant) => RefreshList(instant);
 
-        internal IReadOnlyList<string> CollectStartupPreloadPaths(double verticalBuffer, int maxImageCount)
-        {
-            var imagePaths = new List<string>(maxImageCount);
-            var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var path in _imageCacheController.GetBufferedImagePaths(verticalBuffer))
-            {
-                if (imagePaths.Count >= maxImageCount)
-                {
-                    break;
-                }
-
-                if (seenPaths.Add(path))
-                {
-                    imagePaths.Add(path);
-                }
-            }
-
-            foreach (var item in GameListControl.Items)
-            {
-                if (imagePaths.Count >= maxImageCount)
-                {
-                    break;
-                }
-
-                switch (item)
-                {
-                    case Game game when !string.IsNullOrWhiteSpace(game.ImageUrl):
-                        if (seenPaths.Add(game.ImageUrl))
-                        {
-                            imagePaths.Add(game.ImageUrl);
-                        }
-                        break;
-                    case GameRow row:
-                        foreach (var rowGame in row.Games)
-                        {
-                            if (imagePaths.Count >= maxImageCount)
-                            {
-                                break;
-                            }
-
-                            if (!string.IsNullOrWhiteSpace(rowGame.ImageUrl) && seenPaths.Add(rowGame.ImageUrl))
-                            {
-                                imagePaths.Add(rowGame.ImageUrl);
-                            }
-                        }
-                        break;
-                }
-            }
-
-            return imagePaths;
-        }
-        
         // Fix for ClearSearch_Click build error
         private void ClearSearch_Click(object sender, RoutedEventArgs e)
         {
@@ -393,7 +336,6 @@ namespace GameLauncher
         {
             Title = _localization.Get("AppName");
             FpsText.Text = _localization.Format("Main.Fps", 0);
-            _imageCacheController.ScheduleViewportRetentionUpdate();
         }
 
         private void LibraryViewStateChanged(object sender, RoutedEventArgs e)
@@ -416,7 +358,7 @@ namespace GameLauncher
             }
         }
 
-        private void OnLibraryViewRefreshed(object? sender, MainViewModel.LibraryViewRefreshedEventArgs e)
+        private void OnLibraryViewRefreshed(object? sender, EventArgs e)
         {
             if (!IsLoaded || IsInitialLoading)
             {
@@ -428,10 +370,6 @@ namespace GameLauncher
                 ResetLibraryViewportToTop();
                 _resetViewportAfterNextRefresh = false;
             }
-
-            _imageCacheController.StartPriorityWarmup(e.InitialWarmupImagePaths);
-            _imageCacheController.ScheduleViewportRetentionUpdate();
-            _imageCacheController.ScheduleViewChangeStabilization();
 
             Dispatcher.BeginInvoke(
                 new Action(() =>
@@ -878,7 +816,6 @@ namespace GameLauncher
                 GameListControl,
                 instant);
 
-            _imageCacheController.ScheduleViewportRetentionUpdate();
         }
 
         private void ShowStatus(string message, int delayMs = 3000) =>
