@@ -44,7 +44,7 @@
             <!-- Sidebar -->
             <Border Background="#2D2D30" CornerRadius="12,0,0,12">
                 <StackPanel Margin="24,48,24,24">
-                    <Image Source="game.ico" Width="80" Height="80" Margin="0,0,0,32">
+                    <Image Source="pack://application:,,,/Resources/Images/game.ico" Width="80" Height="80" Margin="0,0,0,32">
                         <Image.Effect>
                             <DropShadowEffect BlurRadius="15" Opacity="0.3" ShadowDepth="0"/>
                         </Image.Effect>

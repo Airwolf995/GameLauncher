@@ -4,7 +4,7 @@
         xmlns:local="clr-namespace:GameLauncher"
         xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
         Title="{loc:Loc Key=Details.Title}" Height="480" Width="700"
-        Icon="pack://application:,,,/game.ico"
+        Icon="pack://application:,,,/Resources/Images/game.ico"
         Background="#1E1E1E" WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Loaded="Window_Loaded">
 

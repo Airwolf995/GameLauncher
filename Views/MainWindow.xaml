@@ -9,7 +9,7 @@
         xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
         mc:Ignorable="d"
         Title="{loc:Loc Key=AppName}" Height="840" Width="1350"
-        Icon="pack://application:,,,/game.ico"
+        Icon="pack://application:,,,/Resources/Images/game.ico"
         Background="#1E1E1E" WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
