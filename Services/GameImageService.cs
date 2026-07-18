@@ -45,8 +45,8 @@ namespace GameLauncher.Services
                 string oldImageUrl = game.ImageUrl;
 
                 // Invalidate bitmap cache for old and new path
-                BitmapCacheConverter.Invalidate(game.ImageUrl);
-                BitmapCacheConverter.Invalidate(destPath);
+                GameImageBitmapCache.Invalidate(game.ImageUrl);
+                GameImageBitmapCache.Invalidate(destPath);
 
                 // Copy image
                 File.Copy(imagePath, destPath, true);
@@ -79,7 +79,7 @@ namespace GameLauncher.Services
 
                 if (!isShared && IsManagedImagePath(imagePath))
                 {
-                    BitmapCacheConverter.Invalidate(imagePath);
+                    GameImageBitmapCache.Invalidate(imagePath);
                     File.Delete(imagePath);
                     Logger.Log($"Nicht mehr verwendetes Bild gelöscht: {imagePath}");
                 }

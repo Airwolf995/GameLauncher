@@ -4,7 +4,6 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:system="clr-namespace:System;assembly=mscorlib"
-        xmlns:local="clr-namespace:GameLauncher"
         xmlns:controls="clr-namespace:GameLauncher.Controls"
         xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
         mc:Ignorable="d"
@@ -13,7 +12,6 @@
         Background="#1E1E1E" WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
-        <local:BitmapCacheConverter x:Key="BitmapCacheConverter"/>
         <Thickness x:Key="CardMargin">12</Thickness>
         <Thickness x:Key="CardPadding">15</Thickness>
         
@@ -315,12 +313,12 @@
                             Background="#1A1A1C"
                             UseLayoutRounding="True"
                             SnapsToDevicePixels="True">
-                        <Image Stretch="UniformToFill"
-                               Opacity="1"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               RenderOptions.BitmapScalingMode="LowQuality"
-                               Source="{Binding ImageUrl, Converter={StaticResource BitmapCacheConverter}}"/>
+                        <controls:AsyncCoverImage ImagePath="{Binding ImageUrl}"
+                                                  Stretch="UniformToFill"
+                                                  Opacity="1"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RenderOptions.BitmapScalingMode="LowQuality"/>
                     </Border>
 
                     <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
