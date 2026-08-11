@@ -181,34 +181,36 @@ namespace GameLauncher.ViewModels
 
         private void ApplySettings()
         {
-            var config = _gameManager.Config;
-            var ui = config.UISettings;
+            string languageCode = Appearance.SelectedLanguageCode;
+            _gameManager.UpdateConfig(config =>
+            {
+                var ui = config.UISettings;
+                config.Theme = Appearance.SelectedTheme;
+                ui.CardSize = Appearance.CardSize;
+                ui.ViewMode = Appearance.ViewMode;
+                ui.LanguageCode = languageCode;
+                ui.AnimationsEnabled = Appearance.AnimationsEnabled;
+                ui.FontScale = Appearance.FontScale;
+                ui.BackgroundImage = Appearance.BackgroundImage;
+                ui.AutostartEnabled = Behavior.AutostartEnabled;
+                ui.MinimizeToTray = Behavior.MinimizeToTray;
+                ui.MinimizeOnGameStart = Behavior.MinimizeOnGameStart;
+                ui.CloseOnGameStart = Behavior.CloseOnGameStart;
+                ui.OverlayHotkeyCtrl = Behavior.OverlayHotkeyCtrl;
+                ui.OverlayHotkeyAlt = Behavior.OverlayHotkeyAlt;
+                ui.OverlayHotkeyShift = Behavior.OverlayHotkeyShift;
+                ui.OverlayHotkeyWin = Behavior.OverlayHotkeyWin;
+                ui.OverlayHotkeyKey = NormalizeHotkeyKey(Behavior.OverlayHotkeyKey);
+                ui.AutoCheckUpdates = Behavior.AutoCheckUpdates;
+                ui.SteamGridDbApiKey = Library.SteamGridDbApiKey;
 
-            config.Theme = Appearance.SelectedTheme;
-            ui.CardSize = Appearance.CardSize;
-            ui.ViewMode = Appearance.ViewMode;
-            ui.LanguageCode = Appearance.SelectedLanguageCode;
-            ui.AnimationsEnabled = Appearance.AnimationsEnabled;
-            ui.FontScale = Appearance.FontScale;
-            ui.BackgroundImage = Appearance.BackgroundImage;
-            ui.AutostartEnabled = Behavior.AutostartEnabled;
-            ui.MinimizeToTray = Behavior.MinimizeToTray;
-            ui.MinimizeOnGameStart = Behavior.MinimizeOnGameStart;
-            ui.CloseOnGameStart = Behavior.CloseOnGameStart;
-            ui.OverlayHotkeyCtrl = Behavior.OverlayHotkeyCtrl;
-            ui.OverlayHotkeyAlt = Behavior.OverlayHotkeyAlt;
-            ui.OverlayHotkeyShift = Behavior.OverlayHotkeyShift;
-            ui.OverlayHotkeyWin = Behavior.OverlayHotkeyWin;
-            ui.OverlayHotkeyKey = NormalizeHotkeyKey(Behavior.OverlayHotkeyKey);
-            ui.AutoCheckUpdates = Behavior.AutoCheckUpdates;
-            ui.SteamGridDbApiKey = Library.SteamGridDbApiKey;
+                config.IgnoredProcesses = PathListFormatter.ParseLines(Library.IgnoredProcessesText);
+                config.SteamLibraryPaths = PathListFormatter.ParseLines(Library.SteamPathsText);
+                config.EpicLibraryPaths = PathListFormatter.ParseLines(Library.EpicPathsText);
+                config.XboxLibraryPaths = PathListFormatter.ParseLines(Library.XboxPathsText);
+            });
 
-            config.IgnoredProcesses = PathListFormatter.ParseLines(Library.IgnoredProcessesText);
-            config.SteamLibraryPaths = PathListFormatter.ParseLines(Library.SteamPathsText);
-            config.EpicLibraryPaths = PathListFormatter.ParseLines(Library.EpicPathsText);
-            config.XboxLibraryPaths = PathListFormatter.ParseLines(Library.XboxPathsText);
-
-            _localization.ApplyLanguageCode(ui.LanguageCode);
+            _localization.ApplyLanguageCode(languageCode);
             _autostartService.SetEnabled(Behavior.AutostartEnabled);
         }
 

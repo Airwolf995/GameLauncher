@@ -338,6 +338,72 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
+        public async Task UpdateConfig_WaitsForConsistentSerializationAndPersistsFollowingMutation()
+        {
+            var tempRoot = CreateTempRoot();
+            var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+            using var serializationStarted = new ManualResetEventSlim();
+            using var continueSerialization = new ManualResetEventSlim();
+            int shouldBlockSerialization = 0;
+            DateTime utcNow = new(2026, 8, 11, 12, 0, 0, DateTimeKind.Utc);
+
+            try
+            {
+                Directory.CreateDirectory(tempRoot);
+                using var configService = new Services.ConfigService(
+                    configPath,
+                    config =>
+                    {
+                        if (Interlocked.Exchange(ref shouldBlockSerialization, 0) == 1)
+                        {
+                            serializationStarted.Set();
+                            if (!continueSerialization.Wait(TimeSpan.FromSeconds(5)))
+                            {
+                                throw new TimeoutException("Die Testserialisierung wurde nicht freigegeben.");
+                            }
+                        }
+
+                        return System.Text.Json.JsonSerializer.Serialize(config);
+                    },
+                    TimeSpan.FromHours(1).TotalMilliseconds,
+                    () => utcNow);
+
+                configService.UpdateConfig(config =>
+                    config.PlayTime["steam:1"] = new PlayTimeEntry { Name = "Erstes Spiel", Seconds = 10 });
+                configService.SaveConfig();
+                utcNow = utcNow.AddHours(1);
+                Volatile.Write(ref shouldBlockSerialization, 1);
+
+                Task flushTask = Task.Run(configService.FlushPendingSave);
+                Assert.True(serializationStarted.Wait(TimeSpan.FromSeconds(2)));
+
+                Task updateTask = Task.Run(() =>
+                {
+                    configService.UpdateConfig(config =>
+                        config.PlayTime["steam:2"] = new PlayTimeEntry { Name = "Zweites Spiel", Seconds = 20 });
+                    configService.SaveConfig();
+                });
+
+                await Task.Delay(TimeSpan.FromMilliseconds(100));
+                Assert.False(updateTask.IsCompleted);
+                continueSerialization.Set();
+                await Task.WhenAll(flushTask, updateTask).WaitAsync(TimeSpan.FromSeconds(2));
+
+                utcNow = utcNow.AddHours(1);
+                configService.FlushPendingSave();
+
+                using var reloaded = new Services.ConfigService(configPath);
+                Assert.Equal(10, reloaded.Config.PlayTime["steam:1"].Seconds);
+                Assert.Equal(20, reloaded.Config.PlayTime["steam:2"].Seconds);
+            }
+            finally
+            {
+                continueSerialization.Set();
+                CleanupTempRoot(tempRoot);
+            }
+        }
+
+        [Fact]
         public void SaveConfig_StopsAutomaticRetriesAfterLimit()
         {
             var tempRoot = CreateTempRoot();

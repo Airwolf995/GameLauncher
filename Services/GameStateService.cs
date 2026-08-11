@@ -23,25 +23,29 @@ namespace GameLauncher.Services
             _configService = configService;
         }
 
-        private GameConfig Config => _configService.Config;
-
         /// <summary>
         /// Toggles the favorite status of a game.
         /// </summary>
         public void ToggleFavorite(Game game)
         {
-            if (Config.Favorites.Contains(game.Id))
+            bool wasFavorite = false;
+            _configService.UpdateConfig(config =>
             {
-                Config.Favorites.Remove(game.Id);
-                game.IsFavorite = false;
-                Logger.Log($"Removed from favorites: {game.Name}");
-            }
-            else
-            {
-                Config.Favorites.Add(game.Id);
-                game.IsFavorite = true;
-                Logger.Log($"Added to favorites: {game.Name}");
-            }
+                wasFavorite = config.Favorites.Contains(game.Id);
+                if (wasFavorite)
+                {
+                    config.Favorites.Remove(game.Id);
+                }
+                else
+                {
+                    config.Favorites.Add(game.Id);
+                }
+            });
+
+            game.IsFavorite = !wasFavorite;
+            Logger.Log(wasFavorite
+                ? $"Removed from favorites: {game.Name}"
+                : $"Added to favorites: {game.Name}");
             _configService.SaveConfig();
         }
 
@@ -50,9 +54,14 @@ namespace GameLauncher.Services
         /// </summary>
         public void HideGame(Game game)
         {
-            if (!Config.HiddenGames.Contains(game.Id))
+            bool wasAdded = false;
+            _configService.UpdateConfig(config =>
             {
-                Config.HiddenGames.Add(game.Id);
+                wasAdded = config.HiddenGames.Add(game.Id);
+            });
+
+            if (wasAdded)
+            {
                 game.IsHidden = true;
                 _configService.SaveConfig();
                 Logger.Log($"Hidden game: {game.Name}");
@@ -64,7 +73,7 @@ namespace GameLauncher.Services
         /// </summary>
         public void UnhideGame(Game game)
         {
-            Config.HiddenGames.Remove(game.Id);
+            _configService.UpdateConfig(config => config.HiddenGames.Remove(game.Id));
             game.IsHidden = false;
             _configService.SaveConfig();
             Logger.Log($"Unhidden game: {game.Name}");
@@ -75,7 +84,7 @@ namespace GameLauncher.Services
         /// </summary>
         public void UpdateLastPlayed(string gameId, DateTime lastPlayed)
         {
-            Config.LastPlayed[gameId] = lastPlayed;
+            _configService.UpdateConfig(config => config.LastPlayed[gameId] = lastPlayed);
         }
 
         /// <summary>
@@ -83,20 +92,24 @@ namespace GameLauncher.Services
         /// </summary>
         public void UpdatePlaySessions(IEnumerable<PlaySessionUpdate> updates, bool persistConfig = true)
         {
-            foreach (var update in updates)
+            var updatesSnapshot = updates.ToList();
+            _configService.UpdateConfig(config =>
             {
-                Config.PlayTime[update.GameId] = CreatePlayTimeEntry(update.GameName, update.PlayTimeSeconds, update.GameId);
-                Config.LastPlayed[update.GameId] = update.LastPlayed;
-            }
+                foreach (var update in updatesSnapshot)
+                {
+                    config.PlayTime[update.GameId] = CreatePlayTimeEntry(config, update.GameName, update.PlayTimeSeconds, update.GameId);
+                    config.LastPlayed[update.GameId] = update.LastPlayed;
+                }
+            });
             if (persistConfig)
             {
                 _configService.SaveConfig();
             }
         }
 
-        private PlayTimeEntry CreatePlayTimeEntry(string? gameName, int totalPlayTimeSeconds, string gameId)
+        private static PlayTimeEntry CreatePlayTimeEntry(GameConfig config, string? gameName, int totalPlayTimeSeconds, string gameId)
         {
-            var existingName = Config.PlayTime.TryGetValue(gameId, out var existingEntry)
+            var existingName = config.PlayTime.TryGetValue(gameId, out var existingEntry)
                 ? existingEntry?.Name
                 : null;
 
@@ -114,7 +127,7 @@ namespace GameLauncher.Services
         /// </summary>
         public void SetTheme(string themeName)
         {
-            Config.Theme = themeName;
+            _configService.UpdateConfig(config => config.Theme = themeName);
             _configService.SaveConfig();
         }
 
@@ -126,12 +139,16 @@ namespace GameLauncher.Services
             if (game.Tags.Contains(tag)) return;
 
             game.Tags.Add(tag);
-
-            if (!Config.GameTags.ContainsKey(game.Id))
+            _configService.UpdateConfig(config =>
             {
-                Config.GameTags[game.Id] = new List<string>();
-            }
-            Config.GameTags[game.Id].Add(tag);
+                if (!config.GameTags.TryGetValue(game.Id, out var tags))
+                {
+                    tags = new List<string>();
+                    config.GameTags[game.Id] = tags;
+                }
+
+                tags.Add(tag);
+            });
             _configService.SaveConfig();
             Logger.Log($"Added tag '{tag}' to game '{game.Name}'.");
         }
@@ -142,15 +159,17 @@ namespace GameLauncher.Services
         public void RemoveTag(Game game, string tag)
         {
             game.Tags.Remove(tag);
-
-            if (Config.GameTags.ContainsKey(game.Id))
+            _configService.UpdateConfig(config =>
             {
-                Config.GameTags[game.Id].Remove(tag);
-                if (Config.GameTags[game.Id].Count == 0)
+                if (config.GameTags.TryGetValue(game.Id, out var tags))
                 {
-                    Config.GameTags.Remove(game.Id);
+                    tags.Remove(tag);
+                    if (tags.Count == 0)
+                    {
+                        config.GameTags.Remove(game.Id);
+                    }
                 }
-            }
+            });
             _configService.SaveConfig();
             Logger.Log($"Removed tag '{tag}' from game '{game.Name}'.");
         }
@@ -158,12 +177,13 @@ namespace GameLauncher.Services
         /// <summary>
         /// Gets all unique tags used across all games.
         /// </summary>
-        public IEnumerable<string> GetAllUsedTags()
+        public List<string> GetAllUsedTags()
         {
-            return Config.GameTags.Values
+            return _configService.ReadConfig(config => config.GameTags.Values
                 .SelectMany(tags => tags)
                 .Distinct()
-                .OrderBy(t => t, StringComparer.CurrentCultureIgnoreCase);
+                .OrderBy(t => t, StringComparer.CurrentCultureIgnoreCase)
+                .ToList());
         }
 
         /// <summary>

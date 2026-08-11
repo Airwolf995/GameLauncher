@@ -18,8 +18,6 @@ namespace GameLauncher.Services
             _configService = configService;
         }
 
-        private GameConfig Config => _configService.Config;
-
         /// <summary>
         /// Sets a custom cover image for a manual game.
         /// Copies the image to the app's images folder and updates the config.
@@ -38,6 +36,10 @@ namespace GameLauncher.Services
 
                 // Clean filename
                 string safeGameName = string.Join("_", game.Name.Split(Path.GetInvalidFileNameChars()));
+                if (string.IsNullOrWhiteSpace(safeGameName))
+                {
+                    safeGameName = game.Id;
+                }
                 string extension = Path.GetExtension(imagePath);
                 string destFileName = $"{safeGameName}{extension}";
                 string destPath = Path.Combine(imagesDir, destFileName);
@@ -55,7 +57,7 @@ namespace GameLauncher.Services
                 game.ImageUrl = destPath;
 
                 // Store override in config
-                Config.ImageOverrides[game.Id] = destPath;
+                _configService.UpdateConfig(config => config.ImageOverrides[game.Id] = destPath);
                 _configService.SaveConfig();
 
                 Logger.Log($"Set custom image for '{game.Name}': {destPath}");
@@ -74,8 +76,9 @@ namespace GameLauncher.Services
 
             try
             {
-                bool isShared = Config.ManualGames.Any(g => g.Id != gameId && string.Equals(g.ImageUrl, imagePath, StringComparison.OrdinalIgnoreCase)) ||
-                                Config.ImageOverrides.Any(kvp => kvp.Key != gameId && string.Equals(kvp.Value, imagePath, StringComparison.OrdinalIgnoreCase));
+                bool isShared = _configService.ReadConfig(config =>
+                    config.ManualGames.Any(g => g.Id != gameId && string.Equals(g.ImageUrl, imagePath, StringComparison.OrdinalIgnoreCase)) ||
+                    config.ImageOverrides.Any(kvp => kvp.Key != gameId && string.Equals(kvp.Value, imagePath, StringComparison.OrdinalIgnoreCase)));
 
                 if (!isShared && IsManagedImagePath(imagePath))
                 {

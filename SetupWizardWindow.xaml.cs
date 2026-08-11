@@ -106,13 +106,19 @@ namespace GameLauncher
 
         private void ApplySettings()
         {
-            var config = _gameManager.GetConfig();
-            var ui = config.UISettings;
+            string? selectedCardSize = (CardSizeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+            _gameManager.UpdateConfig(config =>
+            {
+                config.SteamLibraryPaths = Services.PathListFormatter.ParseLines(WizardSteamPathsBox.Text);
+                config.EpicLibraryPaths = Services.PathListFormatter.ParseLines(WizardEpicPathsBox.Text);
+                config.XboxLibraryPaths = Services.PathListFormatter.ParseLines(WizardXboxPathsBox.Text);
+                config.UISettings.LanguageCode = _selectedLanguageCode;
 
-            config.SteamLibraryPaths = Services.PathListFormatter.ParseLines(WizardSteamPathsBox.Text);
-            config.EpicLibraryPaths = Services.PathListFormatter.ParseLines(WizardEpicPathsBox.Text);
-            config.XboxLibraryPaths = Services.PathListFormatter.ParseLines(WizardXboxPathsBox.Text);
-            ui.LanguageCode = _selectedLanguageCode;
+                if (!string.IsNullOrWhiteSpace(selectedCardSize))
+                {
+                    config.UISettings.CardSizeString = selectedCardSize;
+                }
+            });
 
             // Theme
             if (ThemeBox.SelectedItem is ComboBoxItem themeItem)
@@ -120,16 +126,11 @@ namespace GameLauncher
                 _gameManager.SetTheme(Constants.UI.NormalizeThemeKey(themeItem.Tag?.ToString() ?? "Blue"));
             }
 
-            // Card Size
-            if (CardSizeBox.SelectedItem is ComboBoxItem sizeItem)
-            {
-                ui.CardSizeString = sizeItem.Tag?.ToString() ?? "Medium";
-            }
         }
 
         private void CompleteWizard()
         {
-            _gameManager.GetConfig().UISettings.FirstStart = false;
+            _gameManager.UpdateConfig(config => config.UISettings.FirstStart = false);
             _gameManager.SaveConfig();
             this.DialogResult = true;
             this.Close();
@@ -157,7 +158,10 @@ namespace GameLauncher
 
         private async Task DetectLibraryPathsAsync()
         {
-            var config = _gameManager.GetConfig();
+            var configuredPaths = _gameManager.ReadConfig(config => (
+                Steam: config.SteamLibraryPaths.ToList(),
+                Epic: config.EpicLibraryPaths.ToList(),
+                Xbox: config.XboxLibraryPaths.ToList()));
 
             LibraryDetectionStatusText.Text = _localization.Get("Wizard.LibrarySearchInProgress");
             LibraryPathInputsPanel.Visibility = Visibility.Collapsed;
@@ -168,9 +172,9 @@ namespace GameLauncher
             {
                 var detectedPaths = await Task.Run(() => new
                 {
-                    Steam = GetConfiguredOrDetectedPaths(config.SteamLibraryPaths, SteamScanner.GetAutoDetectedPaths),
-                    Epic = GetConfiguredOrDetectedPaths(config.EpicLibraryPaths, EpicScanner.GetAutoDetectedPaths),
-                    Xbox = GetConfiguredOrDetectedPaths(config.XboxLibraryPaths, XboxScanner.GetAutoDetectedPaths),
+                    Steam = GetConfiguredOrDetectedPaths(configuredPaths.Steam, SteamScanner.GetAutoDetectedPaths),
+                    Epic = GetConfiguredOrDetectedPaths(configuredPaths.Epic, EpicScanner.GetAutoDetectedPaths),
+                    Xbox = GetConfiguredOrDetectedPaths(configuredPaths.Xbox, XboxScanner.GetAutoDetectedPaths),
                     Gog = GogScanner.GetAutoDetectedPaths(),
                     Ubisoft = UbisoftScanner.GetAutoDetectedPaths(),
                     Ea = EaScanner.GetAutoDetectedPaths()
@@ -199,9 +203,9 @@ namespace GameLauncher
             catch (Exception ex)
             {
                 Logger.Error("Library path detection in setup wizard failed", ex);
-                WizardSteamPathsBox.Text = Services.PathListFormatter.FormatLines(config.SteamLibraryPaths);
-                WizardEpicPathsBox.Text = Services.PathListFormatter.FormatLines(config.EpicLibraryPaths);
-                WizardXboxPathsBox.Text = Services.PathListFormatter.FormatLines(config.XboxLibraryPaths);
+                WizardSteamPathsBox.Text = Services.PathListFormatter.FormatLines(configuredPaths.Steam);
+                WizardEpicPathsBox.Text = Services.PathListFormatter.FormatLines(configuredPaths.Epic);
+                WizardXboxPathsBox.Text = Services.PathListFormatter.FormatLines(configuredPaths.Xbox);
                 WizardGogPathsBox.Text = string.Empty;
                 WizardUbisoftPathsBox.Text = string.Empty;
                 WizardEaPathsBox.Text = string.Empty;
