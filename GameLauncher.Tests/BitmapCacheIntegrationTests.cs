@@ -76,13 +76,15 @@ namespace GameLauncher.Tests
 
             try
             {
-                var manager = new GameManager(configPath);
+                using var manager = new GameManager(configPath);
                 var game = new Game { Id = "manual_test_game", Name = "Testspiel", IsManual = true };
-                manager.Config.ManualGames.Add(game);
+                manager.UpdateConfig(config => config.ManualGames.Add(game));
 
                 manager.SetManualGameImage(game, sourceImagePath);
 
                 Assert.False(BitmapCacheConverter.IsCachedForUi(targetPath));
+                Assert.Equal(targetPath, game.ImageUrl);
+                Assert.Equal(targetPath, manager.Config.ImageOverrides[game.Id]);
             }
             finally
             {

@@ -53,11 +53,12 @@ namespace GameLauncher.Services
                 // Copy image
                 File.Copy(imagePath, destPath, true);
 
-                // Update game
-                game.ImageUrl = destPath;
-
-                // Store override in config
-                _configService.UpdateConfig(config => config.ImageOverrides[game.Id] = destPath);
+                // Spiel und Override bilden einen gemeinsamen persistierten Zustand.
+                _configService.UpdateConfig(config =>
+                {
+                    game.ImageUrl = destPath;
+                    config.ImageOverrides[game.Id] = destPath;
+                });
                 _configService.SaveConfig();
 
                 Logger.Log($"Set custom image for '{game.Name}': {destPath}");
