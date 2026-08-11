@@ -8,14 +8,10 @@ namespace GameLauncher.Services
 {
     internal sealed record LibraryViewSnapshot(
         List<Game> Games,
-        List<GameRow> CardRows,
-        IReadOnlyList<string> InitialWarmupImagePaths);
+        List<GameRow> CardRows);
 
     internal static class LibraryViewSnapshotBuilder
     {
-        private const int InitialWarmupRows = 8;
-        private const int InitialWarmupImageLimit = 24;
-
         public static LibraryViewSnapshot Create(
             List<Game> games,
             string searchText,
@@ -25,8 +21,7 @@ namespace GameLauncher.Services
         {
             var filteredGames = BuildGames(games, searchText, selectedFilter, selectedSort);
             var cardRows = BuildCardRows(filteredGames, columns);
-            var initialWarmupImagePaths = BuildInitialWarmupImagePaths(filteredGames, columns);
-            return new LibraryViewSnapshot(filteredGames, cardRows, initialWarmupImagePaths);
+            return new LibraryViewSnapshot(filteredGames, cardRows);
         }
 
         public static List<GameRow> BuildCardRows(IReadOnlyList<Game> games, int columns)
@@ -121,23 +116,5 @@ namespace GameLauncher.Services
             };
         }
 
-        private static IReadOnlyList<string> BuildInitialWarmupImagePaths(IReadOnlyList<Game> games, int columns)
-        {
-            int safeColumns = Math.Max(1, columns);
-            int targetCount = Math.Min(InitialWarmupImageLimit, safeColumns * InitialWarmupRows);
-            var imagePaths = new List<string>(targetCount);
-            var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            for (int index = 0; index < games.Count && imagePaths.Count < targetCount; index++)
-            {
-                string imagePath = games[index].ImageUrl;
-                if (!string.IsNullOrWhiteSpace(imagePath) && seenPaths.Add(imagePath))
-                {
-                    imagePaths.Add(imagePath);
-                }
-            }
-
-            return imagePaths;
-        }
     }
 }

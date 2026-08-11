@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -13,16 +11,29 @@ using GameLauncher.Models;
 
 namespace GameLauncher.Services
 {
+    internal enum GameImageLoadStatus
+    {
+        Success,
+        TemporaryFailure,
+        NotFound
+    }
+
+    internal readonly record struct GameImageLoadResult(
+        BitmapImage? Bitmap,
+        GameImageLoadStatus Status,
+        TimeSpan RetryDelay)
+    {
+        public bool ShouldRetryAutomatically => Status == GameImageLoadStatus.TemporaryFailure;
+    }
+
     internal static class GameImageBitmapCache
     {
         private const int DecodePixelWidth = 256;
         private const int MaxParallelImageLoads = 2;
-        private const int MaxParallelPreloadImageLoads = 1;
         private const int MaxStrongCacheEntries = 1024;
         private const long MaxStrongCacheBytes = 128L * 1024 * 1024;
-        private const int PreloadLogImageCountThreshold = 10;
-        private const int PreloadLogDurationThresholdMs = 250;
-        private static readonly TimeSpan FailedImageRetryDelay = TimeSpan.FromSeconds(30);
+        private static readonly TimeSpan TemporaryFailureRetryDelay = TimeSpan.FromSeconds(30);
+        private static readonly TimeSpan MissingRemoteImageRetryDelay = TimeSpan.FromHours(24);
 
         private static readonly Dictionary<string, BitmapImage> MemoryStrongCache = new(StringComparer.OrdinalIgnoreCase);
         private static readonly LinkedList<string> MemoryStrongCacheLru = [];
@@ -36,63 +47,24 @@ namespace GameLauncher.Services
             Timeout = TimeSpan.FromSeconds(8)
         };
         private static readonly SemaphoreSlim ImageLoadLimiter = new(MaxParallelImageLoads);
-        private static readonly ConcurrentDictionary<string, DateTime> FailedImageRetryAfterUtc =
+        private static readonly ConcurrentDictionary<string, FailedImageState> FailedImages =
             new(StringComparer.OrdinalIgnoreCase);
 
-        private static int _strongCacheHits;
-        private static int _preloadLoadCount;
-        private static int _uiMissCount;
         private static long _strongCacheBytes;
 
-        public static BitmapImage? GetCachedForUi(string path)
+        public static Task<GameImageLoadResult> LoadAsync(
+            string path,
+            CancellationToken cancellationToken = default)
         {
-            if (TryGetCachedBitmap(path, out var cachedBitmap))
+            if (string.IsNullOrWhiteSpace(path))
             {
-                return cachedBitmap;
+                return Task.FromResult(new GameImageLoadResult(
+                    null,
+                    GameImageLoadStatus.NotFound,
+                    TimeSpan.Zero));
             }
 
-            Interlocked.Increment(ref _uiMissCount);
-            return null;
-        }
-
-        public static async Task PreloadAsync(IEnumerable<string> imagePaths, CancellationToken ct = default)
-        {
-            var pathsToLoad = imagePaths
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Where(path => !IsCached(path) && !IsTemporarilyFailed(path))
-                .ToList();
-
-            if (pathsToLoad.Count == 0)
-            {
-                return;
-            }
-
-            var watch = Stopwatch.StartNew();
-            bool shouldLogStart = pathsToLoad.Count >= PreloadLogImageCountThreshold;
-            if (shouldLogStart)
-            {
-                Logger.Log($"Image preload started: {pathsToLoad.Count} cover image(s).");
-            }
-
-            await Parallel.ForEachAsync(
-                pathsToLoad,
-                new ParallelOptions
-                {
-                    MaxDegreeOfParallelism = MaxParallelPreloadImageLoads,
-                    CancellationToken = ct
-                },
-                async (path, token) =>
-                {
-                    token.ThrowIfCancellationRequested();
-                    await LoadAndCacheBitmapAsync(path, token);
-                });
-
-            watch.Stop();
-            if (shouldLogStart || watch.ElapsedMilliseconds >= PreloadLogDurationThresholdMs)
-            {
-                Logger.Log($"Image preload completed: {pathsToLoad.Count} cover image(s) in {watch.ElapsedMilliseconds} ms.");
-            }
+            return LoadAndCacheBitmapAsync(path, cancellationToken);
         }
 
         public static bool IsCached(string? path)
@@ -105,59 +77,27 @@ namespace GameLauncher.Services
             return TryGetMemoryStrongCache(path, out _);
         }
 
-        public static bool IsReadyForUi(string? path)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                return false;
-            }
-
-            return TryGetMemoryStrongCache(path, out _) || IsTemporarilyFailed(path);
-        }
-
-        public static void BeginStartupTracking()
-        {
-            ResetCacheStats();
-        }
-
-        public static void ReleaseStartupStrongCache()
-        {
-            Logger.Log(
-                $"Image cache stats: strong hits={_strongCacheHits}, preload loads={_preloadLoadCount}, ui misses={_uiMissCount}.");
-        }
-
         public static void Invalidate(string path)
         {
             RemoveFromMemoryStrongCache(path);
-            FailedImageRetryAfterUtc.TryRemove(path, out _);
+            FailedImages.TryRemove(path, out _);
         }
 
         public static void Clear()
         {
             ClearMemoryStrongCache();
-            FailedImageRetryAfterUtc.Clear();
+            FailedImages.Clear();
 
             Logger.Log("Image caches cleared for manual library refresh.");
         }
 
-        public static void UpdateViewportRetention(IEnumerable<string> imagePaths)
-        {
-            foreach (string path in imagePaths)
-            {
-                if (!string.IsNullOrWhiteSpace(path))
-                {
-                    TryGetMemoryStrongCache(path, out _);
-                }
-            }
-        }
-
-        private static async Task<BitmapImage?> LoadAndCacheBitmapAsync(
+        private static async Task<GameImageLoadResult> LoadAndCacheBitmapAsync(
             string path,
             CancellationToken cancellationToken)
         {
             if (TryGetCachedBitmap(path, out var cachedBitmap))
             {
-                return cachedBitmap;
+                return CreateSuccessResult(cachedBitmap!);
             }
 
             PathLoadLock pathLock = RentPathLoadLock(path);
@@ -168,17 +108,15 @@ namespace GameLauncher.Services
                 {
                     if (TryGetCachedBitmap(path, out cachedBitmap))
                     {
-                        return cachedBitmap;
+                        return CreateSuccessResult(cachedBitmap!);
                     }
 
-                    // Ein paralleler Vorladevorgang kann denselben Pfad bereits erfolglos
+                    // Ein paralleler Ladevorgang kann denselben Pfad bereits erfolglos
                     // verarbeitet haben, während dieser Aufruf auf die Pfadsperre wartete.
-                    if (IsTemporarilyFailed(path))
+                    if (TryGetActiveFailure(path, out FailedImageState failedImage))
                     {
-                        return null;
+                        return CreateFailureResult(failedImage);
                     }
-
-                    Interlocked.Increment(ref _preloadLoadCount);
 
                     await ImageLoadLimiter.WaitAsync(cancellationToken);
                     try
@@ -188,8 +126,8 @@ namespace GameLauncher.Services
                             BitmapImage bitmap = await LoadBitmapAsync(path, cancellationToken);
 
                             AddToMemoryStrongCache(path, bitmap);
-                            FailedImageRetryAfterUtc.TryRemove(path, out _);
-                            return bitmap;
+                            FailedImages.TryRemove(path, out _);
+                            return CreateSuccessResult(bitmap);
                         }
                         catch (OperationCanceledException)
                         {
@@ -197,8 +135,7 @@ namespace GameLauncher.Services
                         }
                         catch (Exception ex)
                         {
-                            RegisterLoadFailure(path, ex);
-                            return null;
+                            return CreateFailureResult(RegisterLoadFailure(path, ex));
                         }
                     }
                     finally
@@ -217,8 +154,7 @@ namespace GameLauncher.Services
             }
             catch (Exception ex)
             {
-                RegisterLoadFailure(path, ex);
-                return null;
+                return CreateFailureResult(RegisterLoadFailure(path, ex));
             }
             finally
             {
@@ -230,7 +166,6 @@ namespace GameLauncher.Services
         {
             if (TryGetMemoryStrongCache(path, out var strongBitmap))
             {
-                Interlocked.Increment(ref _strongCacheHits);
                 bitmap = strongBitmap;
                 return true;
             }
@@ -285,41 +220,72 @@ namespace GameLauncher.Services
             return bitmap;
         }
 
-        private static void ResetCacheStats()
+        private static bool TryGetActiveFailure(string path, out FailedImageState failedImage)
         {
-            Interlocked.Exchange(ref _strongCacheHits, 0);
-            Interlocked.Exchange(ref _preloadLoadCount, 0);
-            Interlocked.Exchange(ref _uiMissCount, 0);
-        }
-
-        private static bool IsTemporarilyFailed(string path)
-        {
-            if (!FailedImageRetryAfterUtc.TryGetValue(path, out DateTime retryAfterUtc))
+            if (!FailedImages.TryGetValue(path, out failedImage))
             {
                 return false;
             }
 
-            if (retryAfterUtc > DateTime.UtcNow)
+            if (failedImage.RetryAfterUtc > DateTime.UtcNow)
             {
                 return true;
             }
 
-            FailedImageRetryAfterUtc.TryRemove(path, out _);
+            FailedImages.TryRemove(path, out _);
+            failedImage = default;
             return false;
         }
 
-        private static void RegisterLoadFailure(string path, Exception exception)
+        private static FailedImageState RegisterLoadFailure(string path, Exception exception)
         {
-            FailedImageRetryAfterUtc[path] = DateTime.UtcNow.Add(FailedImageRetryDelay);
+            GameImageLoadStatus status = GetFailureStatus(exception);
+            var failedImage = new FailedImageState(
+                DateTime.UtcNow.Add(GetFailureRetryDelay(exception)),
+                status);
+            FailedImages[path] = failedImage;
 
             if (exception is HttpRequestException { StatusCode: HttpStatusCode.NotFound })
             {
                 Logger.Warning($"Cover nicht verfügbar (HTTP 404): {path}");
-                return;
+                return failedImage;
             }
 
             Logger.Error($"Bild konnte nicht geladen werden: {path}", exception);
+            return failedImage;
         }
+
+        private static GameImageLoadResult CreateSuccessResult(BitmapImage bitmap) =>
+            new(bitmap, GameImageLoadStatus.Success, TimeSpan.Zero);
+
+        private static GameImageLoadResult CreateFailureResult(FailedImageState failedImage)
+        {
+            DateTime utcNow = DateTime.UtcNow;
+            return new GameImageLoadResult(
+                null,
+                failedImage.Status,
+                GetRemainingRetryDelay(failedImage.RetryAfterUtc, utcNow));
+        }
+
+        internal static TimeSpan GetRemainingRetryDelay(DateTime retryAfterUtc, DateTime utcNow)
+        {
+            TimeSpan retryDelay = retryAfterUtc - utcNow;
+            return retryDelay > TimeSpan.Zero ? retryDelay : TimeSpan.Zero;
+        }
+
+        internal static GameImageLoadStatus GetFailureStatus(Exception exception) =>
+            exception is HttpRequestException { StatusCode: HttpStatusCode.NotFound }
+                ? GameImageLoadStatus.NotFound
+                : GameImageLoadStatus.TemporaryFailure;
+
+        internal static TimeSpan GetFailureRetryDelay(Exception exception) =>
+            exception is HttpRequestException { StatusCode: HttpStatusCode.NotFound }
+                ? MissingRemoteImageRetryDelay
+                : TemporaryFailureRetryDelay;
+
+        private readonly record struct FailedImageState(
+            DateTime RetryAfterUtc,
+            GameImageLoadStatus Status);
 
         private static bool TryGetMemoryStrongCache(string path, out BitmapImage? bitmap)
         {

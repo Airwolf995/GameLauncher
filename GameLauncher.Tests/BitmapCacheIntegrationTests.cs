@@ -1,7 +1,9 @@
 using System;
 using System.IO;
-using System.Windows.Media.Imaging;
+using System.Net;
+using System.Net.Http;
 using GameLauncher.Models;
+using GameLauncher.Services;
 using GameLauncher.Services.GameManagement;
 
 namespace GameLauncher.Tests
@@ -9,7 +11,7 @@ namespace GameLauncher.Tests
     public class BitmapCacheIntegrationTests
     {
         [Fact]
-        public async Task Convert_ReturnsPreloadedLocalImageAsFrozenBitmap()
+        public async Task LoadAsync_ReturnsLocalImageAsFrozenBitmap()
         {
             var tempRoot = Path.Combine(Path.GetTempPath(), "GameLauncherTests", Guid.NewGuid().ToString("N"));
             var imagePath = Path.Combine(tempRoot, "cover.png");
@@ -20,14 +22,12 @@ namespace GameLauncher.Tests
 
             try
             {
-                var converter = new BitmapCacheConverter();
-                await BitmapCacheConverter.PreloadAsync([imagePath]);
+                GameImageLoadResult result = await GameImageBitmapCache.LoadAsync(imagePath);
 
-                var result = converter.Convert(imagePath, typeof(BitmapImage), null!, System.Globalization.CultureInfo.InvariantCulture);
-
-                var bitmap = Assert.IsType<BitmapImage>(result);
-                Assert.True(bitmap.IsFrozen);
-                Assert.True(bitmap.PixelWidth > 0);
+                Assert.Equal(GameImageLoadStatus.Success, result.Status);
+                Assert.NotNull(result.Bitmap);
+                Assert.True(result.Bitmap.IsFrozen);
+                Assert.True(result.Bitmap.PixelWidth > 0);
             }
             finally
             {
@@ -62,17 +62,11 @@ namespace GameLauncher.Tests
             Directory.CreateDirectory(imagesDir);
             File.WriteAllBytes(sourceImagePath, pngBytes);
             File.WriteAllBytes(targetPath, pngBytes);
-            BitmapCacheConverter.ClearImageCaches();
+            GameImageBitmapCache.Clear();
 
-            var converter = new BitmapCacheConverter();
-            await BitmapCacheConverter.PreloadAsync([targetPath]);
-            var cachedBitmap = converter.Convert(
-                targetPath,
-                typeof(BitmapImage),
-                null!,
-                System.Globalization.CultureInfo.InvariantCulture);
-            Assert.NotNull(cachedBitmap);
-            Assert.True(BitmapCacheConverter.IsCachedForUi(targetPath));
+            GameImageLoadResult cachedResult = await GameImageBitmapCache.LoadAsync(targetPath);
+            Assert.NotNull(cachedResult.Bitmap);
+            Assert.True(GameImageBitmapCache.IsCached(targetPath));
 
             try
             {
@@ -82,13 +76,13 @@ namespace GameLauncher.Tests
 
                 manager.SetManualGameImage(game, sourceImagePath);
 
-                Assert.False(BitmapCacheConverter.IsCachedForUi(targetPath));
+                Assert.False(GameImageBitmapCache.IsCached(targetPath));
                 Assert.Equal(targetPath, game.ImageUrl);
                 Assert.Equal(targetPath, manager.Config.ImageOverrides[game.Id]);
             }
             finally
             {
-                BitmapCacheConverter.ClearImageCaches();
+                GameImageBitmapCache.Clear();
 
                 try
                 {
@@ -115,7 +109,7 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
-        public async Task FailedPreload_IsSettledForUiUntilInvalidated()
+        public async Task FailedLoad_IsSkippedUntilInvalidated()
         {
             var tempRoot = Path.Combine(
                 Path.GetTempPath(),
@@ -125,29 +119,34 @@ namespace GameLauncher.Tests
             var pngBytes = Convert.FromBase64String(
                 "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
 
-            BitmapCacheConverter.ClearImageCaches();
+            GameImageBitmapCache.Clear();
 
             try
             {
-                await BitmapCacheConverter.PreloadAsync([missingImagePath]);
+                GameImageLoadResult missingResult = await GameImageBitmapCache.LoadAsync(missingImagePath);
 
-                Assert.False(BitmapCacheConverter.IsCachedForUi(missingImagePath));
-                Assert.True(BitmapCacheConverter.IsReadyForUi(missingImagePath));
+                Assert.Null(missingResult.Bitmap);
+                Assert.Equal(GameImageLoadStatus.TemporaryFailure, missingResult.Status);
+                Assert.True(missingResult.ShouldRetryAutomatically);
+                Assert.False(GameImageBitmapCache.IsCached(missingImagePath));
 
                 Directory.CreateDirectory(tempRoot);
                 File.WriteAllBytes(missingImagePath, pngBytes);
-                await BitmapCacheConverter.PreloadAsync([missingImagePath]);
-                Assert.False(BitmapCacheConverter.IsCachedForUi(missingImagePath));
+                GameImageLoadResult retryResult = await GameImageBitmapCache.LoadAsync(missingImagePath);
+                Assert.Null(retryResult.Bitmap);
+                Assert.Equal(GameImageLoadStatus.TemporaryFailure, retryResult.Status);
+                Assert.False(GameImageBitmapCache.IsCached(missingImagePath));
 
-                BitmapCacheConverter.Invalidate(missingImagePath);
-                Assert.False(BitmapCacheConverter.IsReadyForUi(missingImagePath));
+                GameImageBitmapCache.Invalidate(missingImagePath);
 
-                await BitmapCacheConverter.PreloadAsync([missingImagePath]);
-                Assert.True(BitmapCacheConverter.IsCachedForUi(missingImagePath));
+                GameImageLoadResult loadedResult = await GameImageBitmapCache.LoadAsync(missingImagePath);
+                Assert.NotNull(loadedResult.Bitmap);
+                Assert.Equal(GameImageLoadStatus.Success, loadedResult.Status);
+                Assert.True(GameImageBitmapCache.IsCached(missingImagePath));
             }
             finally
             {
-                BitmapCacheConverter.ClearImageCaches();
+                GameImageBitmapCache.Clear();
 
                 try
                 {
@@ -160,6 +159,36 @@ namespace GameLauncher.Tests
                 {
                 }
             }
+        }
+
+        [Fact]
+        public void GetFailureRetryDelay_DistinguishesMissingRemoteImagesFromTemporaryFailures()
+        {
+            var notFound = new HttpRequestException(
+                "Nicht gefunden",
+                inner: null,
+                HttpStatusCode.NotFound);
+
+            Assert.Equal(TimeSpan.FromHours(24), GameImageBitmapCache.GetFailureRetryDelay(notFound));
+            Assert.Equal(GameImageLoadStatus.NotFound, GameImageBitmapCache.GetFailureStatus(notFound));
+            Assert.Equal(
+                TimeSpan.FromSeconds(30),
+                GameImageBitmapCache.GetFailureRetryDelay(new HttpRequestException("Netzwerkfehler")));
+            Assert.Equal(
+                GameImageLoadStatus.TemporaryFailure,
+                GameImageBitmapCache.GetFailureStatus(new HttpRequestException("Netzwerkfehler")));
+        }
+
+        [Fact]
+        public void GetRemainingRetryDelay_ClampsExpiredFailureToZero()
+        {
+            DateTime utcNow = new(2026, 7, 18, 12, 0, 0, DateTimeKind.Utc);
+
+            TimeSpan retryDelay = GameImageBitmapCache.GetRemainingRetryDelay(
+                utcNow.Subtract(TimeSpan.FromMilliseconds(1)),
+                utcNow);
+
+            Assert.Equal(TimeSpan.Zero, retryDelay);
         }
     }
 }
