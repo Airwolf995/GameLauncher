@@ -26,6 +26,23 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
+        public void Konstruktor_ÜberspringtUngültigeKonfiguriertePfade()
+        {
+            string libraryPath = Directory.CreateTempSubdirectory("GameLauncherXboxTests_").FullName;
+
+            try
+            {
+                var scanner = new XboxScanner([libraryPath, "C:\\Ungültig\0Pfad"]);
+
+                Assert.Equal("Xbox", scanner.PlatformName);
+            }
+            finally
+            {
+                Directory.Delete(libraryPath, recursive: true);
+            }
+        }
+
+        [Fact]
         public void TryCreateGameFromDirectory_ReturnsNull_WhenManifestFilesAreMissing()
         {
             string tempRoot = Path.Combine(Path.GetTempPath(), "GameLauncherXboxTests", Guid.NewGuid().ToString("N"));

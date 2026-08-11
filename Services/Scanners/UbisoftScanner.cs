@@ -80,7 +80,10 @@ namespace GameLauncher.Services.Scanners
 
                                 // Versuche den Namen aus dem Ordnernamen abzuleiten
                                 string gameName = new DirectoryInfo(installDir).Name;
-                                if (string.IsNullOrEmpty(gameName)) continue;
+                                if (string.IsNullOrWhiteSpace(gameName))
+                                {
+                                    gameName = gameIdStr;
+                                }
 
                                 string exePath = ExecutableSelector.FindPrimaryExecutable(
                                     installDir,

@@ -61,9 +61,33 @@ namespace GameLauncher.Services.GameManagement
             _configService.SaveConfigImmediate(config);
         }
 
+        internal void UpdateConfig(Action<GameConfig> update)
+        {
+            _configService.UpdateConfig(update);
+        }
+
+        internal T ReadConfig<T>(Func<GameConfig, T> read)
+        {
+            return _configService.ReadConfig(read);
+        }
+
+        internal List<string> GetIgnoredProcessesSnapshot()
+        {
+            return _configService.ReadConfig(config =>
+                (config.IgnoredProcesses ?? new List<string>()).ToList());
+        }
+
         public async Task<List<Game>> LoadAllGamesAsync(bool loadSteamMetadataInBackground = true, System.Threading.CancellationToken ct = default)
         {
-            var config = _configService.Config;
+            var config = _configService.ReadConfig(currentConfig => new GameConfig
+            {
+                SteamLibraryPaths = currentConfig.SteamLibraryPaths.ToList(),
+                EpicLibraryPaths = currentConfig.EpicLibraryPaths.ToList(),
+                XboxLibraryPaths = currentConfig.XboxLibraryPaths.ToList(),
+                ManualGames = currentConfig.ManualGames
+                    .Select(CreateManualRuntimeGame)
+                    .ToList()
+            });
             var games = await _libraryLoader.LoadAsync(config, ct);
 
             ApplyStoredState(games);
@@ -226,8 +250,6 @@ namespace GameLauncher.Services.GameManagement
 
         public Game AddManualGame(string name, string path, string args = "", string customImage = "", bool notifyUI = true)
         {
-            var config = _configService.Config;
-
             // Detect Platform/Type
             string id = $"manual_{DateTime.Now.Ticks}";
             string platform = "Manuell";
@@ -269,7 +291,7 @@ namespace GameLauncher.Services.GameManagement
                 InstallDirectory = Path.GetDirectoryName(Environment.ExpandEnvironmentVariables(path)) ?? ""
             };
 
-            config.ManualGames.Add(game);
+            _configService.UpdateConfig(config => config.ManualGames.Add(game));
             Logger.Log($"Added manual game: {name} ({platform})");
             _configService.SaveConfig();
             
@@ -278,34 +300,65 @@ namespace GameLauncher.Services.GameManagement
                 _stateService.RaiseGamesUpdated();
             }
 
-            return game;
+            return CreateManualRuntimeGame(game);
+        }
+
+        private static Game CreateManualRuntimeGame(Game source)
+        {
+            return new Game
+            {
+                Id = source.Id,
+                Name = source.Name,
+                Platform = source.Platform,
+                Path = source.Path,
+                Args = source.Args,
+                InstallDirectory = source.InstallDirectory,
+                ExecutableName = source.ExecutableName,
+                Source = source.Source,
+                LaunchType = source.LaunchType,
+                IsManual = source.IsManual,
+                ImageUrl = source.ImageUrl,
+                Description = source.Description,
+                Publisher = source.Publisher,
+                Developer = source.Developer,
+                ReleaseDate = source.ReleaseDate,
+                Genres = source.Genres.ToList()
+            };
         }
 
         public void RemoveManualGame(Game game, bool notifyUI = true)
         {
-            var config = _configService.Config;
-            var toRemove = config.ManualGames.FirstOrDefault(g => g.Id == game.Id);
-            if (toRemove != null)
+            bool wasRemoved = false;
+            _configService.UpdateConfig(config =>
             {
+                var toRemove = config.ManualGames.FirstOrDefault(candidate => candidate.Id == game.Id);
+                if (toRemove == null)
+                {
+                    return;
+                }
+
                 config.ManualGames.Remove(toRemove);
-                
-                // Cleanup config
                 config.Favorites.Remove(game.Id);
                 config.LastPlayed.Remove(game.Id);
                 config.PlayTime.Remove(game.Id);
                 config.HiddenGames.Remove(game.Id);
                 config.GameTags.Remove(game.Id);
                 config.ImageOverrides.Remove(game.Id);
+                wasRemoved = true;
+            });
 
-                _imageService.CleanupImageIfUnused(game.Id, game.ImageUrl);
-                
-                _configService.SaveConfig();
-                Logger.Log($"Removed manual game: {game.Name}");
-                
-                if (notifyUI)
-                {
-                    _stateService.RaiseGamesUpdated();
-                }
+            if (!wasRemoved)
+            {
+                return;
+            }
+
+            _imageService.CleanupImageIfUnused(game.Id, game.ImageUrl);
+            _configService.SaveConfig();
+            Logger.Log($"Removed manual game: {game.Name}");
+
+            if (notifyUI)
+            {
+                _stateService.RaiseGamesUpdated();
             }
         }
 
@@ -358,44 +411,46 @@ namespace GameLauncher.Services.GameManagement
 
         private void ApplyStoredState(IEnumerable<Game> games)
         {
-            var config = _configService.Config;
-
-            foreach (var game in games)
+            _configService.ReadConfig(config =>
             {
-                // Gespeicherte Zustände bleiben die zentrale Quelle der Wahrheit.
-                game.PlayTime = 0;
-                game.LastPlayed = null;
-                game.IsFavorite = false;
-                game.IsHidden = false;
-
-                game.IsHidden = config.HiddenGames.Contains(game.Id);
-                game.IsFavorite = config.Favorites.Contains(game.Id);
-
-                if (config.LastPlayed.TryGetValue(game.Id, out DateTime lastPlayed))
+                foreach (var game in games)
                 {
-                    game.LastPlayed = lastPlayed;
-                }
+                    // Gespeicherte Zustände bleiben die zentrale Quelle der Wahrheit.
+                    game.PlayTime = 0;
+                    game.LastPlayed = null;
+                    game.IsFavorite = false;
+                    game.IsHidden = false;
 
-                if (config.PlayTime.TryGetValue(game.Id, out var playTimeEntry))
-                {
-                    game.PlayTime = playTimeEntry?.Seconds ?? 0;
-                }
+                    game.IsHidden = config.HiddenGames.Contains(game.Id);
+                    game.IsFavorite = config.Favorites.Contains(game.Id);
 
-                if (config.ImageOverrides != null &&
-                    config.ImageOverrides.TryGetValue(game.Id, out var customImage) &&
-                    !string.IsNullOrWhiteSpace(customImage) &&
-                    File.Exists(customImage))
-                {
-                    game.ImageUrl = customImage;
-                }
+                    if (config.LastPlayed.TryGetValue(game.Id, out DateTime lastPlayed))
+                    {
+                        game.LastPlayed = lastPlayed;
+                    }
 
-                if (config.GameTags != null &&
-                    config.GameTags.TryGetValue(game.Id, out var tags) &&
-                    tags != null)
-                {
-                    game.Tags = new List<string>(tags);
+                    if (config.PlayTime.TryGetValue(game.Id, out var playTimeEntry))
+                    {
+                        game.PlayTime = playTimeEntry?.Seconds ?? 0;
+                    }
+
+                    if (config.ImageOverrides != null &&
+                        config.ImageOverrides.TryGetValue(game.Id, out var customImage) &&
+                        !string.IsNullOrWhiteSpace(customImage) &&
+                        File.Exists(customImage))
+                    {
+                        game.ImageUrl = customImage;
+                    }
+
+                    if (config.GameTags != null &&
+                        config.GameTags.TryGetValue(game.Id, out var tags) &&
+                        tags != null)
+                    {
+                        game.Tags = new List<string>(tags);
+                    }
                 }
-            }
+                return true;
+            });
         }
 
         #region Tag Management
@@ -414,7 +469,7 @@ namespace GameLauncher.Services.GameManagement
 
         public List<string> GetAllUsedTags()
         {
-            return _stateService.GetAllUsedTags().ToList();
+            return _stateService.GetAllUsedTags();
         }
         
         #endregion

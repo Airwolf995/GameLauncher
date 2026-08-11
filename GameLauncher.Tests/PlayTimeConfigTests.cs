@@ -59,6 +59,51 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
+        public async Task ManualGames_VerwendenUnabhängigeLaufzeitobjekte()
+        {
+            var tempRoot = CreateTempRoot();
+            var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+
+            try
+            {
+                Directory.CreateDirectory(tempRoot);
+                using var manager = new GameManager(configPath);
+
+                var addedRuntimeGame = manager.AddManualGame(
+                    "Testspiel",
+                    @"C:\Games\Testspiel.exe",
+                    customImage: @"C:\Images\Testspiel.png",
+                    notifyUI: false);
+                var persistedGame = Assert.Single(manager.Config.ManualGames);
+
+                Assert.NotSame(persistedGame, addedRuntimeGame);
+                Assert.NotSame(persistedGame.Genres, addedRuntimeGame.Genres);
+
+                manager.UpdateConfig(config => config.ManualGames[0].Genres.Add("RPG"));
+
+                var loadedGames = await manager.LoadAllGamesAsync(loadSteamMetadataInBackground: false);
+                var loadedRuntimeGame = Assert.Single(loadedGames, game => game.Id == persistedGame.Id);
+
+                Assert.NotSame(persistedGame, loadedRuntimeGame);
+                Assert.NotSame(persistedGame.Genres, loadedRuntimeGame.Genres);
+                Assert.Equal(["RPG"], loadedRuntimeGame.Genres);
+
+                addedRuntimeGame.InstallDirectory = @"C:\Andere Installation";
+                loadedRuntimeGame.Genres.Add("Action");
+
+                var persistedState = manager.ReadConfig(config => (
+                    config.ManualGames[0].InstallDirectory,
+                    Genres: config.ManualGames[0].Genres.ToList()));
+                Assert.Equal(@"C:\Games", persistedState.InstallDirectory);
+                Assert.Equal(["RPG"], persistedState.Genres);
+            }
+            finally
+            {
+                CleanupTempRoot(tempRoot);
+            }
+        }
+
+        [Fact]
         public async Task LoadAllGamesAsync_MigratesNumericLegacyPlayTime()
         {
             var tempRoot = CreateTempRoot();
@@ -329,6 +374,72 @@ namespace GameLauncher.Tests
                 var savedConfig = System.Text.Json.JsonSerializer.Deserialize<GameConfig>(
                     File.ReadAllText(configPath));
                 Assert.Equal("Green", savedConfig?.Theme);
+            }
+            finally
+            {
+                continueSerialization.Set();
+                CleanupTempRoot(tempRoot);
+            }
+        }
+
+        [Fact]
+        public async Task UpdateConfig_WaitsForConsistentSerializationAndPersistsFollowingMutation()
+        {
+            var tempRoot = CreateTempRoot();
+            var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+            using var serializationStarted = new ManualResetEventSlim();
+            using var continueSerialization = new ManualResetEventSlim();
+            int shouldBlockSerialization = 0;
+            DateTime utcNow = new(2026, 8, 11, 12, 0, 0, DateTimeKind.Utc);
+
+            try
+            {
+                Directory.CreateDirectory(tempRoot);
+                using var configService = new Services.ConfigService(
+                    configPath,
+                    config =>
+                    {
+                        if (Interlocked.Exchange(ref shouldBlockSerialization, 0) == 1)
+                        {
+                            serializationStarted.Set();
+                            if (!continueSerialization.Wait(TimeSpan.FromSeconds(5)))
+                            {
+                                throw new TimeoutException("Die Testserialisierung wurde nicht freigegeben.");
+                            }
+                        }
+
+                        return System.Text.Json.JsonSerializer.Serialize(config);
+                    },
+                    TimeSpan.FromHours(1).TotalMilliseconds,
+                    () => utcNow);
+
+                configService.UpdateConfig(config =>
+                    config.PlayTime["steam:1"] = new PlayTimeEntry { Name = "Erstes Spiel", Seconds = 10 });
+                configService.SaveConfig();
+                utcNow = utcNow.AddHours(1);
+                Volatile.Write(ref shouldBlockSerialization, 1);
+
+                Task flushTask = Task.Run(configService.FlushPendingSave);
+                Assert.True(serializationStarted.Wait(TimeSpan.FromSeconds(2)));
+
+                Task updateTask = Task.Run(() =>
+                {
+                    configService.UpdateConfig(config =>
+                        config.PlayTime["steam:2"] = new PlayTimeEntry { Name = "Zweites Spiel", Seconds = 20 });
+                    configService.SaveConfig();
+                });
+
+                await Task.Delay(TimeSpan.FromMilliseconds(100));
+                Assert.False(updateTask.IsCompleted);
+                continueSerialization.Set();
+                await Task.WhenAll(flushTask, updateTask).WaitAsync(TimeSpan.FromSeconds(2));
+
+                utcNow = utcNow.AddHours(1);
+                configService.FlushPendingSave();
+
+                using var reloaded = new Services.ConfigService(configPath);
+                Assert.Equal(10, reloaded.Config.PlayTime["steam:1"].Seconds);
+                Assert.Equal(20, reloaded.Config.PlayTime["steam:2"].Seconds);
             }
             finally
             {

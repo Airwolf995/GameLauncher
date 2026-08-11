@@ -18,6 +18,7 @@ namespace GameLauncher.Services
         private static readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
         private readonly string _configPath;
         private readonly object _saveSync = new();
+        private readonly object _configSync = new();
         private readonly Func<GameConfig, string> _serializeConfig;
         private readonly Func<DateTime> _utcNow;
         private readonly double _saveDebounceMs;
@@ -34,6 +35,35 @@ namespace GameLauncher.Services
 
         public GameConfig Config => _config;
         public string ConfigPath => _configPath;
+
+        /// <summary>
+        /// Führt eine zusammenhängende Änderung an der Konfiguration aus.
+        /// Alle produktiven Änderungen müssen diesen Weg verwenden, damit die
+        /// asynchrone Serialisierung keinen veränderlichen Dictionary-Zustand sieht.
+        /// </summary>
+        internal void UpdateConfig(Action<GameConfig> update)
+        {
+            ArgumentNullException.ThrowIfNull(update);
+
+            lock (_configSync)
+            {
+                update(_config);
+            }
+        }
+
+        /// <summary>
+        /// Liest einen konsistenten Konfigurationsausschnitt.
+        /// Rückgabewerte dürfen keine veränderlichen Referenzen aus der Konfiguration enthalten.
+        /// </summary>
+        internal T ReadConfig<T>(Func<GameConfig, T> read)
+        {
+            ArgumentNullException.ThrowIfNull(read);
+
+            lock (_configSync)
+            {
+                return read(_config);
+            }
+        }
 
         public ConfigService() : this(null) { }
 
@@ -152,7 +182,9 @@ namespace GameLauncher.Services
                     _saveTimer.Stop();
                 }
 
-                string? json = TrySerializeConfig(config);
+                string? json = ReferenceEquals(config, _config)
+                    ? TrySerializeCurrentConfig()
+                    : TrySerializeConfig(config);
                 if (json == null || !TryWriteSerializedConfig(json))
                 {
                     if (savesCurrentConfig)
@@ -180,6 +212,14 @@ namespace GameLauncher.Services
             {
                 Logger.Error("Konfiguration konnte nicht serialisiert werden", ex);
                 return null;
+            }
+        }
+
+        private string? TrySerializeCurrentConfig()
+        {
+            lock (_configSync)
+            {
+                return TrySerializeConfig(_config);
             }
         }
 
@@ -238,7 +278,7 @@ namespace GameLauncher.Services
 
             // Die potenziell teure Serialisierung läuft auf dem Timer-Thread und
             // blockiert dadurch keine normalen SaveConfig()-Aufrufer.
-            string? json = TrySerializeConfig(_config);
+            string? json = TrySerializeCurrentConfig();
 
             lock (_saveSync)
             {
@@ -342,7 +382,7 @@ namespace GameLauncher.Services
                 _saveTimer.Stop();
                 if (_pendingSave && _canOverwriteConfig)
                 {
-                    string? json = TrySerializeConfig(_config);
+                    string? json = TrySerializeCurrentConfig();
                     if (json != null && TryWriteSerializedConfig(json))
                     {
                         _pendingSave = false;

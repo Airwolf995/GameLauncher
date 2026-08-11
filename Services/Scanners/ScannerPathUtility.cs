@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using GameLauncher.Models;
 
 namespace GameLauncher.Services.Scanners
 {
@@ -24,20 +25,49 @@ namespace GameLauncher.Services.Scanners
         public static List<string> NormalizeDistinct(IEnumerable<string>? paths) =>
             paths?
                 .Where(path => !string.IsNullOrWhiteSpace(path))
-                .Select(Normalize)
+                .Select(TryNormalize)
+                .Where(result => result.Success)
+                .Select(result => result.Path!)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList()
             ?? [];
 
         public static List<string> GetLibraryDirectories(IEnumerable<string> installDirectories) =>
-            installDirectories
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .Select(Normalize)
+            NormalizeDistinct(installDirectories)
                 .Select(path => Directory.GetParent(path)?.FullName ?? path)
-                .Select(Normalize)
+                .Select(TryNormalize)
+                .Where(result => result.Success)
+                .Select(result => result.Path!)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+
+        public static bool TryNormalize(string? path, out string normalizedPath)
+        {
+            normalizedPath = string.Empty;
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+
+            try
+            {
+                normalizedPath = Normalize(path);
+                return true;
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                Logger.Log($"Ungültiger Bibliothekspfad wird übersprungen: {ex.GetType().Name}");
+                return false;
+            }
+        }
+
+        private static (bool Success, string? Path) TryNormalize(string path)
+        {
+            return TryNormalize(path, out var normalizedPath)
+                ? (true, normalizedPath)
+                : (false, null);
+        }
 
         public static string Normalize(string path)
         {

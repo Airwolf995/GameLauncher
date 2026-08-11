@@ -48,7 +48,7 @@ namespace GameLauncher.Services
 
                 if (!string.IsNullOrWhiteSpace(exeName))
                 {
-                    var executableName = Path.GetFileName(exeName.Trim());
+                    var executableName = NormalizeExecutableName(exeName);
                     if (!string.IsNullOrWhiteSpace(executableName))
                     {
                         if (!_gamesByExecutableName.TryGetValue(executableName, out var gameList))
@@ -98,24 +98,12 @@ namespace GameLauncher.Services
                 return false;
             }
 
-            var normalizedProcessName = Path.GetFileName(processName);
+            var normalizedProcessName = NormalizeExecutableName(processName);
             if (_gamesByExecutableName.TryGetValue(normalizedProcessName, out var executableMatches) &&
                 executableMatches.Count == 1)
             {
                 gameId = executableMatches[0].Id;
                 return true;
-            }
-
-            // Wenn der Prozessname keine Endung hat, aber der Index-Key .exe enthält
-            if (!normalizedProcessName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            {
-                var nameWithExe = normalizedProcessName + ".exe";
-                if (_gamesByExecutableName.TryGetValue(nameWithExe, out var exeMatches) &&
-                    exeMatches.Count == 1)
-                {
-                    gameId = exeMatches[0].Id;
-                    return true;
-                }
             }
 
             return false;
@@ -125,7 +113,7 @@ namespace GameLauncher.Services
         {
             gameId = string.Empty;
 
-            var normalizedProcessName = Path.GetFileName(processName);
+            var normalizedProcessName = NormalizeExecutableName(processName);
             if (!string.IsNullOrWhiteSpace(normalizedProcessName) &&
                 _gamesByExecutableName.TryGetValue(normalizedProcessName, out var executableMatches) &&
                 executableMatches.Count == 1)
@@ -166,6 +154,26 @@ namespace GameLauncher.Services
             catch
             {
                 return path;
+            }
+        }
+
+        private static string NormalizeExecutableName(string executableName)
+        {
+            if (string.IsNullOrWhiteSpace(executableName))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                string fileName = Path.GetFileName(executableName.Trim());
+                return fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                    ? fileName[..^4]
+                    : fileName;
+            }
+            catch
+            {
+                return executableName.Trim();
             }
         }
 

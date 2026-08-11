@@ -239,17 +239,21 @@ namespace GameLauncher.ViewModels
 
         private void LoadLibraryViewSettings()
         {
-            var uiSettings = _gameManager.GetConfig().UISettings;
-            _selectedSort = uiSettings.LibrarySortMode;
-            _selectedFilter = LibraryFilterService.NormalizeFilterKey(uiSettings.LibraryFilter);
+            var settings = _gameManager.ReadConfig(config => (
+                config.UISettings.LibrarySortMode,
+                config.UISettings.LibraryFilter));
+            _selectedSort = settings.LibrarySortMode;
+            _selectedFilter = LibraryFilterService.NormalizeFilterKey(settings.LibraryFilter);
             _preferredFilter = _selectedFilter;
         }
 
         private void SaveLibraryViewSettings()
         {
-            var uiSettings = _gameManager.GetConfig().UISettings;
-            uiSettings.LibrarySortMode = _selectedSort;
-            uiSettings.LibraryFilter = _preferredFilter;
+            _gameManager.UpdateConfig(config =>
+            {
+                config.UISettings.LibrarySortMode = _selectedSort;
+                config.UISettings.LibraryFilter = _preferredFilter;
+            });
             _gameManager.SaveConfig();
         }
 

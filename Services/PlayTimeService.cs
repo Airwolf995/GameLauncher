@@ -84,7 +84,7 @@ namespace GameLauncher.Services
                 _matchIndex.Rebuild(gamesSnapshot);
                 _lastIndexedGameCount = gamesSnapshot.Count;
                 _cachedIgnoredProcesses = new HashSet<string>(
-                    _gameManager.Config.IgnoredProcesses ?? new List<string>(),
+                    _gameManager.GetIgnoredProcessesSnapshot(),
                     StringComparer.OrdinalIgnoreCase);
                 _indexDirty = false;
                 _isRunning = true;
@@ -188,7 +188,7 @@ namespace GameLauncher.Services
                     indexedGameCount = gamesSnapshot.Count;
                     Volatile.Write(ref _lastIndexedGameCount, indexedGameCount);
                     _cachedIgnoredProcesses = new HashSet<string>(
-                        _gameManager.Config.IgnoredProcesses ?? new List<string>(),
+                        _gameManager.GetIgnoredProcessesSnapshot(),
                         StringComparer.OrdinalIgnoreCase);
                     _indexDirty = false;
                 }
