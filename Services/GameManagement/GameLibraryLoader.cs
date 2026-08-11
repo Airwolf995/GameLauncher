@@ -14,11 +14,11 @@ namespace GameLauncher.Services.GameManagement
         {
             Logger.Log("Starting scanning games parallel...");
 
-            var steamTask = new SteamScanner(config.SteamLibraryPaths).ScanAsync(cancellationToken);
-            var gogTask = new GogScanner().ScanAsync(cancellationToken);
-            var epicTask = new EpicScanner(config.EpicLibraryPaths).ScanAsync(cancellationToken);
-            var eaTask = new EaScanner().ScanAsync(cancellationToken);
-            var xboxTask = new XboxScanner(config.XboxLibraryPaths).ScanAsync(cancellationToken);
+            var steamTask = ScanPlatformAsync("Steam", () => new SteamScanner(config.SteamLibraryPaths), cancellationToken);
+            var gogTask = ScanPlatformAsync("GOG", () => new GogScanner(), cancellationToken);
+            var epicTask = ScanPlatformAsync("Epic", () => new EpicScanner(config.EpicLibraryPaths), cancellationToken);
+            var eaTask = ScanPlatformAsync("EA", () => new EaScanner(), cancellationToken);
+            var xboxTask = ScanPlatformAsync("Xbox", () => new XboxScanner(config.XboxLibraryPaths), cancellationToken);
 
             await Task.WhenAll(steamTask, gogTask, epicTask, eaTask, xboxTask);
 
@@ -38,7 +38,7 @@ namespace GameLauncher.Services.GameManagement
 
         public async Task<List<Game>> LoadDeferredAsync(CancellationToken cancellationToken)
         {
-            var games = await new UbisoftScanner().ScanAsync(cancellationToken);
+            var games = await ScanPlatformAsync("Ubisoft", () => new UbisoftScanner(), cancellationToken);
             Logger.Log($"Zeitversetzter Startup-Scan abgeschlossen. Ubisoft: {games.Count}");
             return games;
         }
@@ -65,6 +65,26 @@ namespace GameLauncher.Services.GameManagement
             }
 
             Logger.Log($"Loaded {config.ManualGames.Count} manual games.");
+        }
+
+        internal static async Task<List<Game>> ScanPlatformAsync(
+            string platformName,
+            Func<IPlatformScanner> createScanner,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await createScanner().ScanAsync(cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"{platformName}-Scanner fehlgeschlagen; die übrigen Plattformen werden weiter geladen.", ex);
+                return [];
+            }
         }
     }
 }

@@ -33,6 +33,16 @@ public sealed class ScannerUtilityTests : IDisposable
     }
 
     [Fact]
+    public void NormalizeDistinct_ÜberspringtUngültigeEinzelpfade()
+    {
+        List<string> result = ScannerPathUtility.NormalizeDistinct(
+            [_temporaryDirectory, "C:\\Ungültig\0Pfad"]);
+
+        string normalizedDirectory = Assert.Single(result);
+        Assert.Equal(_temporaryDirectory, normalizedDirectory, ignoreCase: true);
+    }
+
+    [Fact]
     public void AddExistingDirectory_IgnoriertFehlendeUndDoppeltePfade()
     {
         var paths = new List<string>();

@@ -60,6 +60,21 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
+        public void TryMatchProcessByName_MatchedExecutableNameIsIndependentOfExeSuffix()
+        {
+            var index = new PlayTimeMatchIndex();
+            index.Rebuild(
+            [
+                new Game { Id = "g1", Name = "Game 1", ExecutableName = "game", IsManual = false }
+            ]);
+
+            bool matched = index.TryMatchProcessByName("game.exe", out var gameId);
+
+            Assert.True(matched);
+            Assert.Equal("g1", gameId);
+        }
+
+        [Fact]
         public void TryMatchProcess_SkipsManualGames()
         {
             var index = new PlayTimeMatchIndex();

@@ -34,10 +34,13 @@ namespace GameLauncher.Services.Scanners
                     string? displayName = appKey?.GetValue("DisplayName") as string;
                     string? installDirectory = appKey?.GetValue("InstallLocation") as string;
 
-                    if (string.IsNullOrWhiteSpace(publisher) ||
-                        !publisher.Contains("Electronic Arts", StringComparison.OrdinalIgnoreCase) ||
-                        IsEaClient(displayName) ||
+                    if (IsEaClient(displayName) ||
                         string.IsNullOrWhiteSpace(installDirectory))
+                    {
+                        continue;
+                    }
+
+                    if (!IsEaGameInstallation(publisher, installDirectory))
                     {
                         continue;
                     }
@@ -87,15 +90,14 @@ namespace GameLauncher.Services.Scanners
                                 string? installLocation = appKey.GetValue("InstallLocation") as string;
                                 string? displayName = appKey.GetValue("DisplayName") as string;
 
-                                // Filter für Electronic Arts
-                                if (string.IsNullOrEmpty(publisher) || !publisher.Contains("Electronic Arts", StringComparison.OrdinalIgnoreCase))
-                                    continue;
-
                                 if (string.IsNullOrEmpty(installLocation) || !Directory.Exists(installLocation))
                                     continue;
 
                                 // Ignoriere den EA-Launcher selbst
                                 if (IsEaClient(displayName))
+                                    continue;
+
+                                if (!IsEaGameInstallation(publisher, installLocation))
                                     continue;
 
                                 string exePath = ExecutableSelector.FindPrimaryExecutable(
@@ -109,7 +111,13 @@ namespace GameLauncher.Services.Scanners
                                 }
                                 
                                 // Clean name (sometimes has TM or R symbols)
-                                string cleanName = displayName?.Replace("™", "")?.Replace("®", "")?.Trim() ?? new DirectoryInfo(installLocation).Name;
+                                string cleanName = string.IsNullOrWhiteSpace(displayName)
+                                    ? new DirectoryInfo(installLocation).Name
+                                    : displayName.Replace("™", "").Replace("®", "").Trim();
+                                if (string.IsNullOrWhiteSpace(cleanName))
+                                {
+                                    cleanName = subKeyName;
+                                }
 
                                 var game = new Game
                                 {
@@ -157,6 +165,32 @@ namespace GameLauncher.Services.Scanners
             !string.IsNullOrWhiteSpace(displayName) &&
             (displayName.Contains("EA app", StringComparison.OrdinalIgnoreCase) ||
              displayName.Contains("Origin", StringComparison.OrdinalIgnoreCase));
+
+        internal static bool IsEaGameInstallation(string? publisher, string installDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(installDirectory))
+            {
+                return false;
+            }
+
+            try
+            {
+                // Die Installer-Metadaten liegen im Spielordner und sind unabhängig
+                // von uneinheitlichen Publisher-Strings in der Uninstall-Registry.
+                if (File.Exists(Path.Combine(installDirectory, "__Installer", "installerdata.xml")))
+                {
+                    return true;
+                }
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                return false;
+            }
+
+            // Ältere Installationen besitzen nicht immer die Metadatendatei.
+            return !string.IsNullOrWhiteSpace(publisher) &&
+                   publisher.Contains("Electronic Arts", StringComparison.OrdinalIgnoreCase);
+        }
 
     }
 }

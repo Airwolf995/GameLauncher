@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -104,9 +105,14 @@ namespace GameLauncher.Services.Scanners
             // Try to find Steam root from library paths
             foreach (var path in _libraryPaths)
             {
-                if (path.EndsWith("steamapps", StringComparison.OrdinalIgnoreCase))
+                if (!ScannerPathUtility.TryNormalize(path, out var normalizedPath))
                 {
-                    var parent = Directory.GetParent(path);
+                    continue;
+                }
+
+                if (normalizedPath.EndsWith("steamapps", StringComparison.OrdinalIgnoreCase))
+                {
+                    var parent = Directory.GetParent(normalizedPath);
                     if (parent != null && File.Exists(Path.Combine(parent.FullName, "steam.exe")))
                     {
                         steamRoot = parent.FullName;
@@ -135,17 +141,14 @@ namespace GameLauncher.Services.Scanners
                         {
                             string content = File.ReadAllText(file);
 
-                            // Simple regex extraction
-                            var nameMatch = Regex.Match(content, "\"name\"\\s+\"([^\"]+)\"");
-                            var appidMatch = Regex.Match(content, "\"appid\"\\s+\"(\\d+)\"");
-                            var installDirMatch = Regex.Match(content, "\"installdir\"\\s+\"([^\"]+)\"");
+                            string? name = TryReadManifestValue(content, "name");
+                            string? appid = TryReadManifestValue(content, "appid");
+                            string? installDir = TryReadManifestValue(content, "installdir");
 
-                            if (nameMatch.Success && appidMatch.Success)
+                            if (!string.IsNullOrWhiteSpace(name) &&
+                                !string.IsNullOrWhiteSpace(appid) &&
+                                appid.All(char.IsAsciiDigit))
                             {
-                                string name = nameMatch.Groups[1].Value;
-                                string appid = appidMatch.Groups[1].Value;
-                                string installDir = installDirMatch.Success ? installDirMatch.Groups[1].Value : "";
-
                                 string imageUrl = $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg";
 
                                 // Check local cache
@@ -199,6 +202,49 @@ namespace GameLauncher.Services.Scanners
             }
 
             return games;
+        }
+
+        internal static string? TryReadManifestValue(string content, string key)
+        {
+            if (string.IsNullOrWhiteSpace(content) || string.IsNullOrWhiteSpace(key))
+            {
+                return null;
+            }
+
+            var match = Regex.Match(
+                content,
+                $"\\\"{Regex.Escape(key)}\\\"\\s+\\\"((?:\\\\.|[^\\\"\\\\])*)\\\"",
+                RegexOptions.CultureInvariant);
+            return match.Success ? UnescapeManifestValue(match.Groups[1].Value) : null;
+        }
+
+        private static string UnescapeManifestValue(string value)
+        {
+            var result = new StringBuilder(value.Length);
+            bool escaped = false;
+            foreach (char character in value)
+            {
+                if (escaped)
+                {
+                    result.Append(character);
+                    escaped = false;
+                }
+                else if (character == '\\')
+                {
+                    escaped = true;
+                }
+                else
+                {
+                    result.Append(character);
+                }
+            }
+
+            if (escaped)
+            {
+                result.Append('\\');
+            }
+
+            return result.ToString();
         }
     }
 }
