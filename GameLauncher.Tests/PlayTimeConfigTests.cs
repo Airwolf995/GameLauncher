@@ -59,6 +59,51 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
+        public async Task ManualGames_VerwendenUnabhängigeLaufzeitobjekte()
+        {
+            var tempRoot = CreateTempRoot();
+            var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+
+            try
+            {
+                Directory.CreateDirectory(tempRoot);
+                using var manager = new GameManager(configPath);
+
+                var addedRuntimeGame = manager.AddManualGame(
+                    "Testspiel",
+                    @"C:\Games\Testspiel.exe",
+                    customImage: @"C:\Images\Testspiel.png",
+                    notifyUI: false);
+                var persistedGame = Assert.Single(manager.Config.ManualGames);
+
+                Assert.NotSame(persistedGame, addedRuntimeGame);
+                Assert.NotSame(persistedGame.Genres, addedRuntimeGame.Genres);
+
+                manager.UpdateConfig(config => config.ManualGames[0].Genres.Add("RPG"));
+
+                var loadedGames = await manager.LoadAllGamesAsync(loadSteamMetadataInBackground: false);
+                var loadedRuntimeGame = Assert.Single(loadedGames, game => game.Id == persistedGame.Id);
+
+                Assert.NotSame(persistedGame, loadedRuntimeGame);
+                Assert.NotSame(persistedGame.Genres, loadedRuntimeGame.Genres);
+                Assert.Equal(["RPG"], loadedRuntimeGame.Genres);
+
+                addedRuntimeGame.InstallDirectory = @"C:\Andere Installation";
+                loadedRuntimeGame.Genres.Add("Action");
+
+                var persistedState = manager.ReadConfig(config => (
+                    config.ManualGames[0].InstallDirectory,
+                    Genres: config.ManualGames[0].Genres.ToList()));
+                Assert.Equal(@"C:\Games", persistedState.InstallDirectory);
+                Assert.Equal(["RPG"], persistedState.Genres);
+            }
+            finally
+            {
+                CleanupTempRoot(tempRoot);
+            }
+        }
+
+        [Fact]
         public async Task LoadAllGamesAsync_MigratesNumericLegacyPlayTime()
         {
             var tempRoot = CreateTempRoot();

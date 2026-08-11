@@ -84,7 +84,9 @@ namespace GameLauncher.Services.GameManagement
                 SteamLibraryPaths = currentConfig.SteamLibraryPaths.ToList(),
                 EpicLibraryPaths = currentConfig.EpicLibraryPaths.ToList(),
                 XboxLibraryPaths = currentConfig.XboxLibraryPaths.ToList(),
-                ManualGames = currentConfig.ManualGames.ToList()
+                ManualGames = currentConfig.ManualGames
+                    .Select(CreateManualRuntimeGame)
+                    .ToList()
             });
             var games = await _libraryLoader.LoadAsync(config, ct);
 
@@ -298,7 +300,30 @@ namespace GameLauncher.Services.GameManagement
                 _stateService.RaiseGamesUpdated();
             }
 
-            return game;
+            return CreateManualRuntimeGame(game);
+        }
+
+        private static Game CreateManualRuntimeGame(Game source)
+        {
+            return new Game
+            {
+                Id = source.Id,
+                Name = source.Name,
+                Platform = source.Platform,
+                Path = source.Path,
+                Args = source.Args,
+                InstallDirectory = source.InstallDirectory,
+                ExecutableName = source.ExecutableName,
+                Source = source.Source,
+                LaunchType = source.LaunchType,
+                IsManual = source.IsManual,
+                ImageUrl = source.ImageUrl,
+                Description = source.Description,
+                Publisher = source.Publisher,
+                Developer = source.Developer,
+                ReleaseDate = source.ReleaseDate,
+                Genres = source.Genres.ToList()
+            };
         }
 
         public void RemoveManualGame(Game game, bool notifyUI = true)
