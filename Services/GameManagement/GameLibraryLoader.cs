@@ -10,7 +10,14 @@ namespace GameLauncher.Services.GameManagement
 {
     internal sealed class GameLibraryLoader
     {
-        public async Task<List<Game>> LoadAsync(GameConfig config, CancellationToken cancellationToken)
+        /// <summary>
+        /// Zeitlimit je Plattform. Ein Scanner, der auf ein nicht erreichbares
+        /// Laufwerk oder einen blockierten Registry-Zugriff wartet, darf das Laden
+        /// der übrigen Bibliothek nicht unbegrenzt aufhalten.
+        /// </summary>
+        private static readonly TimeSpan ScanTimeout = TimeSpan.FromSeconds(60);
+
+        public async Task<LibraryScanResult> LoadAsync(GameConfig config, CancellationToken cancellationToken)
         {
             Logger.Log("Starting scanning games parallel...");
 
@@ -22,25 +29,29 @@ namespace GameLauncher.Services.GameManagement
 
             await Task.WhenAll(steamTask, gogTask, epicTask, eaTask, xboxTask);
 
+            var results = new[] { steamTask.Result, gogTask.Result, epicTask.Result, eaTask.Result, xboxTask.Result };
+
             Logger.Log(
-                $"Parallel scan finished. Steam: {steamTask.Result.Count}, GOG: {gogTask.Result.Count}, " +
-                $"Epic: {epicTask.Result.Count}, EA: {eaTask.Result.Count}, Xbox: {xboxTask.Result.Count}");
+                $"Parallel scan finished. Steam: {steamTask.Result.Games.Count}, GOG: {gogTask.Result.Games.Count}, " +
+                $"Epic: {epicTask.Result.Games.Count}, EA: {eaTask.Result.Games.Count}, Xbox: {xboxTask.Result.Games.Count}");
 
             var games = new List<Game>();
-            games.AddRange(steamTask.Result);
-            games.AddRange(gogTask.Result);
-            games.AddRange(epicTask.Result);
-            games.AddRange(eaTask.Result);
-            games.AddRange(xboxTask.Result);
+            var failedPlatforms = new List<string>();
+            foreach (var result in results)
+            {
+                games.AddRange(result.Games);
+                failedPlatforms.AddRange(result.FailedPlatforms);
+            }
+
             AddManualGames(config, games);
-            return games;
+            return new LibraryScanResult(games, failedPlatforms);
         }
 
-        public async Task<List<Game>> LoadDeferredAsync(CancellationToken cancellationToken)
+        public async Task<LibraryScanResult> LoadDeferredAsync(CancellationToken cancellationToken)
         {
-            var games = await ScanPlatformAsync("Ubisoft", () => new UbisoftScanner(), cancellationToken);
-            Logger.Log($"Zeitversetzter Startup-Scan abgeschlossen. Ubisoft: {games.Count}");
-            return games;
+            var result = await ScanPlatformAsync("Ubisoft", () => new UbisoftScanner(), cancellationToken);
+            Logger.Log($"Zeitversetzter Startup-Scan abgeschlossen. Ubisoft: {result.Games.Count}");
+            return result;
         }
 
         private static void AddManualGames(GameConfig config, ICollection<Game> games)
@@ -67,23 +78,33 @@ namespace GameLauncher.Services.GameManagement
             Logger.Log($"Loaded {config.ManualGames.Count} manual games.");
         }
 
-        internal static async Task<List<Game>> ScanPlatformAsync(
+        internal static async Task<LibraryScanResult> ScanPlatformAsync(
             string platformName,
             Func<IPlatformScanner> createScanner,
             CancellationToken cancellationToken)
         {
             try
             {
-                return await createScanner().ScanAsync(cancellationToken);
+                var games = await createScanner()
+                    .ScanAsync(cancellationToken)
+                    .WaitAsync(ScanTimeout, cancellationToken);
+                return new LibraryScanResult(games, []);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
             }
+            catch (TimeoutException)
+            {
+                Logger.Error(
+                    $"{platformName}-Scanner hat das Zeitlimit von {ScanTimeout.TotalSeconds:0} Sekunden überschritten; " +
+                    "die Plattform wird für diesen Durchlauf übersprungen.");
+                return new LibraryScanResult([], [platformName]);
+            }
             catch (Exception ex)
             {
                 Logger.Error($"{platformName}-Scanner fehlgeschlagen; die übrigen Plattformen werden weiter geladen.", ex);
-                return [];
+                return new LibraryScanResult([], [platformName]);
             }
         }
     }

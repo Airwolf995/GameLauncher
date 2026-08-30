@@ -271,7 +271,19 @@ namespace GameLauncher.ViewModels
                 else if (game.Platform == Constants.Platforms.Xbox) xbox++;
             }
 
-            StatusText = _localization.Format("Main.StatusSummary", _games.Count, steam, gog, epic, ubi, ea, xbox, manual);
+            string summary = _localization.Format("Main.StatusSummary", _games.Count, steam, gog, epic, ubi, ea, xbox, manual);
+
+            // Fehlgeschlagene Plattformen benennen, damit eine unvollständige
+            // Bibliothek nicht wie ein normales Ergebnis aussieht.
+            var failedPlatforms = _gameManager.LastScanFailures;
+            if (failedPlatforms.Count > 0)
+            {
+                summary += "  " + _localization.Format(
+                    "Main.StatusScanFailed",
+                    string.Join(", ", failedPlatforms));
+            }
+
+            StatusText = summary;
         }
 
         private void PopulateFilterOptions()

@@ -26,7 +26,14 @@ namespace GameLauncher.Services.GameManagement
         private readonly GameLibraryLoader _libraryLoader = new();
 
         public GameConfig Config => _configService.Config;
-        
+
+        /// <summary>
+        /// Plattformen, deren Scan im letzten Durchlauf fehlgeschlagen ist oder das
+        /// Zeitlimit überschritten hat. Die Oberfläche weist damit auf eine
+        /// unvollständige Bibliothek hin, statt sie stillschweigend zu verkürzen.
+        /// </summary>
+        public IReadOnlyList<string> LastScanFailures { get; private set; } = [];
+
         public event EventHandler? GamesUpdated
         {
             add => _stateService.GamesUpdated += value;
@@ -88,7 +95,9 @@ namespace GameLauncher.Services.GameManagement
                     .Select(CreateManualRuntimeGame)
                     .ToList()
             });
-            var games = await _libraryLoader.LoadAsync(config, ct);
+            var scanResult = await _libraryLoader.LoadAsync(config, ct);
+            var games = scanResult.Games;
+            LastScanFailures = scanResult.FailedPlatforms;
 
             ApplyStoredState(games);
 
@@ -135,9 +144,14 @@ namespace GameLauncher.Services.GameManagement
 
         public async Task<List<Game>> LoadDeferredStartupGamesAsync(System.Threading.CancellationToken ct = default)
         {
-            var games = await _libraryLoader.LoadDeferredAsync(ct);
-            ApplyStoredState(games);
-            return games;
+            var scanResult = await _libraryLoader.LoadDeferredAsync(ct);
+            if (scanResult.FailedPlatforms.Count > 0)
+            {
+                LastScanFailures = LastScanFailures.Concat(scanResult.FailedPlatforms).Distinct().ToList();
+            }
+
+            ApplyStoredState(scanResult.Games);
+            return scanResult.Games;
         }
 
         public async Task RefreshSteamMetadataAsync(IEnumerable<Game> games, System.Threading.CancellationToken ct = default)
