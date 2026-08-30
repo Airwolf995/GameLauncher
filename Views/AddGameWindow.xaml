@@ -2,9 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
-        Title="{loc:Loc Key=AddGame.Title}" Icon="pack://application:,,,/Resources/Images/game.ico" Height="320" Width="480"
+        Title="{loc:Loc Key=AddGame.Title}" Icon="pack://application:,,,/Resources/Images/game.ico" Height="350" Width="480"
         Background="#1E1E1E" Foreground="White"
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        AllowDrop="True" DragOver="Window_DragOver" Drop="Window_Drop">
     
     <Window.Resources>
         <!-- Modern TextBox -->
@@ -137,6 +138,7 @@
                 <TextBox x:Name="PathBox" Tag="{loc:Loc Key=AddGame.PathPlaceholder}" Margin="0,0,10,0"/>
                 <Button Grid.Column="1" Content="..." Style="{StaticResource SecondaryButton}" Click="Browse_Click" Width="40" ToolTip="{loc:Loc Key=AddGame.BrowseTooltip}"/>
             </Grid>
+            <TextBlock Text="{loc:Loc Key=AddGame.DropHint}" FontSize="11" Foreground="#666666" Margin="0,6,0,0" TextWrapping="Wrap"/>
         </StackPanel>
 
         <!-- Args -->
