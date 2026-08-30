@@ -33,7 +33,14 @@ namespace GameLauncher.Services
         private bool _isRunning;
         private bool _disposed;
         private HashSet<string> _cachedIgnoredProcesses = new(StringComparer.OrdinalIgnoreCase);
-        
+
+        /// <summary>
+        /// Zuletzt erkannte Spiele. Dient dazu, nur die Wechsel zu protokollieren
+        /// statt jeden Durchlauf, damit im Protokoll nachvollziehbar bleibt, ob und
+        /// welchem Spiel ein laufender Prozess zugeordnet wurde.
+        /// </summary>
+        private HashSet<string> _previouslyRunningGameIds = new(StringComparer.Ordinal);
+
         private static readonly HashSet<string> WindowsSystemProcesses = new(StringComparer.OrdinalIgnoreCase)
         {
             "Idle", "System", "Registry", "smss", "csrss", "wininit", "services", "lsass", 
@@ -260,6 +267,8 @@ namespace GameLauncher.Services
                     }
                 }
 
+                LogRunningGameChanges(runningGameIds);
+
                 var activeGameId = _activeGameTracker.UpdateAndSelectActiveGameId(runningGameIds, now);
                 DateTime? activeGameStartedAt = activeGameId != null && runningGameStartedAt.TryGetValue(activeGameId, out var startedAt)
                     ? startedAt
@@ -322,6 +331,37 @@ namespace GameLauncher.Services
             }
 
             return dispatcher.Invoke(() => _games.ToList());
+        }
+
+        /// <summary>
+        /// Protokolliert Beginn und Ende der erkannten Spiele. Nur Wechsel werden
+        /// gemeldet, damit das Protokoll bei laufendem Spiel nicht anwächst.
+        /// </summary>
+        private void LogRunningGameChanges(ISet<string> runningGameIds)
+        {
+            foreach (var gameId in runningGameIds)
+            {
+                if (!_previouslyRunningGameIds.Contains(gameId))
+                {
+                    Logger.Log($"Spielzeiterfassung gestartet für: {DescribeGame(gameId)}");
+                }
+            }
+
+            foreach (var gameId in _previouslyRunningGameIds)
+            {
+                if (!runningGameIds.Contains(gameId))
+                {
+                    Logger.Log($"Spielzeiterfassung beendet für: {DescribeGame(gameId)}");
+                }
+            }
+
+            _previouslyRunningGameIds = new HashSet<string>(runningGameIds, StringComparer.Ordinal);
+        }
+
+        private string DescribeGame(string gameId)
+        {
+            var game = _matchIndex.GetGameById(gameId);
+            return game == null ? gameId : $"{game.Name} ({gameId})";
         }
 
         private static void AddRunningGameMatch(
