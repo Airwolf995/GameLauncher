@@ -55,7 +55,9 @@ dotnet build .\GameLauncher.csproj -c Release
 - Keine wilden Eingriffe in bestehende UX/Design ohne Absprache.
 - Änderungen an Status/Overlay immer gegen Binding prüfen.
 - Neue Dateien bevorzugt unter `Services/`, `ViewModels/`, `Models/`.
-- Antworten, Kommentare, Logging- und UI-Texte grundsätzlich mit korrekten deutschen Umlauten schreiben, sofern keine technische Einschränkung dagegen spricht.
+- Antworten, Kommentare, Logging-, UI-Texte und Commit-Messages grundsätzlich mit korrekten deutschen Umlauten schreiben, sofern keine technische Einschränkung dagegen spricht. Lässt ein Werkzeug die Umlaute nicht zuverlässig durch, ist die ASCII-Ersatzschreibung nur für den betroffenen Text zulässig.
+- Neue UI-Texte immer in beide Sprachen von `Services/Localization/LocalizedTextCatalog.cs` eintragen; der Katalog muss in Englisch und Deutsch deckungsgleich bleiben.
+- Wird ein UI-Text ersetzt oder entfällt sein Aufrufer, den zugehörigen Schlüssel aus dem Katalog entfernen.
 - Für Releases bevorzugt den Publish-Workflow nutzen, nicht direkt aus `bin\Release\` paketieren.
 - `main` ist der stabile Ziel-Branch; nicht mit `master` arbeiten.
 
@@ -66,6 +68,20 @@ dotnet build .\GameLauncher.csproj -c Release
 - Wenn Änderungen Aufrufer oder Funktionen ersetzen, anschließend zurückgebliebene unerreichbare Methoden, ungenutzte Felder und redundante Weiterleitungen entfernen.
 - Abstraktionen für konkrete Anforderungen wie Testbarkeit, Framework-Grenzen oder tatsächlich mehrere Implementierungen bleiben zulässig; der Grund soll im Code oder in der Änderung nachvollziehbar sein.
 - YAGNI ist keine Rechtfertigung für große, unstrukturierte Dateien: Bestehende Verantwortlichkeiten weiterhin sinnvoll auf `Services/`, `ViewModels/` und `Models/` verteilen.
+- YAGNI gilt nicht nur für Abstraktionen, sondern auch für Sonderlogik innerhalb einer Funktion: zusätzliche Zustandsfelder, Sonderfallzweige und Grenzwertregeln zählen ebenso als Komplexität wie ein neues Interface.
+- Vor einer Korrektur benennen, wie groß der behobene Fehler tatsächlich ist. Steht die Auswirkung in keinem Verhältnis zum Aufwand, ist „nicht ändern“ das bessere Ergebnis und wird als solches begründet.
+- Zieht eine Korrektur weitere Sonderregeln nach sich, um selbst nicht zu schaden, ist das ein Hinweis auf ein schlechtes Verhältnis: dann die einfache bestehende Lösung behalten.
+
+## Tests
+- Änderungen am Verhalten der Logik mit Tests in `GameLauncher.Tests/` absichern; reine Fenster- und Bedienlogik ist davon ausgenommen.
+- Tests gegen die fachliche Aussage schreiben, nicht gegen die Implementierung. Ändert sich ein Verhalten bewusst, den betroffenen Test ersetzen statt seine Erwartung abzuschwächen.
+- Vor dem Commit `dotnet test .\GameLauncher.Tests\GameLauncher.Tests.csproj` ausführen; der Testlauf gehört zur Änderung, nicht zum Release.
+- Tests dürfen keine Spuren im Benutzerprofil hinterlassen. Wo eine Funktion Dateien anlegt, entweder ein temporäres Verzeichnis verwenden oder die reine Berechnung prüfen.
+
+## Annahmen prüfen
+- Undokumentierte Fremdformate wie Registry-Strukturen, Konfigurationsdateien der Spieleplattformen oder Binärformate vor der Umsetzung an einer echten Datei auf dem Zielsystem ansehen, statt sie aus dem Gedächtnis nachzubilden.
+- Aussagen zu Laufzeit und Aufwand messen statt schätzen; die Messwerte in der Commit-Message festhalten, damit die Entscheidung später nachvollziehbar bleibt.
+- Steht keine echte Datenquelle zur Verfügung, die getroffene Annahme in der Änderung ausdrücklich benennen.
 
 ## Git-Workflow
 - Änderungen thematisch getrennt committen, nicht blind alle geänderten Dateien in einen Sammel-Commit ziehen.
