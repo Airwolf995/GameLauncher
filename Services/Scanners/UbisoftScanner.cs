@@ -41,6 +41,10 @@ namespace GameLauncher.Services.Scanners
         {
             var games = new List<Game>();
 
+            // Die Registry kennt nur Installationsverzeichnisse; die Titel stehen
+            // in der Konfigurationsdatei des Launchers.
+            var catalogNames = UbisoftGameNameCatalog.Load();
+
             // Ubisoft Connect speichert die Installationen in der Registry
             RegistryScanUtility.ForEachSubKey(InstallsRegistryPath, (gameIdStr, gameKey) =>
             {
@@ -52,8 +56,13 @@ namespace GameLauncher.Services.Scanners
                     return;
                 }
 
-                // Versuche den Namen aus dem Ordnernamen abzuleiten
-                string gameName = new DirectoryInfo(installDir).Name;
+                // Ohne Katalogeintrag bleibt der Ordnername die beste Näherung.
+                if (!catalogNames.TryGetValue(gameIdStr, out string? gameName) ||
+                    string.IsNullOrWhiteSpace(gameName))
+                {
+                    gameName = new DirectoryInfo(installDir).Name;
+                }
+
                 if (string.IsNullOrWhiteSpace(gameName))
                 {
                     gameName = gameIdStr;
