@@ -73,6 +73,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- Header -->
             <RowDefinition Height="Auto"/> <!-- Beschreibung -->
+            <RowDefinition Height="Auto"/> <!-- Suche und Umschalter -->
             <RowDefinition Height="Auto"/> <!-- Status -->
             <RowDefinition Height="*"/>    <!-- Liste -->
             <RowDefinition Height="Auto"/> <!-- Buttons -->
@@ -83,10 +84,44 @@
         <TextBlock Grid.Row="1" Text="{loc:Loc Key=Import.Description}" FontSize="12" Foreground="#888888"
                    TextWrapping="Wrap" Margin="0,0,0,12"/>
 
-        <TextBlock x:Name="StatusText" Grid.Row="2" FontSize="12" Foreground="#CCCCCC"
+        <!-- Suche und Umschalter -->
+        <Grid Grid.Row="2" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid>
+                <TextBox x:Name="SearchBox" Padding="8,6" Background="#252526" Foreground="White"
+                         BorderBrush="#3E3E42" BorderThickness="1" FontSize="13"
+                         VerticalContentAlignment="Center"
+                         TextChanged="SearchBox_TextChanged"/>
+                <TextBlock Text="{loc:Loc Key=Import.SearchPlaceholder}" Foreground="#777777" FontSize="13"
+                           Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+
+            <CheckBox x:Name="ShowAllProgramsBox" Grid.Column="1" Margin="15,0,0,0"
+                      VerticalAlignment="Center" Foreground="#CCCCCC" FontSize="12"
+                      Content="{loc:Loc Key=Import.ShowAllPrograms}"
+                      ToolTip="{loc:Loc Key=Import.ShowAllProgramsTooltip}"
+                      Checked="ShowAllPrograms_Changed" Unchecked="ShowAllPrograms_Changed"/>
+        </Grid>
+
+        <TextBlock x:Name="StatusText" Grid.Row="3" FontSize="12" Foreground="#CCCCCC"
                    TextWrapping="Wrap" Margin="0,0,0,10"/>
 
-        <Border Grid.Row="3" Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="5">
+        <Border Grid.Row="4" Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="5">
             <ListBox x:Name="CandidateList" Background="Transparent" BorderThickness="0" Foreground="White"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      HorizontalContentAlignment="Stretch">
@@ -123,7 +158,7 @@
             </ListBox>
         </Border>
 
-        <Grid Grid.Row="4" Margin="0,15,0,0">
+        <Grid Grid.Row="5" Margin="0,15,0,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                 <Button x:Name="SelectAllButton" Content="{loc:Loc Key=Import.SelectAll}" Style="{StaticResource SecondaryButton}"
                         Click="SelectAll_Click" MinWidth="120" Margin="0,0,10,0"/>
