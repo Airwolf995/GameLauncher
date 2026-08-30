@@ -75,17 +75,79 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
-        public void TryMatchProcess_SkipsManualGames()
+        public void TryMatchProcess_OrdnetManuellemSpielMitProgrammpfadZu()
         {
             var index = new PlayTimeMatchIndex();
             var games = new List<Game>
             {
-                new() { Id = "manual1", Name = "Manual Game", ExecutableName = "manual.exe", IsManual = true }
+                new()
+                {
+                    Id = "manual1",
+                    Name = "Manuelles Spiel",
+                    ExecutableName = "manual.exe",
+                    LaunchType = "exe",
+                    IsManual = true
+                }
             };
 
             index.Rebuild(games);
 
-            var matched = index.TryMatchProcess("manual.exe", @"C:\Manual\manual.exe", out _);
+            var matched = index.TryMatchProcess("manual.exe", @"C:\Manual\manual.exe", out var gameId);
+
+            Assert.True(matched);
+            Assert.Equal("manual1", gameId);
+        }
+
+        /// <summary>
+        /// Startet ein manueller Eintrag ein Startprogramm, das sich beendet und das
+        /// eigentliche Spiel zurücklässt, greift die Zuordnung über das
+        /// Installationsverzeichnis.
+        /// </summary>
+        [Fact]
+        public void TryMatchProcess_OrdnetManuellemSpielUeberDasVerzeichnisZu()
+        {
+            var index = new PlayTimeMatchIndex();
+            var games = new List<Game>
+            {
+                new()
+                {
+                    Id = "manual2",
+                    Name = "Manuelles Spiel",
+                    Path = @"C:\Spiele\Beispiel\start-launcher.exe",
+                    InstallDirectory = @"C:\Spiele\Beispiel",
+                    LaunchType = "exe",
+                    IsManual = true
+                }
+            };
+
+            index.Rebuild(games);
+
+            var matched = index.TryMatchProcess("spiel", @"C:\Spiele\Beispiel\spiel.exe", out var gameId);
+
+            Assert.True(matched);
+            Assert.Equal("manual2", gameId);
+        }
+
+        [Fact]
+        public void TryMatchProcess_UebergehtManuellesSpielOhneZuordenbarenProzess()
+        {
+            var index = new PlayTimeMatchIndex();
+            var games = new List<Game>
+            {
+                new()
+                {
+                    Id = "manual3",
+                    Name = "Manueller Eintrag",
+                    Path = "battlenet://WoW",
+                    InstallDirectory = "battlenet:",
+                    LaunchType = "uri",
+                    IsManual = true
+                }
+            };
+
+            index.Rebuild(games);
+
+            var matched = index.TryMatchProcess("wow", @"C:\Spiele\WoW\wow.exe", out _);
 
             Assert.False(matched);
         }

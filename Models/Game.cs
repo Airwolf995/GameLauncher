@@ -190,6 +190,19 @@ namespace GameLauncher.Models
             }
         }
 
+        /// <summary>
+        /// Gibt an, ob für dieses Spiel eine Spielzeit gemessen werden kann.
+        /// Die Zuordnung erfolgt über den laufenden Prozess: Spiele der Plattformen
+        /// werden über ihr Installationsverzeichnis erkannt, manuelle Einträge über
+        /// ihren Programmpfad. Ein manueller Eintrag, der nur eine Adresse startet,
+        /// besitzt keinen zuordenbaren Prozess.
+        /// Diese Eigenschaft ist die gemeinsame Grundlage für die Prozesszuordnung
+        /// und die Anzeige, damit beide dieselbe Aussage treffen.
+        /// </summary>
+        [JsonIgnore]
+        public bool SupportsPlayTimeTracking =>
+            !IsManual || string.Equals(LaunchType, "exe", StringComparison.OrdinalIgnoreCase);
+
         [JsonIgnore]
         public string DisplayPlayTime => _cachedDisplayPlayTime ??= FormatPlayTime();
 
