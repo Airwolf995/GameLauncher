@@ -247,6 +247,13 @@ namespace GameLauncher.Services.Scanners
                 }
             }
 
+            // In Steam eingetragene Nicht-Steam-Spiele ergänzen.
+            if (!string.IsNullOrEmpty(steamRoot))
+            {
+                ct.ThrowIfCancellationRequested();
+                games.AddRange(SteamShortcutsReader.ReadShortcutGames(steamRoot));
+            }
+
             return games;
         }
 
