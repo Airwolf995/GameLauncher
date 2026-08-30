@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -22,6 +23,24 @@ namespace GameLauncher.Services.Scanners
             @"C:\Program Files (x86)\Steam",
             @"C:\Program Files\Steam"
         ];
+
+        /// <summary>
+        /// Bit 4 der StateFlags kennzeichnet eine vollständig installierte App.
+        /// </summary>
+        private const int StateFullyInstalled = 4;
+
+        /// <summary>
+        /// Steam legt für Laufzeitumgebungen und Redistributables ebenfalls
+        /// App-Manifeste an. Diese sind keine spielbaren Titel.
+        /// </summary>
+        private static readonly HashSet<string> NonGameAppIds = new(StringComparer.Ordinal)
+        {
+            "228980",  // Steamworks Common Redistributables
+            "1070560", // Steam Linux Runtime
+            "1391110", // Steam Linux Runtime - Soldier
+            "1628350", // Steam Linux Runtime - Sniper
+            "1493710"  // Proton Experimental
+        };
 
         private readonly List<string> _libraryPaths;
 
@@ -164,6 +183,18 @@ namespace GameLauncher.Services.Scanners
                                 !string.IsNullOrWhiteSpace(appid) &&
                                 appid.All(char.IsAsciiDigit))
                             {
+                                if (NonGameAppIds.Contains(appid))
+                                {
+                                    Logger.Log($"Steam-Manifest übersprungen, kein spielbarer Titel: {name} ({appid})");
+                                    continue;
+                                }
+
+                                if (!IsFullyInstalled(content))
+                                {
+                                    Logger.Log($"Steam-Manifest übersprungen, nicht vollständig installiert: {name} ({appid})");
+                                    continue;
+                                }
+
                                 string imageUrl = $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg";
 
                                 // Check local cache
@@ -217,6 +248,22 @@ namespace GameLauncher.Services.Scanners
             }
 
             return games;
+        }
+
+        /// <summary>
+        /// Prüft anhand der StateFlags, ob der Titel vollständig installiert ist.
+        /// Manifeste ohne verwertbaren Status bleiben sichtbar, damit ein
+        /// unerwartetes Format keine Spiele aus der Bibliothek entfernt.
+        /// </summary>
+        internal static bool IsFullyInstalled(string manifestContent)
+        {
+            string? stateFlags = TryReadManifestValue(manifestContent, "StateFlags");
+            if (!int.TryParse(stateFlags, NumberStyles.Integer, CultureInfo.InvariantCulture, out int flags))
+            {
+                return true;
+            }
+
+            return (flags & StateFullyInstalled) != 0;
         }
 
         internal static string? TryReadManifestValue(string content, string key)
