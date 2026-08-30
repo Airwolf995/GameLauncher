@@ -4,7 +4,6 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using GameLauncher.Models;
-using Microsoft.Win32;
 
 namespace GameLauncher.Services.Scanners
 {
@@ -15,43 +14,31 @@ namespace GameLauncher.Services.Scanners
     {
         public string PlatformName => Constants.Platforms.EAApp;
 
+        private const string UninstallRegistryPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
+
         public static List<string> GetAutoDetectedPaths()
         {
             var paths = new List<string>();
-            try
+
+            RegistryScanUtility.ForEachSubKey(UninstallRegistryPath, (_, appKey) =>
             {
-                using var key = Registry.LocalMachine.OpenSubKey(
-                    @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall");
-                if (key == null)
+                string? publisher = appKey.GetValue("Publisher") as string;
+                string? displayName = appKey.GetValue("DisplayName") as string;
+                string? installDirectory = appKey.GetValue("InstallLocation") as string;
+
+                if (IsEaClient(displayName) ||
+                    string.IsNullOrWhiteSpace(installDirectory))
                 {
-                    return paths;
+                    return;
                 }
 
-                foreach (string subKeyName in key.GetSubKeyNames())
+                if (!IsEaGameInstallation(publisher, installDirectory))
                 {
-                    using var appKey = key.OpenSubKey(subKeyName);
-                    string? publisher = appKey?.GetValue("Publisher") as string;
-                    string? displayName = appKey?.GetValue("DisplayName") as string;
-                    string? installDirectory = appKey?.GetValue("InstallLocation") as string;
-
-                    if (IsEaClient(displayName) ||
-                        string.IsNullOrWhiteSpace(installDirectory))
-                    {
-                        continue;
-                    }
-
-                    if (!IsEaGameInstallation(publisher, installDirectory))
-                    {
-                        continue;
-                    }
-
-                    ScannerPathUtility.AddExistingDirectory(paths, installDirectory);
+                    return;
                 }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("EA path detection failed", ex);
-            }
+
+                ScannerPathUtility.AddExistingDirectory(paths, installDirectory);
+            });
 
             return ScannerPathUtility.GetLibraryDirectories(paths);
         }
@@ -65,95 +52,63 @@ namespace GameLauncher.Services.Scanners
         {
             var games = new List<Game>();
 
-            try
+            // EA App speichert Spiele in der Uninstall Registry
+            RegistryScanUtility.ForEachSubKey(UninstallRegistryPath, (subKeyName, appKey) =>
             {
-                // EA App speichert Spiele in der Uninstall Registry
-                string uninstallPath = @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall";
-                using (var key = Registry.LocalMachine.OpenSubKey(uninstallPath))
+                ct.ThrowIfCancellationRequested();
+
+                string? publisher = appKey.GetValue("Publisher") as string;
+                string? installLocation = appKey.GetValue("InstallLocation") as string;
+                string? displayName = appKey.GetValue("DisplayName") as string;
+
+                if (string.IsNullOrEmpty(installLocation) || !Directory.Exists(installLocation))
                 {
-                    if (key == null)
-                    {
-                        Logger.Log("EA uninstall registry key not found.");
-                        return games;
-                    }
-
-                    foreach (var subKeyName in key.GetSubKeyNames())
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        try
-                        {
-                            using (var appKey = key.OpenSubKey(subKeyName))
-                            {
-                                if (appKey == null) continue;
-
-                                string? publisher = appKey.GetValue("Publisher") as string;
-                                string? installLocation = appKey.GetValue("InstallLocation") as string;
-                                string? displayName = appKey.GetValue("DisplayName") as string;
-
-                                if (string.IsNullOrEmpty(installLocation) || !Directory.Exists(installLocation))
-                                    continue;
-
-                                // Ignoriere den EA-Launcher selbst
-                                if (IsEaClient(displayName))
-                                    continue;
-
-                                if (!IsEaGameInstallation(publisher, installLocation))
-                                    continue;
-
-                                string exePath = ExecutableSelector.FindPrimaryExecutable(
-                                    installLocation,
-                                    "unins", "crash", "cleanup", "touchup", "eadesktop");
-                                string iconUrl = "";
-
-                                if (!string.IsNullOrEmpty(exePath))
-                                {
-                                    iconUrl = IconExtractor.GetIconFromExe(exePath, $"ea_{subKeyName}");
-                                }
-                                
-                                // Clean name (sometimes has TM or R symbols)
-                                string cleanName = string.IsNullOrWhiteSpace(displayName)
-                                    ? new DirectoryInfo(installLocation).Name
-                                    : displayName.Replace("™", "").Replace("®", "").Trim();
-                                if (string.IsNullOrWhiteSpace(cleanName))
-                                {
-                                    cleanName = subKeyName;
-                                }
-
-                                var game = new Game
-                                {
-                                    Id = $"ea_{subKeyName}",
-                                    Name = cleanName,
-                                    Path = BuildLaunchUri(subKeyName),
-                                    Args = "",
-                                    Platform = Constants.Platforms.EAApp,
-                                    LaunchType = "uri",
-                                    ImageUrl = iconUrl,
-                                    InstallDirectory = installLocation
-                                };
-
-                                games.Add(game);
-                                Logger.Log($"Found EA game: {cleanName}");
-                            }
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            throw;
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Error($"Error scanning EA game {subKeyName}", ex);
-                        }
-                    }
+                    return;
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error scanning EA games", ex);
-            }
+
+                // Ignoriere den EA-Launcher selbst
+                if (IsEaClient(displayName))
+                {
+                    return;
+                }
+
+                if (!IsEaGameInstallation(publisher, installLocation))
+                {
+                    return;
+                }
+
+                string exePath = ExecutableSelector.FindPrimaryExecutable(
+                    installLocation,
+                    "unins", "crash", "cleanup", "touchup", "eadesktop");
+                string iconUrl = "";
+
+                if (!string.IsNullOrEmpty(exePath))
+                {
+                    iconUrl = IconExtractor.GetIconFromExe(exePath, $"ea_{subKeyName}");
+                }
+
+                // Clean name (sometimes has TM or R symbols)
+                string cleanName = string.IsNullOrWhiteSpace(displayName)
+                    ? new DirectoryInfo(installLocation).Name
+                    : displayName.Replace("™", "").Replace("®", "").Trim();
+                if (string.IsNullOrWhiteSpace(cleanName))
+                {
+                    cleanName = subKeyName;
+                }
+
+                games.Add(new Game
+                {
+                    Id = $"ea_{subKeyName}",
+                    Name = cleanName,
+                    Path = BuildLaunchUri(subKeyName),
+                    Args = "",
+                    Platform = Constants.Platforms.EAApp,
+                    LaunchType = "uri",
+                    ImageUrl = iconUrl,
+                    InstallDirectory = installLocation
+                });
+                Logger.Log($"Found EA game: {cleanName}");
+            });
 
             return games;
         }

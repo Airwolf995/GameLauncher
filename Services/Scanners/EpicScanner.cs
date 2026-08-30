@@ -37,38 +37,32 @@ namespace GameLauncher.Services.Scanners
 
         /// <summary>
         /// Versucht den Epic-Manifest-Pfad automatisch zu erkennen:
-        /// 1. Windows-Registry (HKLM\SOFTWARE\WOW6432Node\Epic Games\EpicGamesLauncher)
-        /// 2. Bekannter Standard-ProgramData-Pfad als Fallback
+        /// 1. Windows-Registry über HKLM (64/32 Bit) und HKCU
+        /// 2. Bekannter Standard-ProgramData-Pfad als Ergänzung
         /// </summary>
         public static List<string> GetAutoDetectedPaths()
         {
             var found = new List<string>();
 
             // 1. Registry
-            try
+            foreach (string appDataPath in RegistryScanUtility.ReadStrings(
+                         @"SOFTWARE\Epic Games\EpicGamesLauncher", "AppDataPath"))
             {
-                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
-                    @"SOFTWARE\WOW6432Node\Epic Games\EpicGamesLauncher");
-                string? appDataPath = key?.GetValue("AppDataPath") as string;
-                if (!string.IsNullOrEmpty(appDataPath))
+                try
                 {
-                    string manifestPath = Path.Combine(appDataPath, "Manifests");
-                    ScannerPathUtility.AddExistingDirectory(found, manifestPath);
+                    ScannerPathUtility.AddExistingDirectory(found, Path.Combine(appDataPath, "Manifests"));
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Epic-Manifestpfad {appDataPath} konnte nicht ausgewertet werden", ex);
                 }
             }
-            catch (Exception ex)
-            {
-                Logger.Error("Epic registry detection failed", ex);
-            }
 
-            // 2. Fallback: Standard-ProgramData-Pfad
-            if (found.Count == 0)
-            {
-                string fallback = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                    "Epic", "EpicGamesLauncher", "Data", "Manifests");
-                ScannerPathUtility.AddExistingDirectory(found, fallback);
-            }
+            // 2. Standard-ProgramData-Pfad ergänzen
+            string fallback = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "Epic", "EpicGamesLauncher", "Data", "Manifests");
+            ScannerPathUtility.AddExistingDirectory(found, fallback);
 
             return found;
         }

@@ -14,36 +14,25 @@ namespace GameLauncher.Services.Scanners
     {
         public string PlatformName => "GOG";
 
+        private const string GamesRegistryPath = @"SOFTWARE\GOG.com\Games";
+
         public static List<string> GetAutoDetectedPaths()
         {
             var paths = new List<string>();
-            try
-            {
-                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\GOG.com\Games");
-                if (key == null)
-                {
-                    return paths;
-                }
 
-                foreach (string subKeyName in key.GetSubKeyNames())
-                {
-                    using var gameKey = key.OpenSubKey(subKeyName);
-                    string? workingDirectory = gameKey?.GetValue("workingDir") as string;
-                    string? executable = gameKey?.GetValue("exe") as string;
-                    string? installDirectory = !string.IsNullOrWhiteSpace(workingDirectory)
-                        ? Environment.ExpandEnvironmentVariables(workingDirectory)
-                        : Path.GetDirectoryName(Environment.ExpandEnvironmentVariables(executable ?? string.Empty));
-
-                    if (!string.IsNullOrWhiteSpace(installDirectory))
-                    {
-                        ScannerPathUtility.AddExistingDirectory(paths, installDirectory);
-                    }
-                }
-            }
-            catch (Exception ex)
+            RegistryScanUtility.ForEachSubKey(GamesRegistryPath, (_, gameKey) =>
             {
-                Logger.Error("GOG path detection failed", ex);
-            }
+                string? workingDirectory = gameKey.GetValue("workingDir") as string;
+                string? executable = gameKey.GetValue("exe") as string;
+                string? installDirectory = !string.IsNullOrWhiteSpace(workingDirectory)
+                    ? Environment.ExpandEnvironmentVariables(workingDirectory)
+                    : Path.GetDirectoryName(Environment.ExpandEnvironmentVariables(executable ?? string.Empty));
+
+                if (!string.IsNullOrWhiteSpace(installDirectory))
+                {
+                    ScannerPathUtility.AddExistingDirectory(paths, installDirectory);
+                }
+            });
 
             return ScannerPathUtility.GetLibraryDirectories(paths);
         }
@@ -57,76 +46,41 @@ namespace GameLauncher.Services.Scanners
         {
             var games = new List<Game>();
 
-            try
+            RegistryScanUtility.ForEachSubKey(GamesRegistryPath, (subKeyName, gameKey) =>
             {
-                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\GOG.com\Games"))
+                ct.ThrowIfCancellationRequested();
+
+                string? gameName = gameKey.GetValue("gameName") as string;
+                string? exePath = gameKey.GetValue("exe") as string;
+                string? workingDir = gameKey.GetValue("workingDir") as string;
+
+                if (string.IsNullOrEmpty(gameName) || string.IsNullOrEmpty(exePath))
                 {
-                    if (key == null)
-                    {
-                        Logger.Log("GOG registry key not found.");
-                        return games;
-                    }
-
-                    foreach (var subKeyName in key.GetSubKeyNames())
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        try
-                        {
-                            using (var gameKey = key.OpenSubKey(subKeyName))
-                            {
-                                if (gameKey == null) continue;
-
-                                string? gameName = gameKey.GetValue("gameName") as string;
-                                string? exePath = gameKey.GetValue("exe") as string;
-                                string? workingDir = gameKey.GetValue("workingDir") as string;
-
-                                if (string.IsNullOrEmpty(gameName) || string.IsNullOrEmpty(exePath))
-                                    continue;
-
-                                // Expand environment variables
-                                exePath = Environment.ExpandEnvironmentVariables(exePath);
-
-                                if (!File.Exists(exePath))
-                                {
-                                    Logger.Log($"GOG game exe not found: {exePath}");
-                                    continue;
-                                }
-
-                                var game = new Game
-                                {
-                                    Id = $"gog_{subKeyName}",
-                                    Name = gameName,
-                                    Path = exePath,
-                                    Args = "",
-                                    Platform = "GOG",
-                                    LaunchType = "exe",
-                                    ImageUrl = IconExtractor.GetIconFromExe(exePath, $"gog_{subKeyName}"),
-                                    InstallDirectory = workingDir ?? Path.GetDirectoryName(exePath) ?? ""
-                                };
-
-                                games.Add(game);
-                                Logger.Log($"Found GOG game: {gameName}");
-                            }
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            throw;
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Error($"Error scanning GOG game {subKeyName}", ex);
-                        }
-                    }
+                    return;
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error scanning GOG games", ex);
-            }
+
+                // Expand environment variables
+                exePath = Environment.ExpandEnvironmentVariables(exePath);
+
+                if (!File.Exists(exePath))
+                {
+                    Logger.Log($"GOG game exe not found: {exePath}");
+                    return;
+                }
+
+                games.Add(new Game
+                {
+                    Id = $"gog_{subKeyName}",
+                    Name = gameName,
+                    Path = exePath,
+                    Args = "",
+                    Platform = "GOG",
+                    LaunchType = "exe",
+                    ImageUrl = IconExtractor.GetIconFromExe(exePath, $"gog_{subKeyName}"),
+                    InstallDirectory = workingDir ?? Path.GetDirectoryName(exePath) ?? ""
+                });
+                Logger.Log($"Found GOG game: {gameName}");
+            });
 
             return games;
         }

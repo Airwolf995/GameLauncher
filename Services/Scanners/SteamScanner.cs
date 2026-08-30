@@ -15,6 +15,14 @@ namespace GameLauncher.Services.Scanners
     /// </summary>
     public class SteamScanner : IPlatformScanner
     {
+        private const string SteamRegistryPath = @"SOFTWARE\Valve\Steam";
+
+        private static readonly string[] DefaultInstallPaths =
+        [
+            @"C:\Program Files (x86)\Steam",
+            @"C:\Program Files\Steam"
+        ];
+
         private readonly List<string> _libraryPaths;
 
         public string PlatformName => "Steam";
@@ -38,58 +46,65 @@ namespace GameLauncher.Services.Scanners
 
         /// <summary>
         /// Versucht Steam-Bibliothekspfade automatisch zu erkennen:
-        /// 1. Windows-Registry (HKLM\SOFTWARE\WOW6432Node\Valve\Steam)
-        /// 2. Bekannte Standard-Installationspfade als Fallback
+        /// 1. Windows-Registry über HKLM (64/32 Bit) und HKCU
+        /// 2. Bekannte Standard-Installationspfade als Ergänzung
+        /// Zu jedem gefundenen Steam-Ordner werden die in libraryfolders.vdf
+        /// eingetragenen Zusatzbibliotheken mit aufgenommen.
         /// </summary>
         public static List<string> GetAutoDetectedPaths()
         {
             var found = new List<string>();
 
-            // 1. Registry-Pfad
+            // Steam trägt den Installationsordner je nach Registry-Standort unter
+            // unterschiedlichen Wertnamen ein.
+            var installPaths = RegistryScanUtility.ReadStrings(SteamRegistryPath, "InstallPath")
+                .Concat(RegistryScanUtility.ReadStrings(SteamRegistryPath, "SteamPath"))
+                .Concat(DefaultInstallPaths)
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+
+            foreach (string installPath in installPaths)
+            {
+                try
+                {
+                    string steamAppsPath = Path.Combine(installPath, "steamapps");
+                    ScannerPathUtility.AddExistingDirectory(found, steamAppsPath);
+                    AddLibraryFoldersFromVdf(found, Path.Combine(steamAppsPath, "libraryfolders.vdf"));
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Steam-Installationspfad {installPath} konnte nicht ausgewertet werden", ex);
+                }
+            }
+
+            return found;
+        }
+
+        /// <summary>
+        /// Ergänzt die in libraryfolders.vdf eingetragenen Zusatzbibliotheken.
+        /// </summary>
+        private static void AddLibraryFoldersFromVdf(ICollection<string> found, string vdfPath)
+        {
+            if (!File.Exists(vdfPath))
+            {
+                return;
+            }
+
             try
             {
-                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
-                    @"SOFTWARE\WOW6432Node\Valve\Steam");
-                string? installPath = key?.GetValue("InstallPath") as string;
-                if (!string.IsNullOrEmpty(installPath))
+                foreach (string line in File.ReadAllLines(vdfPath))
                 {
-                    ScannerPathUtility.AddExistingDirectory(found, Path.Combine(installPath, "steamapps"));
-
-                    // libraryfolders.vdf enthält weitere Bibliotheken
-                    string vdfPath = Path.Combine(installPath, "steamapps", "libraryfolders.vdf");
-                    if (File.Exists(vdfPath))
+                    var match = Regex.Match(line, "\"path\"\\s+\"([^\"]+)\"");
+                    if (match.Success)
                     {
-                        foreach (var line in File.ReadAllLines(vdfPath))
-                        {
-                            var match = System.Text.RegularExpressions.Regex.Match(
-                                line, "\"path\"\\s+\"([^\"]+)\"");
-                            if (match.Success)
-                            {
-                                string extraPath = match.Groups[1].Value.Replace("\\\\", "\\");
-                                ScannerPathUtility.AddExistingDirectory(found, Path.Combine(extraPath, "steamapps"));
-                            }
-                        }
+                        string extraPath = match.Groups[1].Value.Replace("\\\\", "\\");
+                        ScannerPathUtility.AddExistingDirectory(found, Path.Combine(extraPath, "steamapps"));
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error("Steam registry detection failed", ex);
+                Logger.Error($"Steam-Bibliotheksdatei {vdfPath} konnte nicht gelesen werden", ex);
             }
-
-            // 2. Fallback: bekannte Standard-Pfade
-            if (found.Count == 0)
-            {
-                var fallbacks = new[]
-                {
-                    @"C:\Program Files (x86)\Steam\steamapps",
-                    @"C:\Program Files\Steam\steamapps",
-                };
-                foreach (var f in fallbacks)
-                    ScannerPathUtility.AddExistingDirectory(found, f);
-            }
-
-            return found;
         }
 
         public Task<List<Game>> ScanAsync(CancellationToken ct = default)
