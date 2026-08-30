@@ -60,6 +60,7 @@ namespace GameLauncher
                 var found = await Task.Run(() => ShortcutImportScanner.FindCandidates(token), token);
 
                 var newCandidates = found
+                    .Where(candidate => candidate.IsLikelyGame)
                     .Where(candidate => !ShortcutImportScanner.IsAlreadyKnown(candidate, _existingGames))
                     .ToList();
 

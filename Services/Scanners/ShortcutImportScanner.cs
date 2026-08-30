@@ -51,7 +51,10 @@ namespace GameLauncher.Services.Scanners
         [
             "uninstall",
             "deinstall",
+            "entfernen",
             "unins",
+            "updater",
+            "error reporter",
             "setup",
             "installer",
             "repair",
@@ -99,7 +102,9 @@ namespace GameLauncher.Services.Scanners
                 }
             }
 
-            Logger.Log($"Verknüpfungssuche abgeschlossen: {candidates.Count} mögliche(s) Spiel(e) gefunden.");
+            Logger.Log(
+                $"Verknüpfungssuche abgeschlossen: {candidates.Count} Programm(e) gefunden, " +
+                $"davon {candidates.Count(candidate => candidate.IsLikelyGame)} als Spiel eingestuft.");
             return candidates
                 .OrderBy(candidate => candidate.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ToList();
@@ -108,13 +113,9 @@ namespace GameLauncher.Services.Scanners
         private static ShortcutGameCandidate? TryCreateCandidate(string shortcutPath)
         {
             string displayName = Path.GetFileNameWithoutExtension(shortcutPath);
-            if (IsHelperName(displayName))
-            {
-                return null;
-            }
 
             var target = ShortcutResolver.TryResolve(shortcutPath);
-            if (target == null || !IsLikelyGameTarget(target.TargetPath))
+            if (target == null || !IsSupportedTarget(target.TargetPath))
             {
                 return null;
             }
@@ -123,13 +124,15 @@ namespace GameLauncher.Services.Scanners
                 displayName,
                 target.TargetPath,
                 target.Arguments,
-                target.WorkingDirectory);
+                target.WorkingDirectory,
+                IsLikelyGame(displayName, target.TargetPath, target.Arguments));
         }
 
         /// <summary>
-        /// Prüft, ob ein Verknüpfungsziel als Spiel infrage kommt.
+        /// Prüft, ob eine Verknüpfung überhaupt ein startbares Programm bezeichnet.
+        /// Nur solche Ziele werden angeboten, auch in der vollständigen Ansicht.
         /// </summary>
-        internal static bool IsLikelyGameTarget(string targetPath)
+        internal static bool IsSupportedTarget(string targetPath)
         {
             if (string.IsNullOrWhiteSpace(targetPath) ||
                 !targetPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
@@ -137,13 +140,26 @@ namespace GameLauncher.Services.Scanners
                 return false;
             }
 
+            return !IsWindowsComponent(targetPath);
+        }
+
+        /// <summary>
+        /// Schätzt ein, ob ein Programm ein Spiel ist. Das Ergebnis steuert nur die
+        /// Vorauswahl im Dialog: Was hier als unwahrscheinlich gilt, bleibt über die
+        /// vollständige Ansicht erreichbar. Eine Fehleinschätzung kostet den Benutzer
+        /// daher einen Umschaltvorgang und nicht das Spiel.
+        /// </summary>
+        internal static bool IsLikelyGame(string shortcutName, string targetPath, string arguments)
+        {
             string fileName = Path.GetFileName(targetPath);
-            if (LauncherExecutables.Contains(fileName) || IsHelperName(fileName))
+            if (IsHelperName(shortcutName) || IsHelperName(fileName))
             {
                 return false;
             }
 
-            return !IsWindowsComponent(targetPath);
+            // Ein Store-Client mit Startparametern startet ein bestimmtes Spiel und
+            // nicht sich selbst, etwa GalaxyClient.exe mit /command=runGame.
+            return !LauncherExecutables.Contains(fileName) || !string.IsNullOrWhiteSpace(arguments);
         }
 
         /// <summary>
@@ -265,11 +281,14 @@ namespace GameLauncher.Services.Scanners
     }
 
     /// <summary>
-    /// Über eine Verknüpfung gefundenes, noch nicht importiertes Spiel.
+    /// Über eine Verknüpfung gefundenes, noch nicht importiertes Programm.
+    /// <paramref name="IsLikelyGame"/> steuert, ob es in der Standardansicht des
+    /// Import-Dialogs erscheint oder erst beim Anzeigen aller Programme.
     /// </summary>
     internal sealed record ShortcutGameCandidate(
         string Name,
         string TargetPath,
         string Arguments,
-        string WorkingDirectory);
+        string WorkingDirectory,
+        bool IsLikelyGame);
 }
