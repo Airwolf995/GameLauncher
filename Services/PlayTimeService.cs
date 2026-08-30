@@ -237,15 +237,9 @@ namespace GameLauncher.Services
                         }
 
                         // 3. Fallback: Pfadprüfung für Verzeichnis-basierte Treffer (Steam, Epic)
-                        string? processPathRaw = null;
-                        try
-                        {
-                            processPathRaw = process.MainModule?.FileName;
-                        }
-                        catch
-                        {
-                            // Zugriff verweigert oder Prozess beendet
-                        }
+                        // Der Pfad wird ohne Ausnahmebehandlung ermittelt; ein
+                        // verweigerter Zugriff liefert schlicht keinen Pfad.
+                        string? processPathRaw = ProcessPathReader.TryGetExecutablePath(process.Id);
 
                         if (!string.IsNullOrWhiteSpace(processPathRaw))
                         {
