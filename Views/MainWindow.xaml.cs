@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Windows;
@@ -642,15 +643,21 @@ namespace GameLauncher
             }
 
             // Wie beim manuellen Hinzufügen ohne globales Event arbeiten, damit die
-            // Bibliothek nicht komplett neu geladen und animiert wird.
-            foreach (var candidate in dialog.SelectedCandidates)
-            {
-                var newGame = _gameManager.AddManualGame(
+            // Bibliothek nicht komplett neu geladen und animiert wird. Das Übernehmen
+            // liest je Spiel das Symbol aus der Programmdatei und läuft deshalb
+            // außerhalb des UI-Threads.
+            var candidates = dialog.SelectedCandidates;
+            var addedGames = await Task.Run(() => candidates
+                .Select(candidate => _gameManager.AddManualGame(
                     candidate.Name,
                     candidate.TargetPath,
                     candidate.Arguments,
-                    notifyUI: false);
-                _viewModel.Games.Add(newGame);
+                    notifyUI: false))
+                .ToList());
+
+            foreach (var game in addedGames)
+            {
+                _viewModel.Games.Add(game);
             }
 
             await _viewModel.RebuildLibraryViewAsync();
