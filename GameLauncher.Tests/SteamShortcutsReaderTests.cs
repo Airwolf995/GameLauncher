@@ -71,6 +71,47 @@ public sealed class SteamShortcutsReaderTests
         Assert.False(shortcut.IsHidden);
     }
 
+    /// <summary>
+    /// Bildet die Feldfolge nach, die Steam beim Hinzufügen eines Nicht-Steam-Spiels
+    /// tatsächlich schreibt: "Exe" steht in Anführungszeichen, "StartDir" nicht,
+    /// danach folgen zahlreiche weitere Felder und die verschachtelte Schlagwortliste.
+    /// </summary>
+    [Fact]
+    public void Parse_LiestEintragImFormatEinerEchtenSteamDatei()
+    {
+        byte[] data = BuildFile(buffer =>
+        {
+            WriteInt32(buffer, "appid", 3799996914);
+            WriteString(buffer, "AppName", "Blender 5.2");
+            WriteString(buffer, "Exe", "\"C:\\Program Files\\Blender Foundation\\Blender 5.2\\blender-launcher.exe\"");
+            WriteString(buffer, "StartDir", "C:\\Program Files\\Blender Foundation\\Blender 5.2\\");
+            WriteString(buffer, "icon", "");
+            WriteString(buffer, "ShortcutPath", "");
+            WriteString(buffer, "LaunchOptions", "");
+            WriteInt32(buffer, "IsHidden", 0);
+            WriteInt32(buffer, "AllowDesktopConfig", 1);
+            WriteInt32(buffer, "AllowOverlay", 1);
+            WriteInt32(buffer, "OpenVR", 0);
+            WriteInt32(buffer, "Devkit", 0);
+            WriteString(buffer, "DevkitGameID", "");
+            WriteInt32(buffer, "DevkitOverrideAppID", 0);
+            WriteInt32(buffer, "LastPlayTime", 0);
+            WriteString(buffer, "FlatpakAppID", "");
+            WriteString(buffer, "sortas", "");
+            WriteKey(buffer, 0x00, "tags");
+            buffer.Add(0x08);
+        });
+
+        var shortcut = Assert.Single(SteamShortcutsReader.Parse(data));
+
+        Assert.Equal("3799996914", shortcut.AppId);
+        Assert.Equal("Blender 5.2", shortcut.Name);
+        Assert.Equal(@"C:\Program Files\Blender Foundation\Blender 5.2\blender-launcher.exe", shortcut.ExecutablePath);
+        Assert.Equal(@"C:\Program Files\Blender Foundation\Blender 5.2\", shortcut.StartDirectory);
+        Assert.Equal(string.Empty, shortcut.LaunchOptions);
+        Assert.False(shortcut.IsHidden);
+    }
+
     [Fact]
     public void Parse_LiestMehrereEintraege()
     {
