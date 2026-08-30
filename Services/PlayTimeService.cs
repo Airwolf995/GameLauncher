@@ -15,9 +15,12 @@ namespace GameLauncher.Services
 {
     public class PlayTimeService : IDisposable
     {
-        private const int TickIntervalSeconds = 15;
-        private const int SummaryLogEveryNTicks = 8; // 8 * 15s = 2 minutes
-        private const int PersistEveryNTicks = 4; // Spielzeit höchstens einmal pro Minute regulär schreiben
+        // Ein Spiel wird nur erfasst, wenn ein Durchlauf in seine Laufzeit fällt.
+        // Ein kürzeres Intervall erfasst daher auch kurze Sitzungen zuverlässiger
+        // und begrenzt zugleich die Ungenauigkeit am Sitzungsende.
+        private const int TickIntervalSeconds = 10;
+        private const int SummaryLogEveryNTicks = 12; // 12 * 10s = 2 Minuten
+        private const int PersistEveryNTicks = 6; // Spielzeit höchstens einmal pro Minute regulär schreiben
         private readonly GameManager _gameManager;
         private readonly IEnumerable<Game> _games;
         private readonly System.Timers.Timer _timer;
