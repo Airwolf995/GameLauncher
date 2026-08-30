@@ -554,6 +554,9 @@
                         </Button.Style>
                     </Button>
 
+                    <!-- Import Games Button -->
+                    <Button Content="{loc:Loc Key=Main.ImportGames}" Click="ImportGames_Click" Height="34" Padding="15,0" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" MinWidth="140" Margin="0,0,10,0"/>
+
                     <!-- Add Game Button -->
                     <Button Content="{loc:Loc Key=Main.AddGame}" Click="AddGame_Click" Height="34" Padding="15,0" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" MinWidth="140"/>
                 </StackPanel>

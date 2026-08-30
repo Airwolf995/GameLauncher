@@ -633,6 +633,33 @@ namespace GameLauncher
             }
         }
 
+        private async void ImportGames_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new ImportGamesWindow(_viewModel.Games) { Owner = this };
+            if (dialog.ShowDialog() != true || dialog.SelectedCandidates.Count == 0)
+            {
+                return;
+            }
+
+            // Wie beim manuellen Hinzufügen ohne globales Event arbeiten, damit die
+            // Bibliothek nicht komplett neu geladen und animiert wird.
+            foreach (var candidate in dialog.SelectedCandidates)
+            {
+                var newGame = _gameManager.AddManualGame(
+                    candidate.Name,
+                    candidate.TargetPath,
+                    candidate.Arguments,
+                    notifyUI: false);
+                _viewModel.Games.Add(newGame);
+            }
+
+            await _viewModel.RebuildLibraryViewAsync();
+            ShowStatus(_localization.Format("Main.StatusGamesImported", dialog.SelectedCandidates.Count));
+            Logger.Log($"{dialog.SelectedCandidates.Count} Spiel(e) über Verknüpfungen importiert.");
+
+            RefreshList(instant: true);
+        }
+
         private void GameCard_Click(object sender, RoutedEventArgs e)
         {
             if (TryGetGameFromSender(sender, out Game? game))
