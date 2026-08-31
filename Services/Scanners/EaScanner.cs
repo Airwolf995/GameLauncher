@@ -20,8 +20,13 @@ namespace GameLauncher.Services.Scanners
         {
             var paths = new List<string>();
 
-            RegistryScanUtility.ForEachSubKey(UninstallRegistryPath, (_, appKey) =>
+            RegistryScanUtility.ForEachSubKey(UninstallRegistryPath, (subKeyName, appKey) =>
             {
+                if (IsSteamManagedEntry(subKeyName))
+                {
+                    return;
+                }
+
                 string? publisher = appKey.GetValue("Publisher") as string;
                 string? displayName = appKey.GetValue("DisplayName") as string;
                 string? installDirectory = appKey.GetValue("InstallLocation") as string;
@@ -56,6 +61,11 @@ namespace GameLauncher.Services.Scanners
             RegistryScanUtility.ForEachSubKey(UninstallRegistryPath, (subKeyName, appKey) =>
             {
                 ct.ThrowIfCancellationRequested();
+
+                if (IsSteamManagedEntry(subKeyName))
+                {
+                    return;
+                }
 
                 string? publisher = appKey.GetValue("Publisher") as string;
                 string? installLocation = appKey.GetValue("InstallLocation") as string;
@@ -115,6 +125,15 @@ namespace GameLauncher.Services.Scanners
 
         internal static string BuildLaunchUri(string offerId) =>
             $"origin2://game/launch?offerIds={Uri.EscapeDataString(offerId)}";
+
+        /// <summary>
+        /// Steam legt für seine Spiele eigene Deinstallationseinträge unter dem
+        /// Namen "Steam App &lt;AppID&gt;" an. Über Steam bezogene EA-Titel bringen die
+        /// Installer-Metadaten von EA mit und würden hier sonst ein zweites Mal
+        /// auftauchen, obwohl der Steam-Scanner sie bereits führt.
+        /// </summary>
+        internal static bool IsSteamManagedEntry(string subKeyName) =>
+            subKeyName.StartsWith("Steam App ", StringComparison.OrdinalIgnoreCase);
 
         private static bool IsEaClient(string? displayName) =>
             !string.IsNullOrWhiteSpace(displayName) &&

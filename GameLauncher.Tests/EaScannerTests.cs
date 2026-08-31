@@ -33,6 +33,23 @@ public sealed class EaScannerTests
         }
     }
 
+    [Theory]
+    [InlineData("Steam App 1222670")]
+    [InlineData("steam app 620")]
+    public void IsSteamManagedEntry_ErkenntDeinstallationseintraegeVonSteam(string subKeyName)
+    {
+        Assert.True(EaScanner.IsSteamManagedEntry(subKeyName));
+    }
+
+    [Theory]
+    [InlineData("{48EBEBBF-B9F8-4520-A3CF-89A730721917}")]
+    [InlineData("Origin.OFR.50.0002694")]
+    [InlineData("")]
+    public void IsSteamManagedEntry_LaesstEigenstaendigeEintraegeZu(string subKeyName)
+    {
+        Assert.False(EaScanner.IsSteamManagedEntry(subKeyName));
+    }
+
     [Fact]
     public void IsEaGameInstallation_VerwendetDenLegacyPublisherNurAlsFallback()
     {
