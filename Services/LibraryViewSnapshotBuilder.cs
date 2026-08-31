@@ -74,6 +74,11 @@ namespace GameLauncher.Services
 
             return selectedFilter switch
             {
+                // Die Auswahlliste bietet Favoriten nicht als Filter an, Favoriten
+                // sind über die Sortierung erreichbar. Eine gespeicherte
+                // Konfiguration kann diesen Wert dennoch führen; er wird beim
+                // Aufbau der Auswahlliste auf "Alle" zurückgesetzt. Bis dahin
+                // filtert dieser Zweig wie erwartet, statt alle Spiele zu zeigen.
                 Constants.Filters.Favorites => game.IsFavorite,
                 Constants.Filters.Manual => game.IsManual,
                 Constants.Platforms.Steam => game.Platform == Constants.Platforms.Steam,
