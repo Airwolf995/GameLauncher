@@ -88,6 +88,36 @@ public sealed class ShortcutImportScannerTests
         Assert.False(isGame);
     }
 
+    /// <summary>
+    /// Entspricht zwei echten GOG-Verknüpfungen: beide starten denselben Client
+    /// und unterscheiden sich nur über die Spielkennung in den Startparametern.
+    /// </summary>
+    [Fact]
+    public void BuildIdentity_UnterscheidetSpieleDesselbenStoreClients()
+    {
+        const string client = @"C:\Program Files (x86)\GOG Galaxy\GalaxyClient.exe";
+        var frostpunk = new ShortcutGameCandidate(
+            "Frostpunk", client, @"/command=runGame /gameId=1648559910 /path=""D:\GOG\Frostpunk""", "", true);
+        var ghostrunner = new ShortcutGameCandidate(
+            "Ghostrunner", client, @"/command=runGame /gameId=1957528513 /path=""D:\GOG\Ghostrunner""", "", true);
+
+        Assert.NotEqual(
+            ShortcutImportScanner.BuildIdentity(frostpunk),
+            ShortcutImportScanner.BuildIdentity(ghostrunner));
+    }
+
+    [Fact]
+    public void BuildIdentity_FasstMehrfachVerknuepfteProgrammeZusammen()
+    {
+        const string programm = @"C:\Program Files\Docker\Docker\Docker Desktop.exe";
+        var ausDemStartmenue = new ShortcutGameCandidate("Docker Desktop", programm, "", "", true);
+        var vomSchreibtisch = new ShortcutGameCandidate("Docker Desktop", programm, "  ", "", true);
+
+        Assert.Equal(
+            ShortcutImportScanner.BuildIdentity(ausDemStartmenue),
+            ShortcutImportScanner.BuildIdentity(vomSchreibtisch));
+    }
+
     [Fact]
     public void IsAlreadyKnown_ErkenntGleichenNamen()
     {
