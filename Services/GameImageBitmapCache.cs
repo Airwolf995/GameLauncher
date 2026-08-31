@@ -178,9 +178,13 @@ namespace GameLauncher.Services
         {
             Uri uri = new(path);
             bool isRemote = uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps;
+            // Die Dekodierung läuft bewusst auf dem Threadpool: der Aufruf kommt aus
+            // dem UI-Thread, und ohne diesen Wechsel würde jedes Cover dort dekodiert
+            // werden. Das ist beim Scrollen und beim Filterwechsel als Ruckeln sichtbar.
+            // Die BitmapImage wird eingefroren und ist danach threadübergreifend nutzbar.
             BitmapImage bitmap = isRemote
                 ? await LoadRemoteBitmapAsync(uri, cancellationToken)
-                : LoadLocalBitmap(uri);
+                : await Task.Run(() => LoadLocalBitmap(uri), cancellationToken);
 
 #if DEBUG
             Logger.Log(
@@ -195,16 +199,23 @@ namespace GameLauncher.Services
         private static async Task<BitmapImage> LoadRemoteBitmapAsync(Uri uri, CancellationToken cancellationToken)
         {
             byte[] bytes = await HttpClient.GetByteArrayAsync(uri, cancellationToken);
-            using var stream = new MemoryStream(bytes);
 
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.StreamSource = stream;
-            bitmap.DecodePixelWidth = DecodePixelWidth;
-            bitmap.EndInit();
-            bitmap.Freeze();
-            return bitmap;
+            // Auch hier gilt: nach dem Download darf nicht im UI-Thread dekodiert werden.
+            return await Task.Run(
+                () =>
+                {
+                    using var stream = new MemoryStream(bytes);
+
+                    var bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.StreamSource = stream;
+                    bitmap.DecodePixelWidth = DecodePixelWidth;
+                    bitmap.EndInit();
+                    bitmap.Freeze();
+                    return bitmap;
+                },
+                cancellationToken);
         }
 
         private static BitmapImage LoadLocalBitmap(Uri uri)

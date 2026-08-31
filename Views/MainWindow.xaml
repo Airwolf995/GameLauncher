@@ -576,7 +576,7 @@
                  VirtualizingPanel.VirtualizationMode="Recycling"
                  VirtualizingPanel.ScrollUnit="Pixel"
                  VirtualizingPanel.CacheLengthUnit="Item"
-                 VirtualizingPanel.CacheLength="10,10"
+                 VirtualizingPanel.CacheLength="2,2"
                  SizeChanged="GameListControl_SizeChanged">
             
             <ListBox.Resources>
