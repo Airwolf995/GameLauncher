@@ -28,6 +28,14 @@ namespace GameLauncher
         private readonly List<Game> _existingGames;
         private readonly CancellationTokenSource _searchCts = new();
 
+        /// <summary>
+        /// Beim Erzeugen gesichert: Wird das Fenster geschlossen, bevor die
+        /// asynchron gestartete Suche ihren Abbruchtoken abruft, wäre die Quelle
+        /// bereits freigegeben und der Zugriff auf Token würde fehlschlagen. Der
+        /// gesicherte Token behält seinen Zustand auch nach der Freigabe.
+        /// </summary>
+        private readonly CancellationToken _searchToken;
+
         private ICollectionView? _candidateView;
         private int _otherProgramCount;
 
@@ -35,6 +43,7 @@ namespace GameLauncher
         {
             InitializeComponent();
             _existingGames = existingGames.ToList();
+            _searchToken = _searchCts.Token;
 
             _candidateView = CollectionViewSource.GetDefaultView(_candidates);
             _candidateView.Filter = IsVisibleCandidate;
@@ -74,8 +83,9 @@ namespace GameLauncher
         {
             try
             {
-                var token = _searchCts.Token;
-                var found = await Task.Run(() => ShortcutImportScanner.FindCandidates(token), token);
+                var found = await Task.Run(
+                    () => ShortcutImportScanner.FindCandidates(_searchToken),
+                    _searchToken);
 
                 var newCandidates = found
                     .Where(candidate => !ShortcutImportScanner.IsAlreadyKnown(candidate, _existingGames))

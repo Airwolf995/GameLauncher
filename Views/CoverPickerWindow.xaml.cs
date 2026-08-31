@@ -22,11 +22,20 @@ namespace GameLauncher
         private readonly string _gameName;
         private readonly CancellationTokenSource _searchCts = new();
 
+        /// <summary>
+        /// Beim Erzeugen gesichert: Wird das Fenster geschlossen, bevor die
+        /// asynchron gestartete Suche ihren Abbruchtoken abruft, wäre die Quelle
+        /// bereits freigegeben und der Zugriff auf Token würde fehlschlagen. Der
+        /// gesicherte Token behält seinen Zustand auch nach der Freigabe.
+        /// </summary>
+        private readonly CancellationToken _searchToken;
+
         public CoverPickerWindow(MetadataService metadataService, string gameName)
         {
             InitializeComponent();
             _metadataService = metadataService;
             _gameName = gameName;
+            _searchToken = _searchCts.Token;
             StatusText.Text = _localization.Get("CoverPicker.Searching");
 
             Loaded += async (_, _) => await SearchCoversAsync();
@@ -55,7 +64,7 @@ namespace GameLauncher
             try
             {
                 List<CoverCandidate> candidates =
-                    await _metadataService.GetCoverCandidatesAsync(_gameName, _searchCts.Token);
+                    await _metadataService.GetCoverCandidatesAsync(_gameName, _searchToken);
 
                 CoverList.ItemsSource = candidates;
                 StatusText.Text = candidates.Count == 0
