@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -15,6 +16,32 @@ namespace GameLauncher.Services.Scanners
     /// </summary>
     public class SteamScanner : IPlatformScanner
     {
+        private const string SteamRegistryPath = @"SOFTWARE\Valve\Steam";
+
+        private static readonly string[] DefaultInstallPaths =
+        [
+            @"C:\Program Files (x86)\Steam",
+            @"C:\Program Files\Steam"
+        ];
+
+        /// <summary>
+        /// Bit 4 der StateFlags kennzeichnet eine vollständig installierte App.
+        /// </summary>
+        private const int StateFullyInstalled = 4;
+
+        /// <summary>
+        /// Steam legt für Laufzeitumgebungen und Redistributables ebenfalls
+        /// App-Manifeste an. Diese sind keine spielbaren Titel.
+        /// </summary>
+        private static readonly HashSet<string> NonGameAppIds = new(StringComparer.Ordinal)
+        {
+            "228980",  // Steamworks Common Redistributables
+            "1070560", // Steam Linux Runtime
+            "1391110", // Steam Linux Runtime - Soldier
+            "1628350", // Steam Linux Runtime - Sniper
+            "1493710"  // Proton Experimental
+        };
+
         private readonly List<string> _libraryPaths;
 
         public string PlatformName => "Steam";
@@ -38,58 +65,65 @@ namespace GameLauncher.Services.Scanners
 
         /// <summary>
         /// Versucht Steam-Bibliothekspfade automatisch zu erkennen:
-        /// 1. Windows-Registry (HKLM\SOFTWARE\WOW6432Node\Valve\Steam)
-        /// 2. Bekannte Standard-Installationspfade als Fallback
+        /// 1. Windows-Registry über HKLM (64/32 Bit) und HKCU
+        /// 2. Bekannte Standard-Installationspfade als Ergänzung
+        /// Zu jedem gefundenen Steam-Ordner werden die in libraryfolders.vdf
+        /// eingetragenen Zusatzbibliotheken mit aufgenommen.
         /// </summary>
         public static List<string> GetAutoDetectedPaths()
         {
             var found = new List<string>();
 
-            // 1. Registry-Pfad
+            // Steam trägt den Installationsordner je nach Registry-Standort unter
+            // unterschiedlichen Wertnamen ein.
+            var installPaths = RegistryScanUtility.ReadStrings(SteamRegistryPath, "InstallPath")
+                .Concat(RegistryScanUtility.ReadStrings(SteamRegistryPath, "SteamPath"))
+                .Concat(DefaultInstallPaths)
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+
+            foreach (string installPath in installPaths)
+            {
+                try
+                {
+                    string steamAppsPath = Path.Combine(installPath, "steamapps");
+                    ScannerPathUtility.AddExistingDirectory(found, steamAppsPath);
+                    AddLibraryFoldersFromVdf(found, Path.Combine(steamAppsPath, "libraryfolders.vdf"));
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Steam-Installationspfad {installPath} konnte nicht ausgewertet werden", ex);
+                }
+            }
+
+            return found;
+        }
+
+        /// <summary>
+        /// Ergänzt die in libraryfolders.vdf eingetragenen Zusatzbibliotheken.
+        /// </summary>
+        private static void AddLibraryFoldersFromVdf(ICollection<string> found, string vdfPath)
+        {
+            if (!File.Exists(vdfPath))
+            {
+                return;
+            }
+
             try
             {
-                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
-                    @"SOFTWARE\WOW6432Node\Valve\Steam");
-                string? installPath = key?.GetValue("InstallPath") as string;
-                if (!string.IsNullOrEmpty(installPath))
+                foreach (string line in File.ReadAllLines(vdfPath))
                 {
-                    ScannerPathUtility.AddExistingDirectory(found, Path.Combine(installPath, "steamapps"));
-
-                    // libraryfolders.vdf enthält weitere Bibliotheken
-                    string vdfPath = Path.Combine(installPath, "steamapps", "libraryfolders.vdf");
-                    if (File.Exists(vdfPath))
+                    var match = Regex.Match(line, "\"path\"\\s+\"([^\"]+)\"");
+                    if (match.Success)
                     {
-                        foreach (var line in File.ReadAllLines(vdfPath))
-                        {
-                            var match = System.Text.RegularExpressions.Regex.Match(
-                                line, "\"path\"\\s+\"([^\"]+)\"");
-                            if (match.Success)
-                            {
-                                string extraPath = match.Groups[1].Value.Replace("\\\\", "\\");
-                                ScannerPathUtility.AddExistingDirectory(found, Path.Combine(extraPath, "steamapps"));
-                            }
-                        }
+                        string extraPath = match.Groups[1].Value.Replace("\\\\", "\\");
+                        ScannerPathUtility.AddExistingDirectory(found, Path.Combine(extraPath, "steamapps"));
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error("Steam registry detection failed", ex);
+                Logger.Error($"Steam-Bibliotheksdatei {vdfPath} konnte nicht gelesen werden", ex);
             }
-
-            // 2. Fallback: bekannte Standard-Pfade
-            if (found.Count == 0)
-            {
-                var fallbacks = new[]
-                {
-                    @"C:\Program Files (x86)\Steam\steamapps",
-                    @"C:\Program Files\Steam\steamapps",
-                };
-                foreach (var f in fallbacks)
-                    ScannerPathUtility.AddExistingDirectory(found, f);
-            }
-
-            return found;
         }
 
         public Task<List<Game>> ScanAsync(CancellationToken ct = default)
@@ -149,6 +183,18 @@ namespace GameLauncher.Services.Scanners
                                 !string.IsNullOrWhiteSpace(appid) &&
                                 appid.All(char.IsAsciiDigit))
                             {
+                                if (NonGameAppIds.Contains(appid))
+                                {
+                                    Logger.Log($"Steam-Manifest übersprungen, kein spielbarer Titel: {name} ({appid})");
+                                    continue;
+                                }
+
+                                if (!IsFullyInstalled(content))
+                                {
+                                    Logger.Log($"Steam-Manifest übersprungen, nicht vollständig installiert: {name} ({appid})");
+                                    continue;
+                                }
+
                                 string imageUrl = $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg";
 
                                 // Check local cache
@@ -201,7 +247,30 @@ namespace GameLauncher.Services.Scanners
                 }
             }
 
+            // In Steam eingetragene Nicht-Steam-Spiele ergänzen.
+            if (!string.IsNullOrEmpty(steamRoot))
+            {
+                ct.ThrowIfCancellationRequested();
+                games.AddRange(SteamShortcutsReader.ReadShortcutGames(steamRoot));
+            }
+
             return games;
+        }
+
+        /// <summary>
+        /// Prüft anhand der StateFlags, ob der Titel vollständig installiert ist.
+        /// Manifeste ohne verwertbaren Status bleiben sichtbar, damit ein
+        /// unerwartetes Format keine Spiele aus der Bibliothek entfernt.
+        /// </summary>
+        internal static bool IsFullyInstalled(string manifestContent)
+        {
+            string? stateFlags = TryReadManifestValue(manifestContent, "StateFlags");
+            if (!int.TryParse(stateFlags, NumberStyles.Integer, CultureInfo.InvariantCulture, out int flags))
+            {
+                return true;
+            }
+
+            return (flags & StateFullyInstalled) != 0;
         }
 
         internal static string? TryReadManifestValue(string content, string key)

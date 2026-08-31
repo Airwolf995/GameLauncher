@@ -15,9 +15,12 @@ namespace GameLauncher.Services
 {
     public class PlayTimeService : IDisposable
     {
-        private const int TickIntervalSeconds = 15;
-        private const int SummaryLogEveryNTicks = 8; // 8 * 15s = 2 minutes
-        private const int PersistEveryNTicks = 4; // Spielzeit höchstens einmal pro Minute regulär schreiben
+        // Ein Spiel wird nur erfasst, wenn ein Durchlauf in seine Laufzeit fällt.
+        // Ein kürzeres Intervall erfasst daher auch kurze Sitzungen zuverlässiger
+        // und begrenzt zugleich die Ungenauigkeit am Sitzungsende.
+        private const int TickIntervalSeconds = 10;
+        private const int SummaryLogEveryNTicks = 12; // 12 * 10s = 2 Minuten
+        private const int PersistEveryNTicks = 6; // Spielzeit höchstens einmal pro Minute regulär schreiben
         private readonly GameManager _gameManager;
         private readonly IEnumerable<Game> _games;
         private readonly System.Timers.Timer _timer;
@@ -33,7 +36,14 @@ namespace GameLauncher.Services
         private bool _isRunning;
         private bool _disposed;
         private HashSet<string> _cachedIgnoredProcesses = new(StringComparer.OrdinalIgnoreCase);
-        
+
+        /// <summary>
+        /// Zuletzt erkannte Spiele. Dient dazu, nur die Wechsel zu protokollieren
+        /// statt jeden Durchlauf, damit im Protokoll nachvollziehbar bleibt, ob und
+        /// welchem Spiel ein laufender Prozess zugeordnet wurde.
+        /// </summary>
+        private HashSet<string> _previouslyRunningGameIds = new(StringComparer.Ordinal);
+
         private static readonly HashSet<string> WindowsSystemProcesses = new(StringComparer.OrdinalIgnoreCase)
         {
             "Idle", "System", "Registry", "smss", "csrss", "wininit", "services", "lsass", 
@@ -89,7 +99,7 @@ namespace GameLauncher.Services
                 _indexDirty = false;
                 _isRunning = true;
                 _timer.Start();
-                Logger.Log("PlayTimeService started (15s interval, tracking in seconds).");
+                Logger.Log($"PlayTimeService started ({TickIntervalSeconds}s interval, tracking in seconds).");
             }
         }
 
@@ -230,15 +240,9 @@ namespace GameLauncher.Services
                         }
 
                         // 3. Fallback: Pfadprüfung für Verzeichnis-basierte Treffer (Steam, Epic)
-                        string? processPathRaw = null;
-                        try
-                        {
-                            processPathRaw = process.MainModule?.FileName;
-                        }
-                        catch
-                        {
-                            // Zugriff verweigert oder Prozess beendet
-                        }
+                        // Der Pfad wird ohne Ausnahmebehandlung ermittelt; ein
+                        // verweigerter Zugriff liefert schlicht keinen Pfad.
+                        string? processPathRaw = ProcessPathReader.TryGetExecutablePath(process.Id);
 
                         if (!string.IsNullOrWhiteSpace(processPathRaw))
                         {
@@ -259,6 +263,8 @@ namespace GameLauncher.Services
                         try { process.Dispose(); } catch { }
                     }
                 }
+
+                LogRunningGameChanges(runningGameIds);
 
                 var activeGameId = _activeGameTracker.UpdateAndSelectActiveGameId(runningGameIds, now);
                 DateTime? activeGameStartedAt = activeGameId != null && runningGameStartedAt.TryGetValue(activeGameId, out var startedAt)
@@ -322,6 +328,37 @@ namespace GameLauncher.Services
             }
 
             return dispatcher.Invoke(() => _games.ToList());
+        }
+
+        /// <summary>
+        /// Protokolliert Beginn und Ende der erkannten Spiele. Nur Wechsel werden
+        /// gemeldet, damit das Protokoll bei laufendem Spiel nicht anwächst.
+        /// </summary>
+        private void LogRunningGameChanges(ISet<string> runningGameIds)
+        {
+            foreach (var gameId in runningGameIds)
+            {
+                if (!_previouslyRunningGameIds.Contains(gameId))
+                {
+                    Logger.Log($"Spielzeiterfassung gestartet für: {DescribeGame(gameId)}");
+                }
+            }
+
+            foreach (var gameId in _previouslyRunningGameIds)
+            {
+                if (!runningGameIds.Contains(gameId))
+                {
+                    Logger.Log($"Spielzeiterfassung beendet für: {DescribeGame(gameId)}");
+                }
+            }
+
+            _previouslyRunningGameIds = new HashSet<string>(runningGameIds, StringComparer.Ordinal);
+        }
+
+        private string DescribeGame(string gameId)
+        {
+            var game = _matchIndex.GetGameById(gameId);
+            return game == null ? gameId : $"{game.Name} ({gameId})";
         }
 
         private static void AddRunningGameMatch(

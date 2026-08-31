@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Windows;
@@ -631,6 +632,39 @@ namespace GameLauncher
                 // Refresh instantly so the new item (Opacity 0) becomes visible immediately
                 RefreshList(instant: true);
             }
+        }
+
+        private async void ImportGames_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new ImportGamesWindow(_viewModel.Games) { Owner = this };
+            if (dialog.ShowDialog() != true || dialog.SelectedCandidates.Count == 0)
+            {
+                return;
+            }
+
+            // Wie beim manuellen Hinzufügen ohne globales Event arbeiten, damit die
+            // Bibliothek nicht komplett neu geladen und animiert wird. Das Übernehmen
+            // liest je Spiel das Symbol aus der Programmdatei und läuft deshalb
+            // außerhalb des UI-Threads.
+            var candidates = dialog.SelectedCandidates;
+            var addedGames = await Task.Run(() => candidates
+                .Select(candidate => _gameManager.AddManualGame(
+                    candidate.Name,
+                    candidate.TargetPath,
+                    candidate.Arguments,
+                    notifyUI: false))
+                .ToList());
+
+            foreach (var game in addedGames)
+            {
+                _viewModel.Games.Add(game);
+            }
+
+            await _viewModel.RebuildLibraryViewAsync();
+            ShowStatus(_localization.Format("Main.StatusGamesImported", dialog.SelectedCandidates.Count));
+            Logger.Log($"{dialog.SelectedCandidates.Count} Spiel(e) über Verknüpfungen importiert.");
+
+            RefreshList(instant: true);
         }
 
         private void GameCard_Click(object sender, RoutedEventArgs e)

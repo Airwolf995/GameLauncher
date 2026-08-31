@@ -13,6 +13,9 @@ namespace GameLauncher.Services
     public class MetadataService
     {
         private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        private const int MaxSteamGridDbCovers = 12;
+        private const int MaxSteamStoreCovers = 6;
+
         private readonly string _apiKey;
 
         public MetadataService(string apiKey = "")
@@ -123,46 +126,191 @@ namespace GameLauncher.Services
             return $"https://store.steampowered.com/api/appdetails?appids={Uri.EscapeDataString(appId)}&l={steamLanguage}";
         }
 
-        public async Task<string?> GetCoverUrlAsync(string gameName, CancellationToken ct = default)
+        /// <summary>
+        /// Sucht Titelbilder zu einem Spielnamen. Ausgewertet werden SteamGridDB,
+        /// sofern ein Schlüssel hinterlegt ist, und zusätzlich immer die öffentliche
+        /// Steam-Suche. Dadurch liefert die Suche auch ohne SteamGridDB-Schlüssel
+        /// brauchbare Ergebnisse.
+        /// </summary>
+        public async Task<List<CoverCandidate>> GetCoverCandidatesAsync(string gameName, CancellationToken ct = default)
         {
-            if (string.IsNullOrEmpty(_apiKey)) return null;
-
-            try 
+            var candidates = new List<CoverCandidate>();
+            if (string.IsNullOrWhiteSpace(gameName))
             {
-                // 1. Search Game ID
-                using var request = new HttpRequestMessage(HttpMethod.Get, $"https://www.steamgriddb.com/api/v2/search/autocomplete/{Uri.EscapeDataString(gameName)}");
-                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
-                
-                using var response = await _httpClient.SendAsync(request, ct);
-                if (!response.IsSuccessStatusCode) return null;
+                return candidates;
+            }
 
-                var json = await response.Content.ReadAsStringAsync(ct);
-                using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("data", out var data) && data.GetArrayLength() > 0)
+            candidates.AddRange(await GetSteamGridDbCoversAsync(gameName, ct));
+            candidates.AddRange(await GetSteamStoreCoversAsync(gameName, ct));
+            return candidates;
+        }
+
+        private async Task<List<CoverCandidate>> GetSteamGridDbCoversAsync(string gameName, CancellationToken ct)
+        {
+            if (string.IsNullOrEmpty(_apiKey))
+            {
+                return [];
+            }
+
+            try
+            {
+                string? searchJson = await GetSteamGridDbJsonAsync(
+                    $"https://www.steamgriddb.com/api/v2/search/autocomplete/{Uri.EscapeDataString(gameName)}", ct);
+                if (searchJson == null || !TryReadSteamGridDbGameId(searchJson, out int gameId))
                 {
-                    int gameId = data[0].GetProperty("id").GetInt32();
-
-                    // 2. Get Grids
-                    using var gridRequest = new HttpRequestMessage(HttpMethod.Get, $"https://www.steamgriddb.com/api/v2/grids/game/{gameId}?dimensions=600x900,342x482");
-                    gridRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
-                    
-                    using var gridResponse = await _httpClient.SendAsync(gridRequest, ct);
-                    if (gridResponse.IsSuccessStatusCode)
-                    {
-                         var gridJson = await gridResponse.Content.ReadAsStringAsync(ct);
-                         using var gridDoc = JsonDocument.Parse(gridJson);
-                         if (gridDoc.RootElement.TryGetProperty("data", out var grids) && grids.GetArrayLength() > 0)
-                         {
-                             return grids[0].GetProperty("url").GetString();
-                         }
-                    }
+                    return [];
                 }
+
+                string? gridJson = await GetSteamGridDbJsonAsync(
+                    $"https://www.steamgriddb.com/api/v2/grids/game/{gameId}?dimensions=600x900,342x482", ct);
+                return gridJson == null ? [] : ParseSteamGridDbGrids(gridJson);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                Logger.Error($"Error fetching cover for {gameName}", ex);
+                Logger.Error($"SteamGridDB-Suche für {gameName} fehlgeschlagen", ex);
+                return [];
             }
-            return null;
+        }
+
+        private async Task<string?> GetSteamGridDbJsonAsync(string url, CancellationToken ct)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
+
+            using var response = await _httpClient.SendAsync(request, ct);
+            return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync(ct) : null;
+        }
+
+        private async Task<List<CoverCandidate>> GetSteamStoreCoversAsync(string gameName, CancellationToken ct)
+        {
+            try
+            {
+                string json = await _httpClient.GetStringAsync(BuildSteamStoreSearchUrl(gameName), ct);
+                return ParseSteamStoreCovers(json);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Steam-Titelbildsuche für {gameName} fehlgeschlagen", ex);
+                return [];
+            }
+        }
+
+        internal static string BuildSteamStoreSearchUrl(string gameName) =>
+            $"https://store.steampowered.com/api/storesearch/?term={Uri.EscapeDataString(gameName)}&l=english&cc=US";
+
+        /// <summary>
+        /// Titelbild eines Steam-Titels. Verwendet wird dasselbe Bild, das der
+        /// Steam-Scanner für installierte Spiele nutzt.
+        /// </summary>
+        internal static string BuildSteamHeaderImageUrl(int appId) =>
+            $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/header.jpg";
+
+        internal static List<CoverCandidate> ParseSteamGridDbGrids(string json)
+        {
+            var candidates = new List<CoverCandidate>();
+            try
+            {
+                using var document = JsonDocument.Parse(json);
+                if (!document.RootElement.TryGetProperty("data", out var grids) ||
+                    grids.ValueKind != JsonValueKind.Array)
+                {
+                    return candidates;
+                }
+
+                foreach (var grid in grids.EnumerateArray())
+                {
+                    if (candidates.Count >= MaxSteamGridDbCovers)
+                    {
+                        break;
+                    }
+
+                    if (grid.TryGetProperty("url", out var url))
+                    {
+                        string? imageUrl = url.GetString();
+                        if (!string.IsNullOrWhiteSpace(imageUrl))
+                        {
+                            candidates.Add(new CoverCandidate(imageUrl, "SteamGridDB"));
+                        }
+                    }
+                }
+            }
+            catch (JsonException ex)
+            {
+                Logger.Error("SteamGridDB-Antwort konnte nicht gelesen werden", ex);
+            }
+
+            return candidates;
+        }
+
+        internal static List<CoverCandidate> ParseSteamStoreCovers(string json)
+        {
+            var candidates = new List<CoverCandidate>();
+            try
+            {
+                using var document = JsonDocument.Parse(json);
+                if (!document.RootElement.TryGetProperty("items", out var items) ||
+                    items.ValueKind != JsonValueKind.Array)
+                {
+                    return candidates;
+                }
+
+                foreach (var item in items.EnumerateArray())
+                {
+                    if (candidates.Count >= MaxSteamStoreCovers)
+                    {
+                        break;
+                    }
+
+                    if (!item.TryGetProperty("id", out var id) || !id.TryGetInt32(out int appId))
+                    {
+                        continue;
+                    }
+
+                    string name = item.TryGetProperty("name", out var nameElement)
+                        ? nameElement.GetString() ?? string.Empty
+                        : string.Empty;
+
+                    candidates.Add(new CoverCandidate(
+                        BuildSteamHeaderImageUrl(appId),
+                        string.IsNullOrWhiteSpace(name) ? "Steam" : $"Steam: {name}"));
+                }
+            }
+            catch (JsonException ex)
+            {
+                Logger.Error("Steam-Suchantwort konnte nicht gelesen werden", ex);
+            }
+
+            return candidates;
+        }
+
+        private static bool TryReadSteamGridDbGameId(string json, out int gameId)
+        {
+            gameId = 0;
+            try
+            {
+                using var document = JsonDocument.Parse(json);
+                if (document.RootElement.TryGetProperty("data", out var data) &&
+                    data.ValueKind == JsonValueKind.Array &&
+                    data.GetArrayLength() > 0 &&
+                    data[0].TryGetProperty("id", out var id))
+                {
+                    return id.TryGetInt32(out gameId);
+                }
+            }
+            catch (JsonException ex)
+            {
+                Logger.Error("SteamGridDB-Suchantwort konnte nicht gelesen werden", ex);
+            }
+
+            return false;
         }
 
         public async Task<string?> DownloadImageAsync(string url, string gameName, CancellationToken ct = default)

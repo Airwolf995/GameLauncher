@@ -14,6 +14,7 @@ namespace GameLauncher.Services
             var options = new List<LocalizedOption>
             {
                 CreateOption(Constants.Filters.All, localization.Get("Filter.All")),
+                CreateOption(Constants.Filters.Favorites, localization.Get("Filter.Favorites")),
                 CreateOption(Constants.Platforms.Steam, Constants.Platforms.Steam),
                 CreateOption(Constants.Platforms.Epic, Constants.Platforms.Epic),
                 CreateOption(Constants.Platforms.GOG, Constants.Platforms.GOG),

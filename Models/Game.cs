@@ -190,6 +190,19 @@ namespace GameLauncher.Models
             }
         }
 
+        /// <summary>
+        /// Gibt an, ob für dieses Spiel eine Spielzeit gemessen werden kann.
+        /// Die Zuordnung erfolgt über den laufenden Prozess: Spiele der Plattformen
+        /// werden über ihr Installationsverzeichnis erkannt, manuelle Einträge über
+        /// ihren Programmpfad. Ein manueller Eintrag, der nur eine Adresse startet,
+        /// besitzt keinen zuordenbaren Prozess.
+        /// Diese Eigenschaft ist die gemeinsame Grundlage für die Prozesszuordnung
+        /// und die Anzeige, damit beide dieselbe Aussage treffen.
+        /// </summary>
+        [JsonIgnore]
+        public bool SupportsPlayTimeTracking =>
+            !IsManual || string.Equals(LaunchType, "exe", StringComparison.OrdinalIgnoreCase);
+
         [JsonIgnore]
         public string DisplayPlayTime => _cachedDisplayPlayTime ??= FormatPlayTime();
 
@@ -219,6 +232,14 @@ namespace GameLauncher.Models
 
             if (_lastPlayed != null)
             {
+                // Die Angabe "unter 30 Sekunden" beschreibt eine Messung, die kürzer
+                // war als ein Erfassungsintervall. Ohne Zeiterfassung wäre sie eine
+                // Behauptung über etwas, das nie gemessen wurde.
+                if (!SupportsPlayTimeTracking)
+                {
+                    return localization.Get("Details.StartedOnly");
+                }
+
                 return localization.CurrentLanguage == AppLanguage.German
                     ? "Gespielt (< 30 Sek.)"
                     : "Played (< 30 sec)";

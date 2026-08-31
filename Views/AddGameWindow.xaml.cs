@@ -26,12 +26,12 @@ namespace GameLauncher
         {
             InitializeComponent();
             _metadataService = new Services.MetadataService(apiKey);
-            
-            // Disable search button if no API key
+
+            // Ohne SteamGridDB-Schlüssel bleibt die Suche nutzbar: sie greift dann
+            // allein auf die öffentliche Steam-Suche zurück.
             if (string.IsNullOrEmpty(apiKey))
             {
-                SearchCoverButton.IsEnabled = false;
-                SearchCoverButton.ToolTip = _localization.Get("AddGame.MissingApiKeyTooltip");
+                SearchCoverButton.ToolTip = _localization.Get("AddGame.SteamOnlySearchTooltip");
             }
         }
 
@@ -50,6 +50,79 @@ namespace GameLauncher
                     NameBox.Text = Path.GetFileNameWithoutExtension(dialog.FileName);
                 }
             }
+        }
+
+        private void Window_DragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = TryGetDroppedFile(e, out _) ? DragDropEffects.Copy : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void Window_Drop(object sender, DragEventArgs e)
+        {
+            if (!TryGetDroppedFile(e, out string filePath))
+            {
+                return;
+            }
+
+            e.Handled = true;
+
+            // Verknüpfungen auf ihr Ziel auflösen, damit Pfad und Argumente
+            // dem tatsächlich gestarteten Programm entsprechen.
+            if (filePath.EndsWith(".lnk", System.StringComparison.OrdinalIgnoreCase))
+            {
+                var target = Services.Scanners.ShortcutResolver.TryResolve(filePath);
+                if (target == null)
+                {
+                    MessageBox.Show(
+                        _localization.Get("AddGame.DropResolveFailed"),
+                        _localization.Get("Common.Warning"),
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                PathBox.Text = target.TargetPath;
+                if (string.IsNullOrWhiteSpace(ArgsBox.Text))
+                {
+                    ArgsBox.Text = target.Arguments;
+                }
+            }
+            else
+            {
+                PathBox.Text = filePath;
+            }
+
+            if (string.IsNullOrWhiteSpace(NameBox.Text))
+            {
+                NameBox.Text = Path.GetFileNameWithoutExtension(filePath);
+            }
+        }
+
+        /// <summary>
+        /// Liefert die erste gezogene Datei, sofern es sich um ein Programm oder
+        /// eine Verknüpfung handelt.
+        /// </summary>
+        private static bool TryGetDroppedFile(DragEventArgs e, out string filePath)
+        {
+            filePath = "";
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop) ||
+                e.Data.GetData(DataFormats.FileDrop) is not string[] files)
+            {
+                return false;
+            }
+
+            foreach (string file in files)
+            {
+                if (file.EndsWith(".exe", System.StringComparison.OrdinalIgnoreCase) ||
+                    file.EndsWith(".lnk", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    filePath = file;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private async void Save_Click(object sender, RoutedEventArgs e)
@@ -85,7 +158,7 @@ namespace GameLauncher
             DialogResult = false;
         }
 
-        private async void SearchCover_Click(object sender, RoutedEventArgs e)
+        private void SearchCover_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(NameBox.Text))
             {
@@ -93,34 +166,17 @@ namespace GameLauncher
                 return;
             }
 
-            SearchCoverButton.IsEnabled = false;
-            SearchCoverButton.Content = _localization.Get("AddGame.Searching");
+            // Die Auswahl mit Vorschau ersetzt die frühere Übernahme des ersten
+            // Suchergebnisses ohne Ansicht.
+            var picker = new CoverPickerWindow(_metadataService, NameBox.Text) { Owner = this };
+            if (picker.ShowDialog() != true || picker.SelectedCover == null)
+            {
+                return;
+            }
 
-            try
-            {
-                string? imageUrl = await _metadataService.GetCoverUrlAsync(NameBox.Text);
-                
-                if (imageUrl != null)
-                {
-                    _pendingCoverUrl = imageUrl;
-                    MessageBox.Show(_localization.Get("AddGame.CoverFoundBody"), _localization.Get("Common.Done"), MessageBoxButton.OK, MessageBoxImage.Information);
-                    SearchCoverButton.Content = _localization.Get("AddGame.CoverFoundButton");
-                    SearchCoverButton.Style = (Style)FindResource("PrimaryButton");
-                    return;
-                }
-                
-                MessageBox.Show(_localization.Get("AddGame.CoverNotFoundBody"), _localization.Get("Common.Info"), MessageBoxButton.OK, MessageBoxImage.Information);
-                SearchCoverButton.Content = _localization.Get("AddGame.SearchCover");
-            }
-            catch (System.Exception ex)
-            {
-                 MessageBox.Show(_localization.Format("AddGame.SearchError", ex.Message), _localization.Get("Common.Error"), MessageBoxButton.OK, MessageBoxImage.Error);
-                 SearchCoverButton.Content = _localization.Get("AddGame.SearchCover");
-            }
-            finally
-            {
-                SearchCoverButton.IsEnabled = true;
-            }
+            _pendingCoverUrl = picker.SelectedCover.ImageUrl;
+            SearchCoverButton.Content = _localization.Get("AddGame.CoverFoundButton");
+            SearchCoverButton.Style = (Style)FindResource("PrimaryButton");
         }
     }
 }

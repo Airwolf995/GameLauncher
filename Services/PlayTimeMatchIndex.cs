@@ -27,8 +27,11 @@ namespace GameLauncher.Services
 
                 _gamesById[game.Id] = game;
 
-                // Skip manual games for playtime tracking
-                if (game.IsManual)
+                // Manuelle Spiele wurden früher pauschal übergangen. Sie besitzen mit
+                // ihrem Programmpfad dieselbe Grundlage wie die Spiele der Plattformen
+                // und werden daher mitgeführt; ausgenommen bleiben Einträge ohne
+                // zuordenbaren Prozess.
+                if (!game.SupportsPlayTimeTracking)
                 {
                     continue;
                 }

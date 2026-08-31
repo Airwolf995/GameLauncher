@@ -23,4 +23,33 @@ public sealed class SteamScannerTests
 
         Assert.Equal("Mein\\Spiel", installDirectory);
     }
+
+    [Theory]
+    [InlineData(4)]    // vollständig installiert
+    [InlineData(6)]    // installiert, Aktualisierung ausstehend
+    [InlineData(1028)] // installiert, zusätzliche Statusbits gesetzt
+    public void IsFullyInstalled_ErkenntGesetztesInstallationsBit(int stateFlags)
+    {
+        string manifest = $"\"AppState\"\n{{\n  \"StateFlags\" \"{stateFlags}\"\n}}";
+
+        Assert.True(SteamScanner.IsFullyInstalled(manifest));
+    }
+
+    [Theory]
+    [InlineData(2)]    // Aktualisierung erforderlich, nicht spielbar
+    [InlineData(1026)] // Installation läuft noch
+    public void IsFullyInstalled_ErkenntUnvollständigeInstallationen(int stateFlags)
+    {
+        string manifest = $"\"AppState\"\n{{\n  \"StateFlags\" \"{stateFlags}\"\n}}";
+
+        Assert.False(SteamScanner.IsFullyInstalled(manifest));
+    }
+
+    [Theory]
+    [InlineData("\"AppState\"\n{\n  \"name\" \"Spiel\"\n}")]
+    [InlineData("\"AppState\"\n{\n  \"StateFlags\" \"unbekannt\"\n}")]
+    public void IsFullyInstalled_BehältSpieleOhneVerwertbarenStatus(string manifest)
+    {
+        Assert.True(SteamScanner.IsFullyInstalled(manifest));
+    }
 }
