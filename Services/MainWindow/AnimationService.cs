@@ -165,15 +165,14 @@ namespace GameLauncher.Services.MainWindow
 
         private static (int firstIndex, int lastIndexExclusive) GetGeneratedIndexRange(ListBox listBox, int count)
         {
-            if (listBox.FindDescendant<VirtualizingWrapPanel>() is VirtualizingWrapPanel virtualizingWrapPanel)
+            RealizedItemRange realizedRange = RealizedItemRange.For(listBox);
+            if (!realizedRange.IsEmpty)
             {
-                var realizedRange = virtualizingWrapPanel.GetRealizedIndexRange();
-                if (realizedRange.lastIndexExclusive > realizedRange.firstIndex)
-                {
-                    return realizedRange;
-                }
+                return (realizedRange.FirstIndex, realizedRange.LastIndexExclusive);
             }
 
+            // Vor dem ersten Layout ist noch nichts realisiert; dann bleibt nur die
+            // vollstaendige Liste als Naeherung.
             return (0, Math.Min(count, listBox.Items.Count));
         }
 

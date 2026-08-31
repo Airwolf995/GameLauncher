@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using LibreHardwareMonitor.Hardware;
 
@@ -11,13 +11,22 @@ namespace GameLauncher.Services
         private const string FailureGpuTemperature = "GpuTemperature";
         private const string FailureGpuMemoryTotal = "GpuMemoryTotal";
 
+        private static readonly TimeSpan SensorUpdateInterval = TimeSpan.FromSeconds(1);
+
         private readonly Computer _computer;
         private readonly HashSet<string> _loggedFailures = new(StringComparer.Ordinal);
         private readonly object _sync = new();
+        private readonly SensorUpdateThrottle _updateThrottle;
         private bool _isAvailable;
 
         public LibreHardwareTelemetrySource()
+            : this(null)
         {
+        }
+
+        internal LibreHardwareTelemetrySource(Func<DateTime>? utcNow)
+        {
+            _updateThrottle = new SensorUpdateThrottle(SensorUpdateInterval, utcNow);
             _computer = new Computer
             {
                 IsCpuEnabled = true,
@@ -254,7 +263,14 @@ namespace GameLauncher.Services
 
                 try
                 {
-                    UpdateAllHardware();
+                    // Ein Durchlauf fragt mehrere Einzelwerte ab; ohne diese
+                    // Begrenzung loeste jeder davon ein vollstaendiges - und teures -
+                    // Sensor-Update aus.
+                    if (_updateThrottle.ShouldUpdate())
+                    {
+                        UpdateAllHardware();
+                    }
+
                     return readOperation();
                 }
                 catch (Exception ex)

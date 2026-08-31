@@ -375,15 +375,14 @@ namespace GameLauncher
             Dispatcher.BeginInvoke(
                 new Action(() =>
                 {
-                    if (GameListControl.FindDescendant<GameLauncher.Controls.VirtualizingWrapPanel>() is GameLauncher.Controls.VirtualizingWrapPanel wrapPanel)
+                    var realizedRange = GameLauncher.Core.RealizedItemRange.For(GameListControl);
+                    if (realizedRange.IsEmpty)
                     {
-                        var realizedRange = wrapPanel.GetRealizedIndexRange();
-                        int realizedCount = Math.Max(0, realizedRange.lastIndexExclusive - realizedRange.firstIndex);
-                        Logger.Log($"Virtualisierung nach Ansichtswechsel: realisiert={realizedCount}, Bereich={realizedRange.firstIndex}-{Math.Max(realizedRange.firstIndex, realizedRange.lastIndexExclusive - 1)}, Gesamt={GameListControl.Items.Count}.");
+                        Logger.Log($"Virtualisierung nach Ansichtswechsel: noch nichts realisiert, Gesamt={GameListControl.Items.Count}.");
                     }
                     else
                     {
-                        Logger.Log($"Virtualisierung nach Ansichtswechsel: Zeilenmodus aktiv, realisierte Zeilen derzeit nicht separat erfasst, Gesamt={GameListControl.Items.Count}.");
+                        Logger.Log($"Virtualisierung nach Ansichtswechsel: realisiert={realizedRange.Count}, Bereich={realizedRange.FirstIndex}-{realizedRange.LastIndexExclusive - 1}, Gesamt={GameListControl.Items.Count}.");
                     }
                 }),
                 DispatcherPriority.Loaded);
