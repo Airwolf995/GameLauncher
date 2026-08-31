@@ -20,14 +20,8 @@ namespace GameLauncher.Services.Scanners
         {
             var paths = new List<string>();
 
-            RegistryScanUtility.ForEachSubKey(UninstallRegistryPath, (subKeyName, appKey) =>
+            RegistryScanUtility.ForEachSubKey(UninstallRegistryPath, (_, appKey) =>
             {
-                if (IsSteamManagedEntry(subKeyName))
-                {
-                    return;
-                }
-
-                string? publisher = appKey.GetValue("Publisher") as string;
                 string? displayName = appKey.GetValue("DisplayName") as string;
                 string? installDirectory = appKey.GetValue("InstallLocation") as string;
 
@@ -37,7 +31,9 @@ namespace GameLauncher.Services.Scanners
                     return;
                 }
 
-                if (!IsEaGameInstallation(publisher, installDirectory))
+                // Dieselbe Prüfung wie beim Scan: nur Ordner mit Installationsdaten
+                // von EA gehören zur Bibliothek.
+                if (EaGameManifestReader.TryRead(installDirectory) == null)
                 {
                     return;
                 }
@@ -56,18 +52,14 @@ namespace GameLauncher.Services.Scanners
         private List<Game> Scan(CancellationToken ct)
         {
             var games = new List<Game>();
+            var seenContentIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            // EA App speichert Spiele in der Uninstall Registry
+            // Die Registry liefert die Installationsordner; Kennung und Titel
+            // stammen aus den Installationsdaten im Spielordner selbst.
             RegistryScanUtility.ForEachSubKey(UninstallRegistryPath, (subKeyName, appKey) =>
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (IsSteamManagedEntry(subKeyName))
-                {
-                    return;
-                }
-
-                string? publisher = appKey.GetValue("Publisher") as string;
                 string? installLocation = appKey.GetValue("InstallLocation") as string;
                 string? displayName = appKey.GetValue("DisplayName") as string;
 
@@ -82,11 +74,21 @@ namespace GameLauncher.Services.Scanners
                     return;
                 }
 
-                if (!IsEaGameInstallation(publisher, installLocation))
+                var manifest = EaGameManifestReader.TryRead(installLocation);
+                if (manifest == null)
                 {
                     return;
                 }
 
+                // Dasselbe Spiel besitzt teils mehrere Deinstallationseinträge,
+                // etwa zusätzlich einen von Steam angelegten. Die Inhaltskennung
+                // ist die verlässliche Identität.
+                if (!seenContentIds.Add(manifest.ContentId))
+                {
+                    return;
+                }
+
+                string gameId = $"ea_{manifest.ContentId}";
                 string exePath = ExecutableSelector.FindPrimaryExecutable(
                     installLocation,
                     "unins", "crash", "cleanup", "touchup", "eadesktop");
@@ -94,30 +96,25 @@ namespace GameLauncher.Services.Scanners
 
                 if (!string.IsNullOrEmpty(exePath))
                 {
-                    iconUrl = IconExtractor.GetIconFromExe(exePath, $"ea_{subKeyName}");
+                    iconUrl = IconExtractor.GetIconFromExe(exePath, gameId);
                 }
 
-                // Clean name (sometimes has TM or R symbols)
-                string cleanName = string.IsNullOrWhiteSpace(displayName)
-                    ? new DirectoryInfo(installLocation).Name
-                    : displayName.Replace("™", "").Replace("®", "").Trim();
-                if (string.IsNullOrWhiteSpace(cleanName))
-                {
-                    cleanName = subKeyName;
-                }
+                string cleanName = CleanTitle(manifest.Title)
+                    ?? CleanTitle(displayName)
+                    ?? new DirectoryInfo(installLocation).Name;
 
                 games.Add(new Game
                 {
-                    Id = $"ea_{subKeyName}",
+                    Id = gameId,
                     Name = cleanName,
-                    Path = BuildLaunchUri(subKeyName),
+                    Path = BuildLaunchUri(manifest.ContentId),
                     Args = "",
                     Platform = Constants.Platforms.EAApp,
                     LaunchType = "uri",
                     ImageUrl = iconUrl,
                     InstallDirectory = installLocation
                 });
-                Logger.Log($"Found EA game: {cleanName}");
+                Logger.Log($"Found EA game: {cleanName} (Content-ID: {manifest.ContentId})");
             });
 
             return games;
@@ -127,44 +124,23 @@ namespace GameLauncher.Services.Scanners
             $"origin2://game/launch?offerIds={Uri.EscapeDataString(offerId)}";
 
         /// <summary>
-        /// Steam legt für seine Spiele eigene Deinstallationseinträge unter dem
-        /// Namen "Steam App &lt;AppID&gt;" an. Über Steam bezogene EA-Titel bringen die
-        /// Installer-Metadaten von EA mit und würden hier sonst ein zweites Mal
-        /// auftauchen, obwohl der Steam-Scanner sie bereits führt.
+        /// Entfernt Markensymbole und liefert null für unbrauchbare Titel, damit
+        /// die Rückfallkette den nächsten Kandidaten prüfen kann.
         /// </summary>
-        internal static bool IsSteamManagedEntry(string subKeyName) =>
-            subKeyName.StartsWith("Steam App ", StringComparison.OrdinalIgnoreCase);
+        private static string? CleanTitle(string? title)
+        {
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                return null;
+            }
+
+            string cleaned = title.Replace("™", "").Replace("®", "").Trim();
+            return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
+        }
 
         private static bool IsEaClient(string? displayName) =>
             !string.IsNullOrWhiteSpace(displayName) &&
             (displayName.Contains("EA app", StringComparison.OrdinalIgnoreCase) ||
              displayName.Contains("Origin", StringComparison.OrdinalIgnoreCase));
-
-        internal static bool IsEaGameInstallation(string? publisher, string installDirectory)
-        {
-            if (string.IsNullOrWhiteSpace(installDirectory))
-            {
-                return false;
-            }
-
-            try
-            {
-                // Die Installer-Metadaten liegen im Spielordner und sind unabhängig
-                // von uneinheitlichen Publisher-Strings in der Uninstall-Registry.
-                if (File.Exists(Path.Combine(installDirectory, "__Installer", "installerdata.xml")))
-                {
-                    return true;
-                }
-            }
-            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
-            {
-                return false;
-            }
-
-            // Ältere Installationen besitzen nicht immer die Metadatendatei.
-            return !string.IsNullOrWhiteSpace(publisher) &&
-                   publisher.Contains("Electronic Arts", StringComparison.OrdinalIgnoreCase);
-        }
-
     }
 }

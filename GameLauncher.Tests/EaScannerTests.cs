@@ -1,3 +1,4 @@
+using GameLauncher.Services.Localization;
 using GameLauncher.Services.Scanners;
 
 namespace GameLauncher.Tests;
@@ -13,56 +14,126 @@ public sealed class EaScannerTests
     }
 
     [Fact]
-    public void IsEaGameInstallation_ErkenntInstallerMetadatenUnabhängigVomPublisher()
+    public void BuildLaunchUri_VerwendetDieInhaltskennungAusDenInstallationsdaten()
     {
-        string temporaryDirectory = Directory.CreateTempSubdirectory("GameLauncherEaTests_").FullName;
-
-        try
-        {
-            string installerDirectory = Directory.CreateDirectory(
-                Path.Combine(temporaryDirectory, "__Installer")).FullName;
-            File.WriteAllText(Path.Combine(installerDirectory, "installerdata.xml"), "<installer />");
-
-            bool isEaGame = EaScanner.IsEaGameInstallation("BioWare", temporaryDirectory);
-
-            Assert.True(isEaGame);
-        }
-        finally
-        {
-            Directory.Delete(temporaryDirectory, recursive: true);
-        }
+        Assert.Equal("origin2://game/launch?offerIds=1026023", EaScanner.BuildLaunchUri("1026023"));
     }
+}
 
-    [Theory]
-    [InlineData("Steam App 1222670")]
-    [InlineData("steam app 620")]
-    public void IsSteamManagedEntry_ErkenntDeinstallationseintraegeVonSteam(string subKeyName)
-    {
-        Assert.True(EaScanner.IsSteamManagedEntry(subKeyName));
-    }
+/// <summary>
+/// Die Beispielinhalte bilden die beiden Aufbauten nach, die in echten
+/// installerdata.xml-Dateien vorkommen.
+/// </summary>
+public sealed class EaGameManifestReaderTests
+{
+    private const string NeueresManifest = """
+        <?xml version='1.0' encoding='utf-8'?>
+        <DiPManifest version="4.0">
+          <contentIDs>
+            <contentID>1026023</contentID>
+          </contentIDs>
+          <gameTitles>
+            <gameTitle locale="en_US">Battlefield 1</gameTitle>
+            <gameTitle locale="de_DE">Battlefield 1 Deutsch</gameTitle>
+          </gameTitles>
+        </DiPManifest>
+        """;
 
-    [Theory]
-    [InlineData("{48EBEBBF-B9F8-4520-A3CF-89A730721917}")]
-    [InlineData("Origin.OFR.50.0002694")]
-    [InlineData("")]
-    public void IsSteamManagedEntry_LaesstEigenstaendigeEintraegeZu(string subKeyName)
+    private const string AelteresManifest = """
+        <?xml version="1.0" encoding="utf-8"?>
+        <game gameVersion="1.5.0.0" manifestVersion="2.1">
+          <contentIDs>
+            <contentID>71628</contentID>
+            <contentID>71530</contentID>
+          </contentIDs>
+          <metadata>
+            <localeInfo locale="en_US">
+              <title>Need for Speed Most Wanted</title>
+            </localeInfo>
+            <localeInfo locale="de_DE">
+              <title>Need for Speed Most Wanted Deutsch</title>
+            </localeInfo>
+          </metadata>
+        </game>
+        """;
+
+    [Fact]
+    public void Parse_LiestKennungUndTitelAusDemNeuerenAufbau()
     {
-        Assert.False(EaScanner.IsSteamManagedEntry(subKeyName));
+        var manifest = EaGameManifestReader.Parse(NeueresManifest, AppLanguage.German);
+
+        Assert.NotNull(manifest);
+        Assert.Equal("1026023", manifest.ContentId);
+        Assert.Equal("Battlefield 1 Deutsch", manifest.Title);
     }
 
     [Fact]
-    public void IsEaGameInstallation_VerwendetDenLegacyPublisherNurAlsFallback()
+    public void Parse_LiestKennungUndTitelAusDemAelterenAufbau()
     {
-        string temporaryDirectory = Directory.CreateTempSubdirectory("GameLauncherEaTests_").FullName;
+        var manifest = EaGameManifestReader.Parse(AelteresManifest, AppLanguage.German);
 
-        try
-        {
-            Assert.True(EaScanner.IsEaGameInstallation("Electronic Arts", temporaryDirectory));
-            Assert.False(EaScanner.IsEaGameInstallation("BioWare", temporaryDirectory));
-        }
-        finally
-        {
-            Directory.Delete(temporaryDirectory, recursive: true);
-        }
+        Assert.NotNull(manifest);
+        Assert.Equal("71628", manifest.ContentId);
+        Assert.Equal("Need for Speed Most Wanted Deutsch", manifest.Title);
+    }
+
+    /// <summary>
+    /// Die erste Kennung bezeichnet das Spiel, die weiteren gehören zu Zusatzinhalten.
+    /// </summary>
+    [Fact]
+    public void Parse_VerwendetDieErsteKennung()
+    {
+        var manifest = EaGameManifestReader.Parse(AelteresManifest, AppLanguage.English);
+
+        Assert.Equal("71628", manifest!.ContentId);
+    }
+
+    [Fact]
+    public void Parse_VerwendetDieEingestellteSprache()
+    {
+        var manifest = EaGameManifestReader.Parse(NeueresManifest, AppLanguage.English);
+
+        Assert.Equal("Battlefield 1", manifest!.Title);
+    }
+
+    [Fact]
+    public void Parse_FaelltAufEineVorhandeneSpracheZurueck()
+    {
+        const string nurFranzoesisch = """
+            <DiPManifest version="4.0">
+              <contentIDs><contentID>555</contentID></contentIDs>
+              <gameTitles><gameTitle locale="fr_FR">Un Jeu</gameTitle></gameTitles>
+            </DiPManifest>
+            """;
+
+        var manifest = EaGameManifestReader.Parse(nurFranzoesisch, AppLanguage.German);
+
+        Assert.Equal("Un Jeu", manifest!.Title);
+    }
+
+    [Fact]
+    public void Parse_LiefertOhneTitelNurDieKennung()
+    {
+        const string ohneTitel = """
+            <DiPManifest version="4.0">
+              <contentIDs><contentID>999</contentID></contentIDs>
+            </DiPManifest>
+            """;
+
+        var manifest = EaGameManifestReader.Parse(ohneTitel, AppLanguage.German);
+
+        Assert.NotNull(manifest);
+        Assert.Equal("999", manifest.ContentId);
+        Assert.Null(manifest.Title);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("kein xml")]
+    [InlineData("<DiPManifest version=\"4.0\"></DiPManifest>")]
+    public void Parse_LiefertOhneVerwertbareKennungKeinManifest(string xml)
+    {
+        Assert.Null(EaGameManifestReader.Parse(xml, AppLanguage.German));
     }
 }
