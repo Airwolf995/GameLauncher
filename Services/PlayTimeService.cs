@@ -99,7 +99,7 @@ namespace GameLauncher.Services
                 _indexDirty = false;
                 _isRunning = true;
                 _timer.Start();
-                Logger.Log("PlayTimeService started (15s interval, tracking in seconds).");
+                Logger.Log($"PlayTimeService started ({TickIntervalSeconds}s interval, tracking in seconds).");
             }
         }
 

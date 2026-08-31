@@ -35,7 +35,11 @@ namespace GameLauncher
             };
             _hardwareTimer.Tick += UpdateHardwareStats;
 
-            _clockTimer = new DispatcherTimer
+            // Der Sekundenzähler braucht eine zuverlässige Taktung. Mit der
+            // Standardpriorität Background wird er von anderer Arbeit im
+            // UI-Thread verdrängt, etwa von der Spielzeiterfassung, und die
+            // Anzeige stockt sichtbar.
+            _clockTimer = new DispatcherTimer(DispatcherPriority.Render)
             {
                 Interval = TimeSpan.FromSeconds(1)
             };
