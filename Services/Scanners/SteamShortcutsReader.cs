@@ -39,6 +39,12 @@ namespace GameLauncher.Services.Scanners
                 return games;
             }
 
+            // Die Kennung entsteht aus der AppID, und dieselbe Verknüpfung kann in
+            // mehreren Benutzerprofilen stehen. Ohne diese Prüfung stünde das Spiel
+            // zweimal in der Bibliothek - mit derselben Id, also gemeinsamer
+            // Spielzeit und gemeinsamen Favoriten.
+            var seenIds = new HashSet<string>(StringComparer.Ordinal);
+
             foreach (string userDirectory in Directory.EnumerateDirectories(userDataDirectory))
             {
                 string shortcutsPath = Path.Combine(userDirectory, "config", "shortcuts.vdf");
@@ -50,7 +56,7 @@ namespace GameLauncher.Services.Scanners
                 foreach (var shortcut in ReadFile(shortcutsPath))
                 {
                     var game = TryCreateGame(shortcut);
-                    if (game != null)
+                    if (game != null && seenIds.Add(game.Id))
                     {
                         games.Add(game);
                     }

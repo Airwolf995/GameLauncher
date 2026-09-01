@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -29,6 +30,7 @@ namespace GameLauncher.Services
         private const int PersistEveryNTicks = 6; // Spielzeit höchstens einmal pro Minute regulär schreiben
         private readonly GameManager _gameManager;
         private readonly IEnumerable<Game> _games;
+        private readonly INotifyCollectionChanged? _observableGames;
         private readonly System.Timers.Timer _timer;
         private readonly Action? _tickBody;
         private readonly object _lifecycleSync = new();
@@ -80,11 +82,28 @@ namespace GameLauncher.Services
             _gameManager = gameManager;
             _games = games;
             _tickBody = tickBody;
-            
-            // Index bei Spieleänderungen automatisch als dirty markieren
+
+            // Zwei verschiedene Tatsachen machen den Index veraltet, und sie werden
+            // über zwei verschiedene Wege gemeldet:
+            //
+            // GamesUpdated meldet Änderungen am Zustand vorhandener Spiele. Das
+            // Ereignis lässt die Oberfläche allerdings die gesamte Bibliothek neu
+            // laden und animieren, weshalb Hinzufügen, Importieren und Löschen
+            // manueller Spiele es bewusst auslassen und ihre Änderung direkt in die
+            // Sammlung schreiben.
+            //
+            // Deshalb wird zusätzlich die Sammlung selbst beobachtet: Sie ist die
+            // Quelle, aus der der Index ohnehin gelesen wird, und meldet jede
+            // Änderung ihres Bestands von sich aus. Damit kann kein Aufrufer die
+            // Aktualisierung vergessen, ohne dass die Oberfläche etwas davon merkt.
             _gameManager.GamesUpdated += OnGamesUpdated;
-            
-            // Check every 15 seconds - PlayTime is in seconds for high precision
+
+            if (_games is INotifyCollectionChanged observableGames)
+            {
+                _observableGames = observableGames;
+                _observableGames.CollectionChanged += OnGamesCollectionChanged;
+            }
+
             _timer = new System.Timers.Timer(TickIntervalSeconds * 1000);
             _timer.Elapsed += OnTimerElapsed;
             _timer.AutoReset = true;
@@ -157,11 +176,27 @@ namespace GameLauncher.Services
 
             runningTick.GetAwaiter().GetResult();
             _gameManager.GamesUpdated -= OnGamesUpdated;
+            if (_observableGames != null)
+            {
+                _observableGames.CollectionChanged -= OnGamesCollectionChanged;
+            }
+
             _timer.Dispose();
             Logger.Log("PlayTimeService stopped.");
         }
 
         private void OnGamesUpdated(object? sender, EventArgs e)
+        {
+            _indexDirty = true;
+        }
+
+        /// <summary>
+        /// Ein Spiel ist hinzugekommen oder verschwunden. Ohne diese Meldung liefe
+        /// der Index mit dem alten Bestand weiter: ein gelöschtes Spiel sammelte
+        /// weiter Spielzeit und legte damit die gerade entfernten Einträge in der
+        /// Konfiguration neu an, ein hinzugefügtes bekäme dagegen keine.
+        /// </summary>
+        private void OnGamesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             _indexDirty = true;
         }
