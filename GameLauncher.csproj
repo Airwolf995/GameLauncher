@@ -12,9 +12,6 @@
     <FileVersion>2.1.0.0</FileVersion>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
-    <!-- Vorkompilierung beim Veroeffentlichen: weniger JIT-Arbeit beim Start.
-         Wirkt nur bei einem Publish mit Runtime-Kennung, wie in build-release.ps1. -->
-    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>
