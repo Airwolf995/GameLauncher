@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -30,7 +30,6 @@ namespace GameLauncher
         private Services.UISettingsService _uiSettingsService = null!;
         private Services.MainWindow.GameCardLayoutService _gameCardLayoutService = null!;
         private Services.MainWindow.TrayController _trayController = null!;
-        private Services.MainWindow.FpsCounter _fpsCounter = null!;
         private Services.MainWindow.OverlayController _overlayController = null!;
         private Services.MainWindow.StatusMessageService _statusMessageService = null!;
         private Services.MainWindow.UpdateCoordinator _updateCoordinator = null!;
@@ -97,7 +96,6 @@ namespace GameLauncher
             _gameCardLayoutService = new Services.MainWindow.GameCardLayoutService(_uiSettingsService);
             _animationService = new Services.MainWindow.AnimationService();
             _trayController = new Services.MainWindow.TrayController();
-            _fpsCounter = new Services.MainWindow.FpsCounter();
             _overlayController = new Services.MainWindow.OverlayController();
             _statusMessageService = new Services.MainWindow.StatusMessageService(
                 message =>
@@ -123,9 +121,6 @@ namespace GameLauncher
             _localization.LanguageChanged += OnLanguageChanged;
 
             ApplySavedTheme();
-
-            // FpsCounter bedarfsgesteuert: nur aktiv wenn Fenster sichtbar
-            StateChanged += MainWindow_StateChanged;
         }
 
         internal void InitializeRuntimeServices()
@@ -143,23 +138,6 @@ namespace GameLauncher
             new Action(() => RefreshList(instant: true)).RunOnUI();
         }
 
-        internal void InitializeFpsCounter()
-        {
-            _fpsCounter.Start(fps => new Action(() => FpsText.Text = _localization.Format("Main.Fps", fps)).RunOnUI());
-        }
-
-        private void MainWindow_StateChanged(object? sender, EventArgs e)
-        {
-            if (WindowState == WindowState.Minimized)
-            {
-                _fpsCounter.Stop();
-            }
-            else
-            {
-                _fpsCounter.Resume();
-            }
-        }
-
         internal void InitializeTrayIcon()
         {
             _trayController.Initialize(RestoreFromTray, ExitApplication);
@@ -170,7 +148,6 @@ namespace GameLauncher
             Show();
             WindowState = WindowState.Normal;
             Activate();
-            _fpsCounter.Resume();
             _trayController.HideTrayIcon();
         }
 
@@ -202,7 +179,6 @@ namespace GameLauncher
                 }
 
                 e.Cancel = true;
-                _fpsCounter.Stop();
                 Hide();
                 _trayController?.ShowTrayIcon();
                 _trayController?.ShowBalloon(_localization.Get("Main.TrayMinimizedTitle"), _localization.Get("Main.TrayMinimizedBody"), Constants.Timings.TrayBalloonDurationMs);
@@ -231,7 +207,6 @@ namespace GameLauncher
                 _playTimeService?.Dispose();
                 _overlayController?.Dispose();
                 _trayController?.Dispose();
-                _fpsCounter?.Dispose();
                 _statusMessageService?.Dispose();
                 _updateCoordinator?.Dispose();
                 if (_viewModel != null) _viewModel.LibraryViewRefreshed -= OnLibraryViewRefreshed;
@@ -336,7 +311,6 @@ namespace GameLauncher
         private void OnLanguageChanged(object? sender, EventArgs e)
         {
             Title = _localization.Get("AppName");
-            FpsText.Text = _localization.Format("Main.Fps", 0);
         }
 
         private void LibraryViewStateChanged(object sender, RoutedEventArgs e)
@@ -375,15 +349,14 @@ namespace GameLauncher
             Dispatcher.BeginInvoke(
                 new Action(() =>
                 {
-                    if (GameListControl.FindDescendant<GameLauncher.Controls.VirtualizingWrapPanel>() is GameLauncher.Controls.VirtualizingWrapPanel wrapPanel)
+                    var realizedRange = GameLauncher.Core.RealizedItemRange.For(GameListControl);
+                    if (realizedRange.IsEmpty)
                     {
-                        var realizedRange = wrapPanel.GetRealizedIndexRange();
-                        int realizedCount = Math.Max(0, realizedRange.lastIndexExclusive - realizedRange.firstIndex);
-                        Logger.Log($"Virtualisierung nach Ansichtswechsel: realisiert={realizedCount}, Bereich={realizedRange.firstIndex}-{Math.Max(realizedRange.firstIndex, realizedRange.lastIndexExclusive - 1)}, Gesamt={GameListControl.Items.Count}.");
+                        Logger.Log($"Virtualisierung nach Ansichtswechsel: noch nichts realisiert, Gesamt={GameListControl.Items.Count}.");
                     }
                     else
                     {
-                        Logger.Log($"Virtualisierung nach Ansichtswechsel: Zeilenmodus aktiv, realisierte Zeilen derzeit nicht separat erfasst, Gesamt={GameListControl.Items.Count}.");
+                        Logger.Log($"Virtualisierung nach Ansichtswechsel: realisiert={realizedRange.Count}, Bereich={realizedRange.FirstIndex}-{realizedRange.LastIndexExclusive - 1}, Gesamt={GameListControl.Items.Count}.");
                     }
                 }),
                 DispatcherPriority.Loaded);

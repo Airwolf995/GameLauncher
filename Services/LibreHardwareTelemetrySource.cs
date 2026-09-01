@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using LibreHardwareMonitor.Hardware;
 
@@ -9,15 +9,25 @@ namespace GameLauncher.Services
         private const string FailureInitialization = "Initialization";
         private const string FailureCpuTemperature = "CpuTemperature";
         private const string FailureGpuTemperature = "GpuTemperature";
+        private const string FailureGpuLoad = "GpuLoad";
         private const string FailureGpuMemoryTotal = "GpuMemoryTotal";
+
+        private static readonly TimeSpan SensorUpdateInterval = TimeSpan.FromSeconds(1);
 
         private readonly Computer _computer;
         private readonly HashSet<string> _loggedFailures = new(StringComparer.Ordinal);
         private readonly object _sync = new();
+        private readonly SensorUpdateThrottle _updateThrottle;
         private bool _isAvailable;
 
         public LibreHardwareTelemetrySource()
+            : this(null)
         {
+        }
+
+        internal LibreHardwareTelemetrySource(Func<DateTime>? utcNow)
+        {
+            _updateThrottle = new SensorUpdateThrottle(SensorUpdateInterval, utcNow);
             _computer = new Computer
             {
                 IsCpuEnabled = true,
@@ -67,6 +77,86 @@ namespace GameLauncher.Services
                 () => FindMaxSensorValue(
                     IsGpuHardware,
                     sensor => sensor.SensorType == SensorType.Temperature));
+        }
+
+        /// <summary>
+        /// Liefert die Rechenlast der Grafikkarte, wie der Treiber sie meldet.
+        ///
+        /// Die Alternative ueber die Windows-Leistungsindikatoren der Kategorie
+        /// "GPU Engine" ist prozessbezogen: dort existiert je Prozess eine eigene
+        /// Instanz. Diese Quelle hier ist geraetebezogen und damit unabhaengig
+        /// davon, welche Prozesse gerade laufen.
+        /// </summary>
+        public float? TryReadGpuLoad()
+        {
+            return ExecuteRead(
+                FailureGpuLoad,
+                "GPU-Auslastung konnte nicht per LibreHardwareMonitor gelesen werden",
+                () =>
+                {
+                    float? coreLoad = FindGpuLoadValue(
+                        sensor => string.Equals(sensor.Name, "GPU Core", StringComparison.OrdinalIgnoreCase));
+                    if (coreLoad.HasValue)
+                    {
+                        return coreLoad;
+                    }
+
+                    return FindGpuLoadValue(IsGpuComputeLoadSensor);
+                });
+        }
+
+        /// <summary>
+        /// Wie <see cref="FindMaxSensorValue"/>, laesst aber den Wert 0 zu: eine
+        /// Auslastung von null Prozent ist im Leerlauf die richtige Antwort und
+        /// darf nicht als "kein Messwert" gelten.
+        /// </summary>
+        private float? FindGpuLoadValue(Func<ISensor, bool> sensorFilter)
+        {
+            float? maxValue = null;
+
+            foreach (IHardware hardware in EnumerateHardware())
+            {
+                if (!IsGpuHardware(hardware))
+                {
+                    continue;
+                }
+
+                foreach (ISensor sensor in hardware.Sensors)
+                {
+                    if (sensor.SensorType != SensorType.Load || !sensorFilter(sensor))
+                    {
+                        continue;
+                    }
+
+                    if (sensor.Value is not float value ||
+                        float.IsNaN(value) ||
+                        float.IsInfinity(value) ||
+                        value < 0)
+                    {
+                        continue;
+                    }
+
+                    if (!maxValue.HasValue || value > maxValue.Value)
+                    {
+                        maxValue = value;
+                    }
+                }
+            }
+
+            return maxValue;
+        }
+
+        /// <summary>
+        /// Speicher- und Bus-Lastsensoren gehoeren nicht zur Rechenlast und
+        /// wuerden den Wert verfaelschen.
+        /// </summary>
+        private static bool IsGpuComputeLoadSensor(ISensor sensor)
+        {
+            string name = sensor.Name;
+            return name.IndexOf("memory", StringComparison.OrdinalIgnoreCase) < 0
+                && name.IndexOf("frame buffer", StringComparison.OrdinalIgnoreCase) < 0
+                && name.IndexOf("bus", StringComparison.OrdinalIgnoreCase) < 0
+                && name.IndexOf("video", StringComparison.OrdinalIgnoreCase) < 0;
         }
 
         public float? TryReadGpuMemoryTotalGb()
@@ -254,7 +344,14 @@ namespace GameLauncher.Services
 
                 try
                 {
-                    UpdateAllHardware();
+                    // Ein Durchlauf fragt mehrere Einzelwerte ab; ohne diese
+                    // Begrenzung loeste jeder davon ein vollstaendiges - und teures -
+                    // Sensor-Update aus.
+                    if (_updateThrottle.ShouldUpdate())
+                    {
+                        UpdateAllHardware();
+                    }
+
                     return readOperation();
                 }
                 catch (Exception ex)

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace GameLauncher.Services.Localization
 {
@@ -109,8 +109,6 @@ namespace GameLauncher.Services.Localization
             ["Main.Context.Delete"] = "Delete",
             ["Main.LoadingTitle"] = "Loading library...",
             ["Main.LoadingBody"] = "Searching and preparing games",
-            ["Main.Fps"] = "FPS: {0}",
-            ["Main.FpsIdle"] = "FPS: 0",
             ["Main.StatusLoadingGames"] = "Loading games...",
             ["Main.StatusGameAdded"] = "Game added",
             ["Main.StatusImageUpdated"] = "Image updated",
@@ -370,8 +368,6 @@ namespace GameLauncher.Services.Localization
             ["Main.Context.Delete"] = "Löschen",
             ["Main.LoadingTitle"] = "Bibliothek wird geladen...",
             ["Main.LoadingBody"] = "Spiele werden gesucht und vorbereitet",
-            ["Main.Fps"] = "FPS: {0}",
-            ["Main.FpsIdle"] = "FPS: 0",
             ["Main.StatusLoadingGames"] = "Lade Spiele...",
             ["Main.StatusGameAdded"] = "Spiel hinzugefügt",
             ["Main.StatusImageUpdated"] = "Bild aktualisiert",

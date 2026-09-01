@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -19,6 +19,12 @@ namespace GameLauncher.Services
         // Ein kürzeres Intervall erfasst daher auch kurze Sitzungen zuverlässiger
         // und begrenzt zugleich die Ungenauigkeit am Sitzungsende.
         private const int TickIntervalSeconds = 10;
+
+        // Im Leerlauf laeuft der Scan seltener: jeder Durchlauf legt mehrere hundert
+        // Prozessobjekte an, und solange kein Spiel laeuft, ist daran nichts zu holen.
+        // Sobald ein Spiel erkannt wurde, wird wieder im kurzen Takt gemessen, damit
+        // die Spielzeiterfassung unveraendert genau bleibt.
+        private const int IdleTickIntervalSeconds = 30;
         private const int SummaryLogEveryNTicks = 12; // 12 * 10s = 2 Minuten
         private const int PersistEveryNTicks = 6; // Spielzeit höchstens einmal pro Minute regulär schreiben
         private readonly GameManager _gameManager;
@@ -265,6 +271,7 @@ namespace GameLauncher.Services
                 }
 
                 LogRunningGameChanges(runningGameIds);
+                ApplyTickInterval(runningGameIds.Count > 0);
 
                 var activeGameId = _activeGameTracker.UpdateAndSelectActiveGameId(runningGameIds, now);
                 DateTime? activeGameStartedAt = activeGameId != null && runningGameStartedAt.TryGetValue(activeGameId, out var startedAt)
@@ -309,6 +316,32 @@ namespace GameLauncher.Services
                     currentTickCompletion.TrySetResult(true);
                     Interlocked.Exchange(ref _isTickRunning, 0);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Das Scan-Intervall abhaengig davon, ob gerade ein Spiel laeuft.
+        /// </summary>
+        internal static int GetTickIntervalSeconds(bool anyGameRunning) =>
+            anyGameRunning ? TickIntervalSeconds : IdleTickIntervalSeconds;
+
+        internal double CurrentTickIntervalMs => _timer.Interval;
+
+        private void ApplyTickInterval(bool anyGameRunning)
+        {
+            double desiredIntervalMs = GetTickIntervalSeconds(anyGameRunning) * 1000d;
+
+            lock (_lifecycleSync)
+            {
+                if (_disposed || Math.Abs(_timer.Interval - desiredIntervalMs) < 1d)
+                {
+                    return;
+                }
+
+                _timer.Interval = desiredIntervalMs;
+                Logger.Log(
+                    $"PlayTime-Scanintervall auf {desiredIntervalMs / 1000d:0}s gesetzt " +
+                    $"({(anyGameRunning ? "Spiel laeuft" : "Leerlauf")}).");
             }
         }
 

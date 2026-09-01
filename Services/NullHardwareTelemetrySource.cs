@@ -1,10 +1,12 @@
-namespace GameLauncher.Services
+﻿namespace GameLauncher.Services
 {
     internal sealed class NullHardwareTelemetrySource : IHardwareTelemetrySource
     {
         public float? TryReadCpuTemperature() => null;
 
         public float? TryReadGpuTemperature() => null;
+
+        public float? TryReadGpuLoad() => null;
 
         public float? TryReadGpuMemoryTotalGb() => null;
 

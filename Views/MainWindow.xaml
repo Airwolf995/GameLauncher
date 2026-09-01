@@ -1,4 +1,4 @@
-<Window x:Class="GameLauncher.MainWindow"
+﻿<Window x:Class="GameLauncher.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -576,7 +576,7 @@
                  VirtualizingPanel.VirtualizationMode="Recycling"
                  VirtualizingPanel.ScrollUnit="Pixel"
                  VirtualizingPanel.CacheLengthUnit="Item"
-                 VirtualizingPanel.CacheLength="10,10"
+                 VirtualizingPanel.CacheLength="2,2"
                  SizeChanged="GameListControl_SizeChanged">
             
             <ListBox.Resources>
@@ -675,10 +675,7 @@
 
         <!-- Status Bar -->
         <Border Grid.Row="2" Background="{DynamicResource AccentColor}" Padding="10,5">
-            <Grid>
-                <TextBlock x:Name="StatusText" Text="{Binding StatusText}" Foreground="White" FontSize="12" HorizontalAlignment="Left"/>
-                <TextBlock x:Name="FpsText" Text="{loc:Loc Key=Main.FpsIdle}" Foreground="White" FontSize="11" HorizontalAlignment="Right" Opacity="0.8"/>
-            </Grid>
+            <TextBlock x:Name="StatusText" Text="{Binding StatusText}" Foreground="White" FontSize="12" HorizontalAlignment="Left"/>
         </Border>
     </Grid>
 </Window>
