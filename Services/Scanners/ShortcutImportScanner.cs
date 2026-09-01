@@ -16,34 +16,6 @@ namespace GameLauncher.Services.Scanners
     internal static class ShortcutImportScanner
     {
         /// <summary>
-        /// Dateinamen bekannter Launcher und Store-Clients. Diese sollen als
-        /// Programm gestartet werden, nicht als Spiel in der Bibliothek stehen.
-        /// Bewusst nur konkrete Namen: ein generisches "launcher.exe" würde auch
-        /// Spiele ausschließen, die tatsächlich so starten. Ein zu viel
-        /// angebotener Treffer kostet ein Häkchen, ein fehlendes Spiel fällt
-        /// dem Benutzer dagegen nicht als Filterfehler auf.
-        /// </summary>
-        private static readonly HashSet<string> LauncherExecutables = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "steam.exe",
-            "epicgameslauncher.exe",
-            "galaxyclient.exe",
-            "eadesktop.exe",
-            "origin.exe",
-            "upc.exe",
-            "ubisoftconnect.exe",
-            "battle.net.exe",
-            "battle.net launcher.exe",
-            "riotclientservices.exe",
-            "leagueclient.exe",
-            "rockstarservice.exe",
-            "playnite.desktopapp.exe",
-            "itch.exe",
-            "amazon games.exe",
-            "gamelauncher.exe"
-        };
-
-        /// <summary>
         /// Namensbestandteile, die auf Hilfsprogramme statt auf ein Spiel hindeuten.
         /// Geprüft wird sowohl der Name der Verknüpfung als auch der Zieldatei.
         /// </summary>
@@ -168,7 +140,7 @@ namespace GameLauncher.Services.Scanners
 
             // Ein Store-Client mit Startparametern startet ein bestimmtes Spiel und
             // nicht sich selbst, etwa GalaxyClient.exe mit /command=runGame.
-            return !LauncherExecutables.Contains(fileName) || !string.IsNullOrWhiteSpace(arguments);
+            return !Constants.Launchers.IsLauncherExecutable(fileName) || !string.IsNullOrWhiteSpace(arguments);
         }
 
         /// <summary>
