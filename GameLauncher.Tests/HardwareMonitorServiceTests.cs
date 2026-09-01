@@ -243,6 +243,61 @@ namespace GameLauncher.Tests
             Assert.Equal(25f, snapshot.VramLoad);
         }
 
+        /// <summary>
+        /// Die geraetebezogene Angabe des Treibers hat Vorrang vor den
+        /// Leistungsindikatoren. Diese sind prozessbezogen und erfassen nur
+        /// Prozesse, die beim Aufbau der Zaehlerliste schon liefen - ein spaeter
+        /// gestartetes Spiel blieb dort unsichtbar, die Anzeige stand bei 1 %.
+        /// </summary>
+        [Fact]
+        public void SystemUsageReader_PrefersDeviceGpuLoadOverPerformanceCounters()
+        {
+            using var reader = new SystemUsageReader(
+                new TestHardwareTelemetrySource(gpuLoad: 87f),
+                readCpuUsage: () => 12f,
+                readMemoryStats: () => (8f, 32f, 25f),
+                readGpuUsage: null,
+                readVramStats: () => (2f, 8f, 25f));
+
+            HardwareStatsSnapshot snapshot = reader.ReadSnapshot();
+
+            Assert.Equal(87f, snapshot.GpuUsage);
+        }
+
+        /// <summary>
+        /// Leerlauf sind null Prozent - das ist ein gueltiger Messwert und darf
+        /// nicht als "kein Wert" behandelt werden.
+        /// </summary>
+        [Fact]
+        public void SystemUsageReader_AcceptsZeroPercentAsAValidGpuLoad()
+        {
+            using var reader = new SystemUsageReader(
+                new TestHardwareTelemetrySource(gpuLoad: 0f),
+                readCpuUsage: () => 12f,
+                readMemoryStats: () => (8f, 32f, 25f),
+                readGpuUsage: null,
+                readVramStats: () => (2f, 8f, 25f));
+
+            HardwareStatsSnapshot snapshot = reader.ReadSnapshot();
+
+            Assert.Equal(0f, snapshot.GpuUsage);
+        }
+
+        [Fact]
+        public void SystemUsageReader_ClampsImplausibleDeviceGpuLoad()
+        {
+            using var reader = new SystemUsageReader(
+                new TestHardwareTelemetrySource(gpuLoad: 140f),
+                readCpuUsage: () => 12f,
+                readMemoryStats: () => (8f, 32f, 25f),
+                readGpuUsage: null,
+                readVramStats: () => (2f, 8f, 25f));
+
+            HardwareStatsSnapshot snapshot = reader.ReadSnapshot();
+
+            Assert.Equal(100f, snapshot.GpuUsage);
+        }
+
         private sealed class TestSystemUsageReader : ISystemUsageReader
         {
             private readonly Func<HardwareStatsSnapshot> _readSnapshot;
@@ -309,10 +364,15 @@ namespace GameLauncher.Tests
 
         private sealed class TestHardwareTelemetrySource : IHardwareTelemetrySource
         {
+            private readonly float? _gpuLoad;
+
+            public TestHardwareTelemetrySource(float? gpuLoad = null) => _gpuLoad = gpuLoad;
+
             public int DisposeCalls { get; private set; }
 
             public float? TryReadCpuTemperature() => null;
             public float? TryReadGpuTemperature() => null;
+            public float? TryReadGpuLoad() => _gpuLoad;
             public float? TryReadGpuMemoryTotalGb() => null;
 
             public void Dispose()

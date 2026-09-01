@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Management;
@@ -23,6 +23,9 @@ namespace GameLauncher.Services
         private readonly Func<(float? usedGb, float? totalGb, float? loadPercent)> _readVramStats;
         private readonly Action<string, Exception> _logError;
         private readonly HashSet<string> _loggedReadErrors = new(StringComparer.Ordinal);
+
+        private readonly SensorUpdateThrottle _gpuCounterRefresh =
+            new(TimeSpan.FromSeconds(30));
 
         private bool _gpuCountersInitialized;
         private bool _gpuCountersAvailable = true;
@@ -196,6 +199,16 @@ namespace GameLauncher.Services
 
         private float? ReadGpuUsage()
         {
+            // Bevorzugt die geraetebezogene Angabe des Treibers. Die
+            // Leistungsindikatoren darunter sind prozessbezogen und erfassen nur
+            // Prozesse, die beim Aufbau der Zaehlerliste schon liefen - ein spaeter
+            // gestartetes Spiel taucht dort nicht auf.
+            float? deviceLoad = _hardwareTelemetrySource.TryReadGpuLoad();
+            if (deviceLoad.HasValue)
+            {
+                return (float)Math.Clamp(deviceLoad.Value, 0.0, 100.0);
+            }
+
             EnsureGpuCountersInitialized();
             if (!_gpuCountersAvailable || _gpuEngineCounters.Count == 0)
             {
@@ -276,14 +289,45 @@ namespace GameLauncher.Services
 
         private void EnsureGpuCountersInitialized()
         {
-            if (_gpuCountersInitialized)
+            if (!_gpuCountersInitialized)
+            {
+                // Verbraucht zugleich das erste Zeitfenster, damit der direkt
+                // folgende Zugriff nicht sofort neu einliest.
+                _gpuCounterRefresh.ShouldUpdate();
+                _gpuCountersInitialized = true;
+                InitializeGpuUsageCounters();
+                InitializeGpuMemoryCounters();
+                return;
+            }
+
+            // Die Instanzen der Kategorie "GPU Engine" sind prozessbezogen und
+            // entstehen erst mit dem jeweiligen Prozess. Ohne regelmaessiges
+            // Neueinlesen bliebe die Liste auf dem Stand des ersten Aufrufs -
+            // ein spaeter gestartetes Spiel taucht dann nie auf.
+            if (!_gpuCounterRefresh.ShouldUpdate())
             {
                 return;
             }
 
-            _gpuCountersInitialized = true;
+            DisposeGpuCounters();
             InitializeGpuUsageCounters();
             InitializeGpuMemoryCounters();
+        }
+
+        private void DisposeGpuCounters()
+        {
+            foreach (var counter in _gpuEngineCounters)
+            {
+                try { counter.Dispose(); } catch { }
+            }
+
+            foreach (var counter in _gpuMemoryCounters)
+            {
+                try { counter.Dispose(); } catch { }
+            }
+
+            _gpuEngineCounters.Clear();
+            _gpuMemoryCounters.Clear();
         }
 
         private void InitializeGpuUsageCounters()
