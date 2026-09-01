@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using GameLauncher.Models;
@@ -17,7 +18,7 @@ namespace GameLauncher.Services.Scanners
 
         /// <summary>
         /// Löst eine .lnk-Datei auf. Liefert null, wenn die Verknüpfung nicht
-        /// gelesen werden kann oder kein Ziel besitzt.
+        /// gelesen werden kann, kein Ziel besitzt oder das Ziel nicht existiert.
         /// </summary>
         public static ShortcutTarget? TryResolve(string shortcutPath)
         {
@@ -34,7 +35,13 @@ namespace GameLauncher.Services.Scanners
                 shellLink.GetPath(targetBuilder, targetBuilder.Capacity, IntPtr.Zero, 0);
                 string targetPath = targetBuilder.ToString();
 
-                if (string.IsNullOrWhiteSpace(targetPath))
+                // GetPath liefert den in der Verknüpfung gespeicherten Pfad, ohne ihn
+                // zu prüfen: eine Verknüpfung auf ein deinstalliertes Programm gibt
+                // ihn unverändert zurück, und ein Ziel jenseits von MAX_PATH kommt
+                // abgeschnitten heraus. Beides sähe für den Aufrufer wie ein gültiges
+                // Ergebnis aus und landete als nicht startbarer Eintrag in der
+                // Bibliothek, deshalb wird hier geprüft statt nur übernommen.
+                if (string.IsNullOrWhiteSpace(targetPath) || !File.Exists(targetPath))
                 {
                     return null;
                 }

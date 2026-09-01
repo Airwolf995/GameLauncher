@@ -196,12 +196,21 @@ namespace GameLauncher.Models
         /// werden über ihr Installationsverzeichnis erkannt, manuelle Einträge über
         /// ihren Programmpfad. Ein manueller Eintrag, der nur eine Adresse startet,
         /// besitzt keinen zuordenbaren Prozess.
+        /// Ebenso ausgenommen sind Einträge, deren Programmdatei ein Launcher ist:
+        /// Sie starten das Spiel über den Client und laufen als dessen Prozess, sind
+        /// also nicht vom Client selbst zu unterscheiden. Gemessen würde sonst die
+        /// Laufzeit des ohnehin im Hintergrund liegenden Launchers. Wer für einen
+        /// solchen Eintrag doch messen will, trägt den Prozessnamen des Spiels in
+        /// <see cref="ExecutableName"/> ein; dann gilt wieder die Zuordnung darüber.
         /// Diese Eigenschaft ist die gemeinsame Grundlage für die Prozesszuordnung
         /// und die Anzeige, damit beide dieselbe Aussage treffen.
         /// </summary>
         [JsonIgnore]
         public bool SupportsPlayTimeTracking =>
-            !IsManual || string.Equals(LaunchType, "exe", StringComparison.OrdinalIgnoreCase);
+            !IsManual
+            || (string.Equals(LaunchType, "exe", StringComparison.OrdinalIgnoreCase)
+                && (!string.IsNullOrWhiteSpace(ExecutableName)
+                    || !Constants.Launchers.IsLauncherExecutable(Path)));
 
         [JsonIgnore]
         public string DisplayPlayTime => _cachedDisplayPlayTime ??= FormatPlayTime();

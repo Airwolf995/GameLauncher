@@ -64,7 +64,13 @@ namespace GameLauncher.Services
                     }
                 }
 
-                if (string.IsNullOrWhiteSpace(game.InstallDirectory))
+                // Zeigt der Eintrag auf einen Launcher, ist das umgebende Verzeichnis
+                // der Ordner des Clients und enthält dessen Prozesse, nicht die des
+                // Spiels. Würde er beobachtet, zählte jeder Client-Prozess auf das
+                // Spiel. Die Zuordnung bleibt dann allein über den Prozessnamen
+                // möglich, den der Benutzer in ExecutableName hinterlegen kann.
+                if (string.IsNullOrWhiteSpace(game.InstallDirectory) ||
+                    Constants.Launchers.IsLauncherExecutable(game.Path))
                 {
                     continue;
                 }

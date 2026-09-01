@@ -27,6 +27,53 @@ namespace GameLauncher
             }
         }
         
+        /// <summary>
+        /// Bekannte Launcher und Store-Clients. Ein Eintrag, der auf eine dieser
+        /// Programmdateien zeigt, startet zwar ein Spiel, läuft dabei aber als
+        /// Prozess des Clients. Das ist sowohl für die Einstufung im Import als
+        /// auch für die Spielzeiterfassung dieselbe Frage, deshalb steht die
+        /// Liste hier statt in einem der beiden Aufrufer.
+        ///
+        /// Bewusst nur konkrete Namen: ein generisches "launcher.exe" würde auch
+        /// Spiele erfassen, die tatsächlich so heißen.
+        /// </summary>
+        public static class Launchers
+        {
+            private static readonly System.Collections.Generic.HashSet<string> Executables =
+                new(StringComparer.OrdinalIgnoreCase)
+                {
+                    "steam.exe",
+                    "epicgameslauncher.exe",
+                    "galaxyclient.exe",
+                    "eadesktop.exe",
+                    "origin.exe",
+                    "upc.exe",
+                    "ubisoftconnect.exe",
+                    "battle.net.exe",
+                    "battle.net launcher.exe",
+                    "riotclientservices.exe",
+                    "leagueclient.exe",
+                    "rockstarservice.exe",
+                    "playnite.desktopapp.exe",
+                    "itch.exe",
+                    "amazon games.exe",
+                    "gamelauncher.exe"
+                };
+
+            /// <summary>
+            /// Prüft, ob ein Pfad auf eine bekannte Launcher-Programmdatei zeigt.
+            /// </summary>
+            public static bool IsLauncherExecutable(string? path)
+            {
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    return false;
+                }
+
+                return Executables.Contains(System.IO.Path.GetFileName(path));
+            }
+        }
+
         public static class Timings
         {
             /// <summary>Config save debounce delay in milliseconds</summary>

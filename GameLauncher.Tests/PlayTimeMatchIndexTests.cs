@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using GameLauncher.Models;
 using GameLauncher.Services;
 using Xunit;
@@ -150,6 +150,65 @@ namespace GameLauncher.Tests
             var matched = index.TryMatchProcess("wow", @"C:\Spiele\WoW\wow.exe", out _);
 
             Assert.False(matched);
+        }
+
+        /// <summary>
+        /// Ein importierter Eintrag, der über seinen Store-Client startet, hat als
+        /// umgebendes Verzeichnis den Ordner des Clients. Würde er beobachtet, zählte
+        /// jeder Prozess des dauerhaft laufenden Launchers auf das Spiel.
+        /// </summary>
+        [Fact]
+        public void TryMatchProcess_BeobachtetDenOrdnerEinesLaunchersNicht()
+        {
+            var index = new PlayTimeMatchIndex();
+            var games = new List<Game>
+            {
+                new()
+                {
+                    Id = "manual_launcher",
+                    Name = "Diablo IV",
+                    Path = @"C:\Program Files (x86)\Battle.net\Battle.net.exe",
+                    ExecutableName = "Diablo IV.exe",
+                    InstallDirectory = @"C:\Program Files (x86)\Battle.net",
+                    LaunchType = "exe",
+                    IsManual = true
+                }
+            };
+
+            index.Rebuild(games);
+
+            Assert.False(index.TryMatchProcess(
+                "Battle.net", @"C:\Program Files (x86)\Battle.net\Battle.net.exe", out _));
+            Assert.False(index.TryMatchProcess(
+                "Agent", @"C:\Program Files (x86)\Battle.net\Agent\Agent.exe", out _));
+        }
+
+        /// <summary>
+        /// Der hinterlegte Prozessname bleibt der Weg, ein solches Spiel doch zu
+        /// erfassen - genau das sagt auch <see cref="Game.SupportsPlayTimeTracking"/> zu.
+        /// </summary>
+        [Fact]
+        public void TryMatchProcess_ErfasstLauncherEintragUeberHinterlegtenProzessnamen()
+        {
+            var index = new PlayTimeMatchIndex();
+            var games = new List<Game>
+            {
+                new()
+                {
+                    Id = "manual_launcher",
+                    Name = "Diablo IV",
+                    Path = @"C:\Program Files (x86)\Battle.net\Battle.net.exe",
+                    ExecutableName = "Diablo IV.exe",
+                    InstallDirectory = @"C:\Program Files (x86)\Battle.net",
+                    LaunchType = "exe",
+                    IsManual = true
+                }
+            };
+
+            index.Rebuild(games);
+
+            Assert.True(index.TryMatchProcess("Diablo IV", @"D:\Diablo IV\Diablo IV.exe", out var gameId));
+            Assert.Equal("manual_launcher", gameId);
         }
     }
 }
