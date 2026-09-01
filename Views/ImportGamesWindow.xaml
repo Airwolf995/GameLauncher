@@ -4,7 +4,7 @@
         xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
         xmlns:conv="clr-namespace:GameLauncher.Converters"
         Title="{loc:Loc Key=Import.Title}" Icon="pack://application:,,,/Resources/Images/game.ico"
-        Height="520" Width="560" MinHeight="400" MinWidth="480"
+        Height="520" Width="660" MinHeight="400" MinWidth="620"
         Background="#1E1E1E" Foreground="White"
         WindowStartupLocation="CenterOwner">
 
@@ -202,14 +202,26 @@
             </ListBox>
         </Border>
 
+        <!--
+            Zwei Spalten statt einer gemeinsamen Zelle: Lagen beide Gruppen in
+            derselben Zelle und waren nur unterschiedlich ausgerichtet, wussten sie
+            nichts voneinander und schoben sich bei knapper Breite übereinander.
+            Die rechte Gruppe bekommt ihre natürliche Breite, die linke den Rest.
+        -->
         <Grid Grid.Row="5" Margin="0,15,0,0">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left">
                 <Button x:Name="SelectAllButton" Content="{loc:Loc Key=Import.SelectAll}" Style="{StaticResource SecondaryButton}"
                         Click="SelectAll_Click" MinWidth="120" Margin="0,0,10,0"/>
                 <Button x:Name="SelectNoneButton" Content="{loc:Loc Key=Import.SelectNone}" Style="{StaticResource SecondaryButton}"
                         Click="SelectNone_Click" MinWidth="120"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="15,0,0,0">
                 <Button Content="{loc:Loc Key=Common.Cancel}" Style="{StaticResource SecondaryButton}"
                         Click="Cancel_Click" Margin="0,0,10,0" MinWidth="110"/>
                 <Button x:Name="ConfirmButton" Content="{loc:Loc Key=Import.Confirm}" Style="{StaticResource PrimaryButton}"
