@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
@@ -35,7 +35,6 @@ namespace GameLauncher.Services.MainWindow
             try
             {
                 window.InitializeTrayIcon();
-                window.InitializeFpsCounter();
                 ShowSetupWizardIfRequired(window);
 
                 var settings = _gameManager.Config.UISettings;
