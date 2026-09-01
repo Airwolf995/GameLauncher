@@ -1,4 +1,4 @@
-using GameLauncher.Services.Scanners;
+﻿using GameLauncher.Services.Scanners;
 
 namespace GameLauncher.Tests;
 
@@ -76,5 +76,27 @@ public sealed class ExecutableSelectorTests : IDisposable
             Path.Combine(_gameDirectory, "NichtVorhanden"));
 
         Assert.Equal(string.Empty, result);
+    }
+
+    /// <summary>
+    /// Ordnernamen mit Unterstrich oder Bindestrich sind bei Ubisoft und EA die Regel.
+    /// Wird nur am Leerzeichen zerlegt, bleibt der Name ein einziges Wort und die Stufe
+    /// für abgekürzte Startdateien läuft leer - gewählt wurde dann die größte Datei,
+    /// also regelmäßig der Anticheat-Dienst.
+    /// </summary>
+    [Theory]
+    [InlineData("Assassins_Creed_Valhalla")]
+    [InlineData("Assassins-Creed-Valhalla")]
+    [InlineData("Assassins.Creed.Valhalla")]
+    public void FindPrimaryExecutable_ErkenntAbkuerzungAuchBeiTrennzeichenImOrdnernamen(string folderName)
+    {
+        string root = Directory.GetParent(_gameDirectory)!.FullName;
+        string directory = Directory.CreateDirectory(Path.Combine(root, folderName)).FullName;
+        File.WriteAllBytes(Path.Combine(directory, "ACValhalla.exe"), new byte[100]);
+        File.WriteAllBytes(Path.Combine(directory, "AnticheatService.exe"), new byte[5000]);
+
+        string result = ExecutableSelector.FindPrimaryExecutable(directory);
+
+        Assert.Equal("ACValhalla.exe", Path.GetFileName(result));
     }
 }

@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using GameLauncher.Services.Scanners;
 
 namespace GameLauncher.Tests;
@@ -230,5 +230,47 @@ public sealed class SteamShortcutsReaderTests
         var shortcut = Assert.Single(shortcuts);
         Assert.Equal("Unvollstaendig", shortcut.Name);
         Assert.Equal(string.Empty, shortcut.ExecutablePath);
+    }
+
+    /// <summary>
+    /// Die Kennung eines Nicht-Steam-Spiels entsteht aus seiner AppID. Steht dieselbe
+    /// Verknüpfung in zwei Benutzerprofilen, entstünde sonst zweimal derselbe Eintrag -
+    /// mit gemeinsamer Spielzeit, gemeinsamen Favoriten und einem Löschen, das nur eine
+    /// der beiden Kacheln entfernt.
+    /// </summary>
+    [Fact]
+    public void ReadShortcutGames_LiefertEinSpielTrotzZweierBenutzerprofile()
+    {
+        string steamRoot = Directory.CreateTempSubdirectory("GameLauncherSteamShortcuts_").FullName;
+        try
+        {
+            string program = Path.Combine(steamRoot, "MeinSpiel.exe");
+            File.WriteAllBytes(program, new byte[16]);
+
+            byte[] file = BuildFile(buffer =>
+            {
+                WriteInt32(buffer, "appid", 2846102741);
+                WriteString(buffer, "AppName", "Mein Spiel");
+                WriteString(buffer, "Exe", $"\"{program}\"");
+                WriteString(buffer, "StartDir", steamRoot);
+            });
+
+            foreach (string user in new[] { "11111111", "22222222" })
+            {
+                string configDirectory = Path.Combine(steamRoot, "userdata", user, "config");
+                Directory.CreateDirectory(configDirectory);
+                File.WriteAllBytes(Path.Combine(configDirectory, "shortcuts.vdf"), file);
+            }
+
+            var games = SteamShortcutsReader.ReadShortcutGames(steamRoot);
+
+            var game = Assert.Single(games);
+            Assert.Equal("steamshortcut_2846102741", game.Id);
+            Assert.Equal("Mein Spiel", game.Name);
+        }
+        finally
+        {
+            Directory.Delete(steamRoot, recursive: true);
+        }
     }
 }

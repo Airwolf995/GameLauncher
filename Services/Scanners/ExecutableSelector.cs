@@ -94,11 +94,19 @@ namespace GameLauncher.Services.Scanners
             directoryWords.Any(word => executableName.Contains(word, StringComparison.Ordinal));
 
         /// <summary>
+        /// Trenner zwischen Wörtern eines Ordnernamens. Neben dem Leerzeichen sind
+        /// Unterstrich, Bindestrich und Punkt üblich - bei Ubisoft ist "Watch_Dogs"
+        /// die Regel, nicht die Ausnahme. Ohne sie bliebe der Ordnername ein einziges
+        /// langes Wort und die Stufe für abgekürzte Startdateien liefe leer.
+        /// </summary>
+        private static readonly char[] WordSeparators = [' ', '\t', '_', '-', '.', ',', '+', '(', ')', '[', ']'];
+
+        /// <summary>
         /// Zerlegt den Ordnernamen in Wörter und behält die aussagekräftigen.
         /// Kurze Wörter wie "of" oder "the" führen sonst zu Zufallstreffern.
         /// </summary>
         private static List<string> GetSignificantWords(string name) =>
-            name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+            name.Split(WordSeparators, StringSplitOptions.RemoveEmptyEntries)
                 .Select(NormalizeName)
                 .Where(word => word.Length >= 4)
                 .ToList();
