@@ -136,8 +136,8 @@
                                     <DataTemplate>
                                         <Border Background="{DynamicResource AccentColor}" CornerRadius="4" Padding="10,5" Margin="0,0,8,5">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding}" Foreground="White" FontSize="12" VerticalAlignment="Center"/>
-                                                <Button Content="✕" FontSize="10" Foreground="White" Background="Transparent" 
+                                                <TextBlock Text="{Binding}" Foreground="{DynamicResource AccentForeground}" FontSize="12" VerticalAlignment="Center"/>
+                                                <Button Content="✕" FontSize="10" Foreground="{DynamicResource AccentForeground}" Background="Transparent" 
                                                         BorderThickness="0" Margin="8,0,0,0" Padding="0" Cursor="Hand"
                                                         Click="RemoveTag_Click" Tag="{Binding}" ToolTip="{loc:Loc Key=Details.RemoveTag}"/>
                                             </StackPanel>
@@ -179,7 +179,7 @@
                         <TextBlock x:Name="FavoriteIcon" Text="❤" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Button>
                     
-                    <Button x:Name="PlayButton" Click="Play_Click" Width="220" Height="50" Background="{DynamicResource AccentColor}" IsDefault="True">
+                    <Button x:Name="PlayButton" Click="Play_Click" Width="220" Height="50" Background="{DynamicResource AccentColor}" Foreground="{DynamicResource AccentForeground}" IsDefault="True">
                         <Button.Effect>
                             <DropShadowEffect BlurRadius="15" Opacity="0.4" ShadowDepth="0"/>
                         </Button.Effect>

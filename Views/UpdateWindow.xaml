@@ -108,12 +108,14 @@
                 <Button x:Name="UpdateButton" 
                        Content="{loc:Loc Key=Update.Button}" 
                        Click="UpdateButton_Click"
+                       IsDefault="True"
                        Width="180"
                        Margin="0,0,10,0"/>
                 <Button x:Name="CancelButton" 
                        Content="{loc:Loc Key=Update.Later}" 
                        Style="{StaticResource GhostButtonStyle}"
                        Click="CancelButton_Click"
+                       IsCancel="True"
                        Width="120"/>
             </StackPanel>
 
@@ -133,7 +135,9 @@
                             Minimum="0" 
                             Maximum="100" 
                             Value="0"
-                            Background="#333333"
+                            Background="#2D2D30"
+                            BorderBrush="#3E3E42"
+                            BorderThickness="1"
                             Foreground="{DynamicResource AccentColor}"/>
             </StackPanel>
         </Grid>

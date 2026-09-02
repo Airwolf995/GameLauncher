@@ -131,7 +131,11 @@ namespace GameLauncher
                 ["Orange"] = "#FA6800",
                 ["Purple"] = "#AA00FF",
                 ["Pink"] = "#D80073",
-                ["Dark"] = "#333333"
+                ["Teal"] = "#00A99D",
+                ["White"] = "#F2F2F2",
+                // Bewusst neutral, aber deutlich heller als die Fensterflächen (#1E1E1E/#252526):
+                // #333333 lag praktisch auf dem Hintergrund und ließ Akzentflächen verschwinden.
+                ["Dark"] = "#6B6B70"
             };
             
             /// <summary>
@@ -151,11 +155,15 @@ namespace GameLauncher
                 "Orange" => "Orange",
                 "Lila" => "Purple",
                 "Pink" => "Pink",
+                "Türkis" => "Teal",
+                "Weiß" => "White",
                 "Dunkel" => "Dark",
                 "Blue" => "Blue",
                 "Red" => "Red",
                 "Green" => "Green",
                 "Purple" => "Purple",
+                "Teal" => "Teal",
+                "White" => "White",
                 "Dark" => "Dark",
                 _ => "Blue"
             };

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
@@ -15,6 +17,12 @@ namespace GameLauncher.Services
         private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         private const int MaxSteamGridDbCovers = 12;
         private const int MaxSteamStoreCovers = 6;
+
+        /// <summary>
+        /// Zeitlimit einer einzelnen Verfügbarkeitsprüfung. Deutlich kürzer als das
+        /// Zeitlimit des HttpClient, weil alle Prüfungen gemeinsam abgewartet werden.
+        /// </summary>
+        private static readonly TimeSpan CoverAvailabilityTimeout = TimeSpan.FromSeconds(2);
 
         private readonly string _apiKey;
 
@@ -142,7 +150,83 @@ namespace GameLauncher.Services
 
             candidates.AddRange(await GetSteamGridDbCoversAsync(gameName, ct));
             candidates.AddRange(await GetSteamStoreCoversAsync(gameName, ct));
-            return candidates;
+            return await FilterAvailableCoversAsync(candidates, IsCoverAvailableAsync, ct);
+        }
+
+        /// <summary>
+        /// Verwirft Kandidaten, deren Bild gar nicht abrufbar ist. Die Steam-Suche
+        /// liefert auch unveröffentlichte Titel, deren Adresse allein aus der AppId
+        /// gebildet wird - dort liegt dann kein Bild. Ohne diese Prüfung erschienen
+        /// leere Kacheln, die sich auswählen und übernehmen ließen. Die Prüfungen
+        /// laufen gemeinsam, die Reihenfolge der Treffer bleibt erhalten.
+        /// </summary>
+        internal static async Task<List<CoverCandidate>> FilterAvailableCoversAsync(
+            IReadOnlyList<CoverCandidate> candidates,
+            Func<string, CancellationToken, Task<bool>> isAvailable,
+            CancellationToken ct = default)
+        {
+            if (candidates.Count == 0)
+            {
+                return [];
+            }
+
+            bool[] results = await Task.WhenAll(candidates.Select(c => isAvailable(c.ImageUrl, ct)));
+
+            var available = new List<CoverCandidate>(candidates.Count);
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                if (results[i])
+                {
+                    available.Add(candidates[i]);
+                }
+                else
+                {
+                    Logger.Log($"Titelbild verworfen, da nicht abrufbar: {candidates[i].ImageUrl}");
+                }
+            }
+
+            return available;
+        }
+
+        /// <summary>
+        /// Fragt nur den Kopf der Antwort ab, das Bild selbst wird dabei nicht geladen.
+        /// Verworfen wird ausschließlich bei einer eindeutigen Absage des Servers; bei
+        /// einem Netzfehler bleibt der Treffer erhalten, statt ihn zu Unrecht zu
+        /// entfernen. Die Prüfung erhält ein eigenes, kurzes Zeitlimit: Da die Auswahl
+        /// erst nach der langsamsten Prüfung erscheint, würde ein nicht antwortendes
+        /// CDN den Dialog sonst bis zum Zeitlimit des HttpClient aufhalten. Ein
+        /// Zeitablauf zählt wie ein Netzfehler, das Bild bleibt also erhalten.
+        /// </summary>
+        private static async Task<bool> IsCoverAvailableAsync(string url, CancellationToken ct)
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(CoverAvailabilityTimeout);
+
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Head, url);
+                using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+
+                // Nur diese beiden Antworten sagen aus, dass es das Bild nicht gibt.
+                // Eine Sperre (403) etwa durch die Drosselung des CDN bedeutet das
+                // gerade nicht - der Treffer bliebe sonst grundlos aus der Auswahl.
+                return response.StatusCode is not (HttpStatusCode.NotFound or HttpStatusCode.Gone);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // Der Dialog wurde geschlossen - das gilt weiterhin für die ganze Suche.
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                Logger.Log($"Prüfung des Titelbilds abgebrochen, da zu langsam: {url}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Verfügbarkeit des Titelbilds konnte nicht geprüft werden: {url}", ex);
+                return true;
+            }
         }
 
         private async Task<List<CoverCandidate>> GetSteamGridDbCoversAsync(string gameName, CancellationToken ct)

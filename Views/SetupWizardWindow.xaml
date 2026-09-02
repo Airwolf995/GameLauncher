@@ -161,6 +161,8 @@
                                 <ComboBoxItem Content="{loc:Loc Key=Theme.Orange}" Tag="Orange"/>
                                 <ComboBoxItem Content="{loc:Loc Key=Theme.Purple}" Tag="Purple"/>
                                 <ComboBoxItem Content="{loc:Loc Key=Theme.Pink}" Tag="Pink"/>
+                                <ComboBoxItem Content="{loc:Loc Key=Theme.Teal}" Tag="Teal"/>
+                                <ComboBoxItem Content="{loc:Loc Key=Theme.White}" Tag="White"/>
                                 <ComboBoxItem Content="{loc:Loc Key=Theme.Dark}" Tag="Dark"/>
                             </ComboBox>
                         </StackPanel>
@@ -192,8 +194,8 @@
                     <Button x:Name="BtnBack" Content="{loc:Loc Key=Common.Back}" HorizontalAlignment="Left" Style="{StaticResource SecondaryButton}" Click="BtnBack_Click" Visibility="Hidden"/>
                     
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button x:Name="BtnNext" Content="{loc:Loc Key=Common.Next}" Style="{StaticResource ModernButton}" Click="BtnNext_Click"/>
-                        <Button x:Name="BtnFinish" Content="{loc:Loc Key=Common.Finish}" Style="{StaticResource ModernButton}" Click="BtnFinish_Click" Visibility="Collapsed"/>
+                        <Button x:Name="BtnNext" Content="{loc:Loc Key=Common.Next}" Style="{StaticResource ModernButton}" Click="BtnNext_Click" IsDefault="True"/>
+                        <Button x:Name="BtnFinish" Content="{loc:Loc Key=Common.Finish}" Style="{StaticResource ModernButton}" Click="BtnFinish_Click" IsDefault="True" Visibility="Collapsed"/>
                     </StackPanel>
                 </Grid>
 

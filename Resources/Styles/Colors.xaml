@@ -2,4 +2,8 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!-- Global Accent Color (Default Blue) -->
     <SolidColorBrush x:Key="AccentColor" Color="#007ACC"/>
+
+    <!-- Schrift und Symbole auf Akzentflächen. Zieht mit der Helligkeit der
+         Akzentfarbe mit, damit auch helle Akzente lesbar bleiben. -->
+    <SolidColorBrush x:Key="AccentForeground" Color="White"/>
 </ResourceDictionary>

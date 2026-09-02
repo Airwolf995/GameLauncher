@@ -8,6 +8,7 @@
         xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
         mc:Ignorable="d"
         Title="{loc:Loc Key=AppName}" Height="840" Width="1350"
+        MinHeight="840" MinWidth="1350"
         Icon="pack://application:,,,/Resources/Images/game.ico"
         Background="#1E1E1E" WindowStartupLocation="CenterScreen">
 
@@ -149,6 +150,7 @@
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentColor}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource AccentForeground}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -351,7 +353,7 @@
                         <MenuItem Header="{loc:Loc Key=Main.Context.ToggleFavorite}" Click="Favorite_Click"/>
                         <MenuItem Click="Hide_Click">
                             <MenuItem.Style>
-                                <Style TargetType="MenuItem">
+                                <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
                                     <Setter Property="Header" Value="{Binding Source={x:Static loc:LocalizationService.Instance}, Path=[Main.Context.Hide]}"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsHidden}" Value="True">
@@ -377,6 +379,29 @@
                 </ItemsControl.ItemsPanel>
             </ItemsControl>
         </DataTemplate>
+
+        <!-- Icon button in the header bar -->
+        <Style x:Key="HeaderIconButton" TargetType="Button">
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#333333"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -457,108 +482,43 @@
                 <!-- Right Controls -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Sort Selection -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0" VerticalAlignment="Center">
-                        <TextBlock Text="{loc:Loc Key=Main.Sort}" Foreground="#888888" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
-                        <ComboBox x:Name="SortBox" Width="130" Padding="8,6" 
-                                  ItemsSource="{Binding SortOptions}"
-                                  SelectedValuePath="Key"
-                                  DisplayMemberPath="Value"
-                                  DropDownOpened="ComboBox_DropDownOpened"
-                                  SelectionChanged="LibraryViewStateChanged"
-                                  SelectedValue="{Binding SelectedSort}" 
-                                  FontSize="13" VerticalAlignment="Center"/>
-                    </StackPanel>
-                    
+                    <ComboBox x:Name="SortBox" Width="130" Padding="8,6" Margin="0,0,8,0"
+                              ToolTip="{loc:Loc Key=Main.Sort}"
+                              ItemsSource="{Binding SortOptions}"
+                              SelectedValuePath="Key"
+                              DisplayMemberPath="Value"
+                              DropDownOpened="ComboBox_DropDownOpened"
+                              SelectionChanged="LibraryViewStateChanged"
+                              SelectedValue="{Binding SelectedSort}"
+                              FontSize="13" VerticalAlignment="Center"/>
+
                     <!-- Filter Selection -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0" VerticalAlignment="Center">
-                        <TextBlock Text="{loc:Loc Key=Main.Filter}" Foreground="#888888" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
-                        <ComboBox x:Name="FilterBox" Width="150" Padding="8,6" 
-                                  ItemsSource="{Binding FilterOptions}"
-                                  DropDownOpened="ComboBox_DropDownOpened"
-                                  SelectionChanged="LibraryViewStateChanged"
-                                  SelectedValuePath="Key"
-                                  DisplayMemberPath="DisplayName"
-                                  SelectedValue="{Binding SelectedFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-                                  ItemContainerStyle="{StaticResource MainComboBoxItemStyle}"
-                                  FontSize="13" MaxDropDownHeight="400" VerticalAlignment="Center">
-                        </ComboBox>
-                    </StackPanel>
-
-                    <!-- Action Icons -->
-                    <Button Click="RefreshLibrary_Click" Padding="8" Margin="0,0,10,0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="{loc:Loc Key=Main.RefreshLibrary}" VerticalAlignment="Center">
-                        <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#CCCCCC" VerticalAlignment="Center"/>
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="4">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#333333"/>
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-
-                    <Button Click="Settings_Click" Padding="8" Margin="0,0,15,0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="{loc:Loc Key=Main.Settings}" VerticalAlignment="Center">
-                        <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#CCCCCC" VerticalAlignment="Center"/>
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="4">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#333333"/>
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-
-                    <Button Click="LicenseInfo_Click" Padding="8" Margin="0,0,15,0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="{loc:Loc Key=Main.LicenseInfo}" VerticalAlignment="Center">
-                        <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#CCCCCC" VerticalAlignment="Center"/>
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="4">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#333333"/>
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-
-                    <!-- Import Games Button -->
-                    <Button Content="{loc:Loc Key=Main.ImportGames}" Click="ImportGames_Click" Height="34" Padding="15,0" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" MinWidth="140" Margin="0,0,10,0"/>
+                    <ComboBox x:Name="FilterBox" Width="150" Padding="8,6" Margin="0,0,14,0"
+                              ToolTip="{loc:Loc Key=Main.Filter}"
+                              ItemsSource="{Binding FilterOptions}"
+                              DropDownOpened="ComboBox_DropDownOpened"
+                              SelectionChanged="LibraryViewStateChanged"
+                              SelectedValuePath="Key"
+                              DisplayMemberPath="DisplayName"
+                              SelectedValue="{Binding SelectedFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              ItemContainerStyle="{StaticResource MainComboBoxItemStyle}"
+                              FontSize="13" MaxDropDownHeight="400" VerticalAlignment="Center"/>
 
                     <!-- Add Game Button -->
-                    <Button Content="{loc:Loc Key=Main.AddGame}" Click="AddGame_Click" Height="34" Padding="15,0" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" MinWidth="140"/>
+                    <Button Content="{loc:Loc Key=Main.AddGame}" Click="AddGame_Click" Height="34" Padding="15,0" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" MinWidth="140" Margin="0,0,8,0"/>
+
+                    <!-- Overflow Menu -->
+                    <Button x:Name="MoreActionsButton" Style="{StaticResource HeaderIconButton}"
+                            Click="MoreActions_Click" ToolTip="{loc:Loc Key=Main.MoreActions}">
+                        <TextBlock Text="&#xE712;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                        <Button.ContextMenu>
+                            <ContextMenu x:Name="MoreActionsMenu" Placement="Bottom">
+                                <MenuItem Header="{loc:Loc Key=Main.ImportGames}" Click="ImportGames_Click"/>
+                                <MenuItem Header="{loc:Loc Key=Main.RefreshLibrary}" Click="RefreshLibrary_Click"/>
+                                <MenuItem Header="{loc:Loc Key=Main.Settings}" Click="Settings_Click"/>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
@@ -675,7 +635,7 @@
 
         <!-- Status Bar -->
         <Border Grid.Row="2" Background="{DynamicResource AccentColor}" Padding="10,5">
-            <TextBlock x:Name="StatusText" Text="{Binding StatusText}" Foreground="White" FontSize="12" HorizontalAlignment="Left"/>
+            <TextBlock x:Name="StatusText" Text="{Binding StatusText}" Foreground="{DynamicResource AccentForeground}" FontSize="12" HorizontalAlignment="Left"/>
         </Border>
     </Grid>
 </Window>

@@ -24,12 +24,25 @@ namespace GameLauncher.Services
                 var color = (Color)ColorConverter.ConvertFromString(colorCode);
                 var brush = new SolidColorBrush(color);
                 Application.Current.Resources["AccentColor"] = brush;
+                Application.Current.Resources["AccentForeground"] = new SolidColorBrush(GetReadableForeground(color));
                 Logger.Log($"Theme applied: {colorCode}");
             }
             catch (Exception ex)
             {
                 Logger.Error($"Failed to apply theme {colorCode}", ex);
             }
+        }
+
+        /// <summary>
+        /// Wählt Schwarz oder Weiß als Schriftfarbe auf einer Akzentfläche. Ohne das
+        /// bliebe die fest verdrahtete weiße Schrift auf hellen Akzenten - etwa dem
+        /// weißen Design - unlesbar. Die Helligkeit folgt der Standardgewichtung nach
+        /// ITU-R BT.601; die Schwelle liegt bei 60 Prozent.
+        /// </summary>
+        private static Color GetReadableForeground(Color accent)
+        {
+            var brightness = (0.299 * accent.R + 0.587 * accent.G + 0.114 * accent.B) / 255.0;
+            return brightness > 0.6 ? Color.FromRgb(0x1E, 0x1E, 0x1E) : Colors.White;
         }
 
         /// <summary>

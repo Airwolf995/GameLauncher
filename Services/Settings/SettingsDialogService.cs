@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Windows;
 using GameLauncher.Services.Localization;
 using Microsoft.Win32;
@@ -25,10 +26,10 @@ namespace GameLauncher.Services.Settings
         }
 
         public bool ConfirmReset() =>
-            MessageBox.Show(
+            ModernMessageWindow.Show(
                 _localization.Get("Settings.ResetConfirmBody"),
                 _localization.Get("Settings.ResetConfirmTitle"),
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question) == MessageBoxResult.Yes;
+                ModernMessageWindow.ModernMessageButton.YesNo,
+                Application.Current?.Windows.OfType<SettingsWindow>().FirstOrDefault()) == MessageBoxResult.Yes;
     }
 }

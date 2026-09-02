@@ -105,6 +105,49 @@ public sealed class MetadataServiceCoverTests
     }
 
     [Fact]
+    public async Task FilterAvailableCoversAsync_VerwirftTrefferOhneAbrufbaresBild()
+    {
+        var candidates = new List<CoverCandidate>
+        {
+            new("https://example.invalid/vorhanden.jpg", "Steam: Vorhanden"),
+            new("https://example.invalid/fehlt.jpg", "Steam: Fehlt")
+        };
+
+        var available = await MetadataService.FilterAvailableCoversAsync(
+            candidates,
+            (url, _) => Task.FromResult(!url.Contains("fehlt")));
+
+        Assert.Single(available);
+        Assert.Equal("Steam: Vorhanden", available[0].SourceLabel);
+    }
+
+    [Fact]
+    public async Task FilterAvailableCoversAsync_BehaeltDieReihenfolgeDerTreffer()
+    {
+        var candidates = Enumerable.Range(1, 6)
+            .Select(i => new CoverCandidate($"https://example.invalid/{i}.jpg", $"Steam: Spiel {i}"))
+            .ToList();
+
+        var available = await MetadataService.FilterAvailableCoversAsync(
+            candidates,
+            (url, _) => Task.FromResult(!url.EndsWith("2.jpg") && !url.EndsWith("5.jpg")));
+
+        Assert.Equal(
+            new[] { "Steam: Spiel 1", "Steam: Spiel 3", "Steam: Spiel 4", "Steam: Spiel 6" },
+            available.Select(c => c.SourceLabel));
+    }
+
+    [Fact]
+    public async Task FilterAvailableCoversAsync_PrueftBeiLeererListeNichts()
+    {
+        var available = await MetadataService.FilterAvailableCoversAsync(
+            [],
+            (_, _) => throw new InvalidOperationException("darf nicht aufgerufen werden"));
+
+        Assert.Empty(available);
+    }
+
+    [Fact]
     public async Task GetCoverCandidatesAsync_LiefertOhneNamenKeineTreffer()
     {
         var service = new MetadataService();

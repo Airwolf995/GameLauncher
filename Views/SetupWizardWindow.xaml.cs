@@ -19,6 +19,7 @@ namespace GameLauncher
         private int _currentStep = 1;
         private readonly GameManager _gameManager;
         private readonly LocalizationService _localization = LocalizationService.Instance;
+        private readonly Services.UISettingsService _uiSettingsService = new();
         private bool _libraryPathsDetected;
         private string _selectedLanguageCode = "en";
 
@@ -143,16 +144,12 @@ namespace GameLauncher
                 // Tag enthält bereits den HEX-Code (z.B. "#007ACC")
                 string colorCode = Constants.UI.GetColorCodeForTheme(item.Tag?.ToString() ?? "Blue");
 
-                try
-                {
-                    var color = (Color)ColorConverter.ConvertFromString(colorCode);
-                    var brush = new SolidColorBrush(color);
-                    Application.Current.Resources["AccentColor"] = brush;
+                // Über den Dienst, damit auch die Schriftfarbe auf Akzentflächen
+                // mitgeführt wird - sonst bliebe sie auf hellen Akzenten unlesbar weiß.
+                _uiSettingsService.ApplyTheme(colorCode);
 
-                    // Indikatoren mit neuer Farbe aktualisieren
-                    UpdateStepVisibility();
-                }
-                catch { }
+                // Indikatoren mit neuer Farbe aktualisieren
+                UpdateStepVisibility();
             }
         }
 
