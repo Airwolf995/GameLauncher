@@ -4,7 +4,7 @@
         xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
         Title="{loc:Loc Key=Update.Title}" Height="450" Width="500"
         WindowStartupLocation="CenterScreen"
-        Background="#1E1E1E"
+        Background="Transparent"
         ResizeMode="NoResize"
         WindowStyle="None"
         AllowsTransparency="True">
@@ -13,7 +13,10 @@
         <!-- Button styles now use global App.xaml styles -->
     </Window.Resources>
 
-    <Border BorderBrush="{DynamicResource AccentColor}" BorderThickness="2" CornerRadius="10">
+    <Border Background="#1E1E1E"
+            BorderBrush="{DynamicResource AccentColor}"
+            BorderThickness="2"
+            CornerRadius="10">
         <Grid Margin="20">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
