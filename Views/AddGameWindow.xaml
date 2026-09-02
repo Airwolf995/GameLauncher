@@ -67,6 +67,7 @@
         <!-- Primary Accent Button -->
         <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernWindowButton}">
             <Setter Property="Background" Value="{DynamicResource AccentColor}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentForeground}"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Opacity" Value="0.85"/>
@@ -149,8 +150,8 @@
 
         <!-- Buttons -->
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button Content="{loc:Loc Key=AddGame.Cancel}" Style="{StaticResource SecondaryButton}" Click="Cancel_Click" Margin="0,0,10,0" Width="110"/>
-            <Button Content="{loc:Loc Key=AddGame.Save}" Style="{StaticResource PrimaryButton}" Click="Save_Click" Width="110"/>
+            <Button Content="{loc:Loc Key=AddGame.Cancel}" Style="{StaticResource SecondaryButton}" Click="Cancel_Click" IsCancel="True" Margin="0,0,10,0" Width="110"/>
+            <Button Content="{loc:Loc Key=AddGame.Save}" Style="{StaticResource PrimaryButton}" Click="Save_Click" IsDefault="True" Width="110"/>
         </StackPanel>
     </Grid>
 </Window>

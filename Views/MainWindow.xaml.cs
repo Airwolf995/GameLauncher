@@ -64,7 +64,9 @@ namespace GameLauncher
         public MainWindow()
         {
             InitializeComponent();
-            
+
+            ClampSizeToWorkArea();
+
             // Enable Dark Title Bar
             SourceInitialized += (s, e) => Services.DarkModeHelper.EnableDarkTitleBar(this);
 
@@ -374,6 +376,33 @@ namespace GameLauncher
         #region Event Handlers
         // Event handlers for Search/Filter/Sort Removed - Handled by ViewModel
 
+        /// <summary>
+        /// Die Mindestgröße entspricht der Startgröße, damit das Fenster nicht unter
+        /// das Layout der Kopfleiste gezogen werden kann. Auf einer kleineren
+        /// Arbeitsfläche - etwa Full HD bei 150 % Skalierung - würde das Fenster
+        /// dadurch über den Bildschirmrand hinausragen, weshalb beide Werte dort
+        /// auf die verfügbare Fläche begrenzt werden.
+        /// </summary>
+        private void ClampSizeToWorkArea()
+        {
+            var workArea = SystemParameters.WorkArea;
+
+            MinWidth = Math.Min(MinWidth, workArea.Width);
+            MinHeight = Math.Min(MinHeight, workArea.Height);
+            Width = Math.Min(Width, workArea.Width);
+            Height = Math.Min(Height, workArea.Height);
+        }
+
+        private void MoreActions_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.ContextMenu is ContextMenu menu)
+            {
+                menu.PlacementTarget = button;
+                menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+                menu.IsOpen = true;
+            }
+        }
+
         private void Settings_Click(object sender, RoutedEventArgs e)
         {
             var settings = new SettingsWindow(_gameManager, _uiSettingsService.ApplyTheme, ApplyUISettingsPreview);
@@ -410,7 +439,7 @@ namespace GameLauncher
             catch (Exception ex)
             {
                 Logger.Error("Manual library refresh failed", ex);
-                MessageBox.Show(_localization.Format("App.LoadError", ex.Message), _localization.Get("Common.Error"));
+                ModernMessageWindow.Show(_localization.Format("App.LoadError", ex.Message), _localization.Get("Common.Error"), ModernMessageWindow.ModernMessageButton.OK, this);
             }
             finally
             {
@@ -709,7 +738,11 @@ namespace GameLauncher
                  }
                  else
                  {
-                     if (MessageBox.Show(_localization.Format("Main.HideConfirmBody", game.Name), _localization.Get("Main.HideConfirmTitle"), MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                     if (ModernMessageWindow.Show(
+                         _localization.Format("Main.HideConfirmBody", game.Name),
+                         _localization.Get("Main.HideConfirmTitle"),
+                         ModernMessageWindow.ModernMessageButton.YesNo,
+                         this) == MessageBoxResult.Yes)
                      {
                          _gameManager.HideGame(game, notifyUI: false);
                          ShowStatus(_localization.Get("Main.StatusGameHidden"));
@@ -777,11 +810,11 @@ namespace GameLauncher
                 // Logger.Error handled in GameManager
                 if (ex.Message.Contains("find") || ex is System.ComponentModel.Win32Exception)
                 {
-                     MessageBox.Show(_localization.Format("Main.FileMissingBody", game.Path), _localization.Get("Main.FileMissingTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                     ModernMessageWindow.Show(_localization.Format("Main.FileMissingBody", game.Path), _localization.Get("Main.FileMissingTitle"), ModernMessageWindow.ModernMessageButton.OK, this);
                 }
                 else
                 {
-                     MessageBox.Show(_localization.Get("Main.LaunchErrorBody"), _localization.Get("Common.Error"), MessageBoxButton.OK, MessageBoxImage.Error);
+                     ModernMessageWindow.Show(_localization.Get("Main.LaunchErrorBody"), _localization.Get("Common.Error"), ModernMessageWindow.ModernMessageButton.OK, this);
                 }
                 ShowStatus(_localization.Get("Main.StatusError"));
             }

@@ -12,7 +12,7 @@
     <Window.Resources>
         <Style x:Key="ModernButton" TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource AccentColor}"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentForeground}"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Padding" Value="20,8"/>
@@ -87,17 +87,21 @@
                        Content="{loc:Loc Key=Common.Yes}" 
                        Style="{StaticResource ModernButton}" 
                        Click="BtnYes_Click" 
+                       IsDefault="True"
                        Margin="0,0,10,0"
                        Visibility="Collapsed"/>
                 <Button x:Name="BtnNo" 
                        Content="{loc:Loc Key=Common.No}" 
                        Style="{StaticResource SecondaryButton}" 
                        Click="BtnNo_Click"
+                       IsCancel="True"
                        Visibility="Collapsed"/>
                 <Button x:Name="BtnOk" 
                        Content="{loc:Loc Key=Common.Ok}" 
                        Style="{StaticResource ModernButton}" 
                        Click="BtnOk_Click"
+                       IsDefault="True"
+                       IsCancel="True"
                        Visibility="Collapsed"/>
             </StackPanel>
         </Grid>

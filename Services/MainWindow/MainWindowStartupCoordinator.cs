@@ -62,9 +62,11 @@ namespace GameLauncher.Services.MainWindow
             {
                 window.IsInitialLoading = false;
                 Logger.Error("Error loading games in MainWindow", ex);
-                MessageBox.Show(
+                ModernMessageWindow.Show(
                     _localization.Format("App.LoadError", ex.Message),
-                    _localization.Get("Common.Error"));
+                    _localization.Get("Common.Error"),
+                    ModernMessageWindow.ModernMessageButton.OK,
+                    window);
             }
         }
 

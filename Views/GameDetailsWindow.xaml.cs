@@ -146,7 +146,7 @@ namespace GameLauncher
             }
             catch (Exception)
             {
-                 MessageBox.Show(_localization.Get("Details.PlayErrorBody"), _localization.Get("Common.Error"), MessageBoxButton.OK, MessageBoxImage.Error);
+                 ModernMessageWindow.Show(_localization.Get("Details.PlayErrorBody"), _localization.Get("Common.Error"), ModernMessageWindow.ModernMessageButton.OK, this);
             }
         }
 

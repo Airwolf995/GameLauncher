@@ -36,6 +36,21 @@ namespace GameLauncher
             base.OnClosing(e);
         }
 
+        /// <summary>
+        /// Escape schließt ohne zu speichern - wie das Schließkreuz. "Fertig" ist
+        /// dagegen der Standardknopf und übernimmt die Einstellungen.
+        /// </summary>
+        protected override void OnKeyDown(System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.Escape)
+            {
+                Close();
+                return;
+            }
+
+            base.OnKeyDown(e);
+        }
+
         protected override void OnClosed(EventArgs e)
         {
             ContentRendered -= OnContentRendered;
@@ -46,6 +61,15 @@ namespace GameLauncher
             }
 
             base.OnClosed(e);
+        }
+
+        private void LicenseInfo_Click(object sender, RoutedEventArgs e)
+        {
+            var licenseInfo = new LicenseInfoWindow
+            {
+                Owner = this
+            };
+            licenseInfo.ShowDialog();
         }
 
         private void OnLanguageChanged(object? sender, EventArgs e)

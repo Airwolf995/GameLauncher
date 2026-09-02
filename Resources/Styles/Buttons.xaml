@@ -60,7 +60,7 @@
     <!-- Global Modern Button Style -->
     <Style TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource AccentColor}"/>
-        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentForeground}"/>
         <Setter Property="FontSize" Value="14"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Padding" Value="15,8"/>

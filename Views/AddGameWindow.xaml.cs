@@ -74,11 +74,11 @@ namespace GameLauncher
                 var target = Services.Scanners.ShortcutResolver.TryResolve(filePath);
                 if (target == null)
                 {
-                    MessageBox.Show(
+                    ModernMessageWindow.Show(
                         _localization.Get("AddGame.DropResolveFailed"),
                         _localization.Get("Common.Warning"),
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
+                        ModernMessageWindow.ModernMessageButton.OK,
+                        this);
                     return;
                 }
 
@@ -129,7 +129,7 @@ namespace GameLauncher
         {
             if (string.IsNullOrWhiteSpace(GameName) || string.IsNullOrWhiteSpace(GamePath))
             {
-                MessageBox.Show(_localization.Get("AddGame.ValidationBody"), _localization.Get("Common.Error"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageWindow.Show(_localization.Get("AddGame.ValidationBody"), _localization.Get("Common.Error"), ModernMessageWindow.ModernMessageButton.OK, this);
                 return;
             }
             
@@ -146,7 +146,7 @@ namespace GameLauncher
                 }
                 catch (System.Exception ex)
                 {
-                    MessageBox.Show(_localization.Format("AddGame.CoverDownloadError", ex.Message), _localization.Get("Common.Warning"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                    ModernMessageWindow.Show(_localization.Format("AddGame.CoverDownloadError", ex.Message), _localization.Get("Common.Warning"), ModernMessageWindow.ModernMessageButton.OK, this);
                 }
             }
             
@@ -162,7 +162,7 @@ namespace GameLauncher
         {
             if (string.IsNullOrWhiteSpace(NameBox.Text))
             {
-                MessageBox.Show(_localization.Get("AddGame.NameRequiredBody"), _localization.Get("Common.Info"), MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageWindow.Show(_localization.Get("AddGame.NameRequiredBody"), _localization.Get("Common.Info"), ModernMessageWindow.ModernMessageButton.OK, this);
                 return;
             }
 

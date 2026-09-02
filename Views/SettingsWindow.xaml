@@ -49,6 +49,8 @@
                             <ComboBoxItem Content="{loc:Loc Key=Theme.Orange}" Tag="Orange"/>
                             <ComboBoxItem Content="{loc:Loc Key=Theme.Purple}" Tag="Purple"/>
                             <ComboBoxItem Content="{loc:Loc Key=Theme.Pink}" Tag="Pink"/>
+                            <ComboBoxItem Content="{loc:Loc Key=Theme.Teal}" Tag="Teal"/>
+                            <ComboBoxItem Content="{loc:Loc Key=Theme.White}" Tag="White"/>
                             <ComboBoxItem Content="{loc:Loc Key=Theme.Dark}" Tag="Dark"/>
                         </ComboBox>
                     </Grid>
@@ -196,7 +198,7 @@
                                       IsChecked="{Binding Behavior.AutoCheckUpdates}"/>
                             <Button Content="{Binding UpdateButtonText}" HorizontalAlignment="Left" Padding="12,5"
                                     Command="{Binding CheckUpdatesCommand}" IsEnabled="{Binding IsCheckingUpdates, Converter={StaticResource InverseBoolConverter}}"
-                                    Background="{DynamicResource AccentColor}" Foreground="White" FontWeight="Bold" MinWidth="180" Margin="0,0,0,8"/>
+                                    Background="{DynamicResource AccentColor}" Foreground="{DynamicResource AccentForeground}" FontWeight="Bold" MinWidth="180" Margin="0,0,0,8"/>
                         </StackPanel>
                     </Grid>
                     
@@ -268,6 +270,13 @@
                     <TextBox Height="100" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" AcceptsReturn="True" Background="#333333" Foreground="White" BorderBrush="#555555"
                              Text="{Binding Library.IgnoredProcessesText, UpdateSourceTrigger=LostFocus}"/>
                 </StackPanel>
+
+                <!-- About Section -->
+                <StackPanel Margin="0,0,0,20">
+                    <TextBlock Text="{loc:Loc Key=Settings.AboutSection}" FontSize="12" FontWeight="Bold" Foreground="#888888" Margin="0,0,0,10"/>
+                    <Button Content="{loc:Loc Key=Main.LicenseInfo}" Click="LicenseInfo_Click"
+                            HorizontalAlignment="Left" Padding="12,5" Background="#333333" Foreground="White" FontSize="12"/>
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
 
@@ -278,7 +287,7 @@
                 <Button Content="{loc:Loc Key=Settings.ResetDefaults}" Command="{Binding ResetToDefaultsCommand}"
                         Padding="12,5" Background="#333333" Foreground="White" Margin="0,0,10,0" FontSize="12"/>
                 <Button Content="{loc:Loc Key=Settings.Done}" Command="{Binding CloseCommand}" CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
-                        Width="85" Height="32" Background="{DynamicResource AccentColor}" FontWeight="Bold" FontSize="12"/>
+                        Width="85" Height="32" Background="{DynamicResource AccentColor}" FontWeight="Bold" FontSize="12" IsDefault="True"/>
             </StackPanel>
         </Grid>
     </Grid>
