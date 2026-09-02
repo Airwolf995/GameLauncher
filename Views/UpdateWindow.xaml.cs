@@ -1,6 +1,9 @@
 using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
 using GameLauncher.Services;
 using GameLauncher.Services.Localization;
 
@@ -23,11 +26,51 @@ namespace GameLauncher
             NewVersionText.Text = updateInfo.Version;
 
             // Set changelog
-            ChangelogText.Text = string.IsNullOrWhiteSpace(updateInfo.Changelog) 
+            SetFormattedChangelog(ChangelogText, string.IsNullOrWhiteSpace(updateInfo.Changelog)
                 ? _localization.Get("Update.NoChangelog") 
-                : updateInfo.Changelog;
+                : updateInfo.Changelog);
 
             SourceInitialized += (_, _) => DarkModeHelper.EnableDarkTitleBar(this);
+        }
+
+        private static void SetFormattedChangelog(TextBlock textBlock, string changelog)
+        {
+            textBlock.Inlines.Clear();
+
+            string normalizedChangelog = changelog.Replace("\r\n", "\n", StringComparison.Ordinal);
+            string[] lines = normalizedChangelog.Split('\n');
+
+            for (int lineIndex = 0; lineIndex < lines.Length; lineIndex++)
+            {
+                AddFormattedLine(textBlock, lines[lineIndex]);
+
+                if (lineIndex < lines.Length - 1)
+                {
+                    textBlock.Inlines.Add(new LineBreak());
+                }
+            }
+        }
+
+        private static void AddFormattedLine(TextBlock textBlock, string line)
+        {
+            MatchCollection boldSegments = Regex.Matches(line, @"\*\*(.+?)\*\*");
+            int currentIndex = 0;
+
+            foreach (Match segment in boldSegments)
+            {
+                if (segment.Index > currentIndex)
+                {
+                    textBlock.Inlines.Add(new Run(line[currentIndex..segment.Index]));
+                }
+
+                textBlock.Inlines.Add(new Bold(new Run(segment.Groups[1].Value)));
+                currentIndex = segment.Index + segment.Length;
+            }
+
+            if (currentIndex < line.Length)
+            {
+                textBlock.Inlines.Add(new Run(line[currentIndex..]));
+            }
         }
 
         private async void UpdateButton_Click(object sender, RoutedEventArgs e)
