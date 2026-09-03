@@ -26,6 +26,9 @@ Remove-Item (Join-Path $PublishDir "COPYRIGHT-NOTICE.txt") -Force -ErrorAction S
 Remove-Item (Join-Path $PublishDir "NOTICE") -Force -ErrorAction SilentlyContinue
 Copy-Item .\THIRD-PARTY-NOTICES.txt (Join-Path $PublishDir "THIRD-PARTY-NOTICES.txt") -Force
 $licensesOutputDir = Join-Path $PublishDir "licenses"
+# Erst leeren: Copy-Item fuegt nur hinzu. Ohne das blieben Lizenztexte
+# entfernter Abhaengigkeiten aus frueheren Durchlaeufen im Paket liegen.
+Remove-Item $licensesOutputDir -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $licensesOutputDir -Force | Out-Null
 Copy-Item .\licenses\* $licensesOutputDir -Recurse -Force
 
