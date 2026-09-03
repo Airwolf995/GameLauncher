@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
@@ -16,6 +17,7 @@ namespace GameLauncher.ViewModels
 {
     public sealed class SettingsViewModel : ObservableObject, IDisposable
     {
+
         private readonly GameManager _gameManager;
         private readonly LocalizationService _localization;
         private readonly Action<string> _onThemeChanged;
@@ -27,6 +29,7 @@ namespace GameLauncher.ViewModels
         private bool _isInitialLoading = true;
         private bool _isCheckingUpdates;
         private string _updateButtonText = "";
+        private bool _isSensorSourceMissing;
 
         public SettingsViewModel(GameManager gameManager, Action<string> onThemeChanged, Action<UISettings> onSettingsChanged)
             : this(
@@ -67,8 +70,11 @@ namespace GameLauncher.ViewModels
             ClearBackgroundCommand = new RelayCommand(_ => ClearBackground());
             CheckUpdatesCommand = new AsyncRelayCommand(CheckUpdatesAsync);
             ResetToDefaultsCommand = new RelayCommand(_ => ResetToDefaults());
+            OpenSensorSourceCommand = new RelayCommand(_ => OpenSensorSourcePage());
+            RecheckSensorSourceCommand = new RelayCommand(_ => CheckSensorSourceAvailability());
 
             LoadSettings();
+            CheckSensorSourceAvailability();
             _localization.LanguageChanged += OnLanguageChanged;
             _isInitialLoading = false;
         }
@@ -82,6 +88,58 @@ namespace GameLauncher.ViewModels
         public ICommand ClearBackgroundCommand { get; }
         public ICommand CheckUpdatesCommand { get; }
         public ICommand ResetToDefaultsCommand { get; }
+        public ICommand OpenSensorSourceCommand { get; }
+        public ICommand RecheckSensorSourceCommand { get; }
+
+        /// <summary>
+        /// Meldet, dass keine LibreHardwareMonitor-Anwendung erreichbar ist. Nur
+        /// dann erscheint der Hinweis in den Einstellungen - laeuft sie, gibt es
+        /// nichts zu melden.
+        /// </summary>
+        public bool IsSensorSourceMissing
+        {
+            get => _isSensorSourceMissing;
+            private set
+            {
+                if (SetProperty(ref _isSensorSourceMissing, value))
+                {
+                    OnPropertyChanged(nameof(IsSensorSourceConnected));
+                }
+            }
+        }
+
+        public bool IsSensorSourceConnected => !_isSensorSourceMissing;
+
+        /// <summary>
+        /// Die Pruefung ruft die Anwendung ueber HTTP ab und wartet dabei bis zu
+        /// zwei Sekunden, deshalb laeuft sie im Hintergrund: das
+        /// Einstellungsfenster soll sofort erscheinen.
+        /// </summary>
+        private void CheckSensorSourceAvailability()
+        {
+            Task.Run(() =>
+            {
+                bool isAvailable = Services.LibreHardwareMonitorWebSource.IsApplicationAvailable();
+                Action applyResult = () => IsSensorSourceMissing = !isAvailable;
+                applyResult.RunOnUI();
+            });
+        }
+
+        private void OpenSensorSourcePage()
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = Services.LibreHardwareMonitorWebSource.DownloadUrl,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Models.Logger.Error("Downloadseite von LibreHardwareMonitor konnte nicht geoeffnet werden", ex);
+            }
+        }
 
         public bool IsCheckingUpdates
         {

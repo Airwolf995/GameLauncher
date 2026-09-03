@@ -15,7 +15,7 @@ namespace GameLauncher.Services
         private bool _disposed;
 
         public HardwareMonitorService()
-            : this(new LibreHardwareTelemetrySource())
+            : this(new LibreHardwareMonitorWebSource())
         {
         }
 

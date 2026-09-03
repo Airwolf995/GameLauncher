@@ -1,27 +1,16 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Management;
 
 namespace GameLauncher.Services
 {
-    internal sealed class SensorTemperatureReader : IOptionalTemperatureReader, IDisposable
+    internal sealed class SensorTemperatureReader : IOptionalTemperatureReader
     {
-        private const string FailureThermalCounterInit = "ThermalCounterInit";
-        private const string FailureCpuAcpi = "CpuAcpi";
         private const string FailureGpuNvidiaSmi = "GpuNvidiaSmi";
-        private const string ThermalZoneCategoryName = "Thermal Zone Information";
-        private const string ThermalTemperatureCounterName = "Temperature";
-        private const string ThermalHighPrecisionCounterName = "High Precision Temperature";
+        private const string HintCpuTemperatureUnavailable = "CpuTemperatureUnavailable";
 
         private readonly HashSet<string> _loggedFailures = new(StringComparer.Ordinal);
         private readonly IHardwareTelemetrySource _hardwareTelemetrySource;
-        private readonly List<PerformanceCounter> _thermalCounters = new();
-        private readonly List<PerformanceCounter> _thermalHighPrecisionCounters = new();
         private readonly string? _nvidiaSmiPath;
-
-        private bool _thermalCountersInitialized;
-        private bool _thermalCountersAvailable = true;
 
         public SensorTemperatureReader(IHardwareTelemetrySource hardwareTelemetrySource)
         {
@@ -29,6 +18,19 @@ namespace GameLauncher.Services
             _nvidiaSmiPath = NvidiaSmiHelper.ResolvePath();
         }
 
+        /// <summary>
+        /// Liefert die CPU-Temperatur oder <c>null</c>.
+        ///
+        /// Die Werte stammen aus der LibreHardwareMonitor-Anwendung. Laeuft sie
+        /// nicht, gibt es fuer den Prozessor keinen Ersatz: Windows selbst
+        /// meldet keine Kerntemperatur.
+        ///
+        /// Bewusst ohne Rueckfallebene auf die ACPI-Thermalzonen: die messen das
+        /// Mainboard beziehungsweise das Gehaeuse und liegen weit unter der
+        /// Temperatur des Prozessors. Ein solcher Wert waere schlechter als gar
+        /// keiner, weil er in der Anzeige nicht von einer echten Messung zu
+        /// unterscheiden waere.
+        /// </summary>
         public float? TryReadCpuTemperature()
         {
             float? hardwareMonitorTemperature = _hardwareTelemetrySource.TryReadCpuTemperature();
@@ -37,13 +39,8 @@ namespace GameLauncher.Services
                 return hardwareMonitorTemperature;
             }
 
-            float? thermalZoneTemperature = TryReadThermalZoneTemperature();
-            if (thermalZoneTemperature.HasValue)
-            {
-                return thermalZoneTemperature;
-            }
-
-            return TryReadCpuTemperatureFromAcpiWmi();
+            LogCpuTemperatureHintOnce();
+            return null;
         }
 
         public float? TryReadGpuTemperature()
@@ -57,134 +54,22 @@ namespace GameLauncher.Services
             return TryReadGpuTemperatureFromNvidiaSmi();
         }
 
-        private float? TryReadThermalZoneTemperature()
+        /// <summary>
+        /// Ohne laufende LibreHardwareMonitor-Anwendung bleibt der Wert
+        /// dauerhaft leer, ohne dass ein Fehler auftritt - der Hinweis im
+        /// Protokoll benennt deshalb die Ursache.
+        /// </summary>
+        private void LogCpuTemperatureHintOnce()
         {
-            EnsureThermalCountersInitialized();
-            if (!_thermalCountersAvailable)
-            {
-                return null;
-            }
-
-            float? highPrecision = ReadBestThermalCounterValue(_thermalHighPrecisionCounters, allowDirectCelsius: true);
-            if (highPrecision.HasValue)
-            {
-                return highPrecision;
-            }
-
-            return ReadBestThermalCounterValue(_thermalCounters, allowDirectCelsius: false);
-        }
-
-        private void EnsureThermalCountersInitialized()
-        {
-            if (_thermalCountersInitialized)
+            if (!_loggedFailures.Add(HintCpuTemperatureUnavailable))
             {
                 return;
             }
 
-            _thermalCountersInitialized = true;
-
-            try
-            {
-                if (!PerformanceCounterCategory.Exists(ThermalZoneCategoryName))
-                {
-                    _thermalCountersAvailable = false;
-                    return;
-                }
-
-                var category = new PerformanceCounterCategory(ThermalZoneCategoryName);
-                foreach (var instanceName in category.GetInstanceNames())
-                {
-                    TryAddThermalCounter(_thermalHighPrecisionCounters, instanceName, ThermalHighPrecisionCounterName);
-                    TryAddThermalCounter(_thermalCounters, instanceName, ThermalTemperatureCounterName);
-                }
-
-                if (_thermalCounters.Count == 0 && _thermalHighPrecisionCounters.Count == 0)
-                {
-                    _thermalCountersAvailable = false;
-                }
-            }
-            catch (Exception ex)
-            {
-                _thermalCountersAvailable = false;
-                LogFailureOnce(
-                    FailureThermalCounterInit,
-                    "Thermal-Zone-Counter konnten nicht initialisiert werden",
-                    ex);
-            }
-        }
-
-        private static void TryAddThermalCounter(List<PerformanceCounter> target, string instanceName, string counterName)
-        {
-            try
-            {
-                var counter = new PerformanceCounter(ThermalZoneCategoryName, counterName, instanceName, readOnly: true);
-                counter.NextValue();
-                target.Add(counter);
-            }
-            catch
-            {
-            }
-        }
-
-        private static float? ReadBestThermalCounterValue(IEnumerable<PerformanceCounter> counters, bool allowDirectCelsius)
-        {
-            float? maxTemperature = null;
-
-            foreach (var counter in counters)
-            {
-                try
-                {
-                    float rawValue = counter.NextValue();
-                    float converted = ConvertRawTemperature(rawValue, allowDirectCelsius);
-                    if (converted <= 0 || converted >= 150)
-                    {
-                        continue;
-                    }
-
-                    if (!maxTemperature.HasValue || converted > maxTemperature.Value)
-                    {
-                        maxTemperature = converted;
-                    }
-                }
-                catch
-                {
-                }
-            }
-
-            return maxTemperature;
-        }
-
-        private float? TryReadCpuTemperatureFromAcpiWmi()
-        {
-            try
-            {
-                using var searcher = new ManagementObjectSearcher(
-                    @"root\wmi",
-                    "SELECT CurrentTemperature FROM MSAcpi_ThermalZoneTemperature");
-
-                foreach (ManagementObject sensor in searcher.Get())
-                {
-                    if (sensor["CurrentTemperature"] == null)
-                    {
-                        continue;
-                    }
-
-                    float converted = ConvertRawTemperature(Convert.ToSingle(sensor["CurrentTemperature"]), allowDirectCelsius: true);
-                    if (converted > 0 && converted < 150)
-                    {
-                        return converted;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogFailureOnce(
-                    FailureCpuAcpi,
-                    "CPU-Temperatur konnte nicht per ACPI-WMI gelesen werden",
-                    ex);
-            }
-
-            return null;
+            Models.Logger.Warning(
+                "CPU-Temperatur ist nicht verfuegbar: es laeuft keine "
+                + "LibreHardwareMonitor-Anwendung. Sie muss installiert sein, laufen "
+                + "und ihren Webserver aktiviert haben.");
         }
 
         private float? TryReadGpuTemperatureFromNvidiaSmi()
@@ -216,22 +101,6 @@ namespace GameLauncher.Services
             }
         }
 
-        private static float ConvertRawTemperature(float rawValue, bool allowDirectCelsius)
-        {
-            float celsiusFromKelvinTenths = (rawValue / 10f) - 273.15f;
-            if (celsiusFromKelvinTenths > 0 && celsiusFromKelvinTenths < 150)
-            {
-                return celsiusFromKelvinTenths;
-            }
-
-            if (allowDirectCelsius && rawValue > 15 && rawValue < 150)
-            {
-                return rawValue;
-            }
-
-            return -1;
-        }
-
         private void LogFailureOnce(string failureKey, string message, Exception ex)
         {
             if (!_loggedFailures.Add(failureKey))
@@ -240,21 +109,6 @@ namespace GameLauncher.Services
             }
 
             Models.Logger.Error(message, ex);
-        }
-
-        public void Dispose()
-        {
-            foreach (var counter in _thermalHighPrecisionCounters)
-            {
-                counter.Dispose();
-            }
-            _thermalHighPrecisionCounters.Clear();
-
-            foreach (var counter in _thermalCounters)
-            {
-                counter.Dispose();
-            }
-            _thermalCounters.Clear();
         }
     }
 }
