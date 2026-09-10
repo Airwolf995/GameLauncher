@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -13,10 +12,6 @@ namespace GameLauncher
 {
     public partial class UpdateWindow : Window
     {
-        private static readonly Regex ChangelogMarkdownPattern = new(
-            @"\*\*(?<bold>.+?)\*\*|\[(?<linkText>[^\]]+)\]\((?<url>https?://[^)\s]+)\)",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
         private readonly UpdateService _updateService;
         private readonly UpdateInfo _updateInfo;
         private readonly LocalizationService _localization = LocalizationService.Instance;
@@ -43,59 +38,15 @@ namespace GameLauncher
         {
             textBlock.Inlines.Clear();
 
-            string normalizedChangelog = changelog.Replace("\r\n", "\n", StringComparison.Ordinal);
-            string[] lines = normalizedChangelog.Split('\n');
-
-            for (int lineIndex = 0; lineIndex < lines.Length; lineIndex++)
+            foreach (Inline inline in ChangelogFormatter.CreateInlines(changelog, textBlock.FontSize))
             {
-                AddFormattedLine(textBlock, lines[lineIndex]);
-
-                if (lineIndex < lines.Length - 1)
+                if (inline is Hyperlink hyperlink)
                 {
-                    textBlock.Inlines.Add(new LineBreak());
-                }
-            }
-        }
-
-        private static void AddFormattedLine(TextBlock textBlock, string line)
-        {
-            MatchCollection formattedSegments = ChangelogMarkdownPattern.Matches(line);
-            int currentIndex = 0;
-
-            foreach (Match segment in formattedSegments)
-            {
-                if (segment.Index > currentIndex)
-                {
-                    textBlock.Inlines.Add(new Run(line[currentIndex..segment.Index]));
-                }
-
-                if (segment.Groups["bold"].Success)
-                {
-                    textBlock.Inlines.Add(new Bold(new Run(segment.Groups["bold"].Value)));
-                }
-                else if (Uri.TryCreate(segment.Groups["url"].Value, UriKind.Absolute, out Uri? uri) &&
-                         (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
-                {
-                    var hyperlink = new Hyperlink(new Run(segment.Groups["linkText"].Value))
-                    {
-                        NavigateUri = uri,
-                        ToolTip = uri.AbsoluteUri
-                    };
                     hyperlink.SetResourceReference(TextElement.ForegroundProperty, "AccentColor");
                     hyperlink.RequestNavigate += OpenChangelogLink;
-                    textBlock.Inlines.Add(hyperlink);
-                }
-                else
-                {
-                    textBlock.Inlines.Add(new Run(segment.Value));
                 }
 
-                currentIndex = segment.Index + segment.Length;
-            }
-
-            if (currentIndex < line.Length)
-            {
-                textBlock.Inlines.Add(new Run(line[currentIndex..]));
+                textBlock.Inlines.Add(inline);
             }
         }
 
