@@ -12,6 +12,13 @@ $nugetConfigPath = ".\NuGet.Local.config"
 Write-Host "Stelle Release-Abhaengigkeiten wieder her..."
 dotnet restore $projectPath -r $Runtime --configfile $nugetConfigPath
 
+# "dotnet publish" schreibt nur hinzu und raeumt nie auf. Ohne dieses Leeren
+# waere der Ordner die Summe aller bisherigen Durchlaeufe: Dateien entfallener
+# Abhaengigkeiten - Bibliotheken wie Lizenztexte - blieben liegen und landeten
+# im Installer.
+Write-Host "Leere Publish-Ordner..."
+Remove-Item $PublishDir -Recurse -Force -ErrorAction SilentlyContinue
+
 Write-Host "Erzeuge Publish-Ordner fuer den Installer..."
 dotnet publish $projectPath `
     -c $Configuration `
@@ -26,9 +33,6 @@ Remove-Item (Join-Path $PublishDir "COPYRIGHT-NOTICE.txt") -Force -ErrorAction S
 Remove-Item (Join-Path $PublishDir "NOTICE") -Force -ErrorAction SilentlyContinue
 Copy-Item .\THIRD-PARTY-NOTICES.txt (Join-Path $PublishDir "THIRD-PARTY-NOTICES.txt") -Force
 $licensesOutputDir = Join-Path $PublishDir "licenses"
-# Erst leeren: Copy-Item fuegt nur hinzu. Ohne das blieben Lizenztexte
-# entfernter Abhaengigkeiten aus frueheren Durchlaeufen im Paket liegen.
-Remove-Item $licensesOutputDir -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $licensesOutputDir -Force | Out-Null
 Copy-Item .\licenses\* $licensesOutputDir -Recurse -Force
 
