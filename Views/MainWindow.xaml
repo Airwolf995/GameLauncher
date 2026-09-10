@@ -8,7 +8,7 @@
         xmlns:loc="clr-namespace:GameLauncher.Services.Localization"
         mc:Ignorable="d"
         Title="{loc:Loc Key=AppName}" Height="840" Width="1350"
-        MinHeight="840" MinWidth="1350"
+        MinHeight="600" MinWidth="1000"
         Icon="pack://application:,,,/Resources/Images/game.ico"
         Background="#1E1E1E" WindowStartupLocation="CenterScreen">
 

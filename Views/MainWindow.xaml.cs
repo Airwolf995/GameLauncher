@@ -377,11 +377,12 @@ namespace GameLauncher
         // Event handlers for Search/Filter/Sort Removed - Handled by ViewModel
 
         /// <summary>
-        /// Die Mindestgröße entspricht der Startgröße, damit das Fenster nicht unter
-        /// das Layout der Kopfleiste gezogen werden kann. Auf einer kleineren
-        /// Arbeitsfläche - etwa Full HD bei 150 % Skalierung - würde das Fenster
-        /// dadurch über den Bildschirmrand hinausragen, weshalb beide Werte dort
-        /// auf die verfügbare Fläche begrenzt werden.
+        /// Die Mindestgröße hält das Layout der Kopfleiste zusammen, liegt aber
+        /// deutlich unter der Startgröße, damit das Fenster auch auf kleinen
+        /// Bildschirmen verkleinert werden kann. Auf einer sehr kleinen
+        /// Arbeitsfläche - etwa Full HD bei 150 % Skalierung - würde die
+        /// Startgröße über den Bildschirmrand hinausragen, weshalb die Werte
+        /// hier zusätzlich auf die verfügbare Fläche begrenzt werden.
         /// </summary>
         private void ClampSizeToWorkArea()
         {
