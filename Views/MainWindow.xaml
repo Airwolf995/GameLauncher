@@ -605,18 +605,30 @@
                         <Path.RenderTransform>
                             <RotateTransform/>
                         </Path.RenderTransform>
-                        <Path.Triggers>
-                            <EventTrigger RoutedEvent="Loaded">
-                                <BeginStoryboard>
-                                    <Storyboard RepeatBehavior="Forever">
-                                        <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(RotateTransform.Angle)"
-                                                         From="0"
-                                                         To="360"
-                                                         Duration="0:0:0.9"/>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </EventTrigger>
-                        </Path.Triggers>
+                        <!-- Die Drehung läuft nur, solange der Ladehinweis sichtbar ist.
+                             Beim Start über Loaded lief sie auch nach dem Ausblenden
+                             endlos weiter und hielt die Renderschleife dauerhaft wach. -->
+                        <Path.Style>
+                            <Style TargetType="Path">
+                                <Style.Triggers>
+                                    <Trigger Property="IsVisible" Value="True">
+                                        <Trigger.EnterActions>
+                                            <BeginStoryboard x:Name="LoadingSpinnerStoryboard">
+                                                <Storyboard RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(RotateTransform.Angle)"
+                                                                     From="0"
+                                                                     To="360"
+                                                                     Duration="0:0:0.9"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </Trigger.EnterActions>
+                                        <Trigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="LoadingSpinnerStoryboard"/>
+                                        </Trigger.ExitActions>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Path.Style>
                     </Path>
                 </Grid>
                 <TextBlock Text="{loc:Loc Key=Main.LoadingTitle}"
