@@ -21,11 +21,11 @@ Compression=lzma
 CompressionThreads=auto
 SolidCompression=yes
 WizardStyle=modern
-WizardResizable=no
 PrivilegesRequired=lowest
-ArchitecturesAllowed=x64
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=x64os
+ArchitecturesInstallIn64BitMode=x64os
 DisableProgramGroupPage=yes
+InfoBeforeFile=installer_info.rtf
 
 [Languages]
 Name: "german"; MessagesFile: "compiler:Languages\German.isl"
