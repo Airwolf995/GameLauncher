@@ -81,14 +81,24 @@ namespace GameLauncher
                     ProgressText.Text = _localization.Format("Update.DownloadingProgress", percent);
                 });
 
-                bool downloadSuccess = await _updateService.DownloadUpdateAsync(_updateInfo.DownloadUrl, progress);
+                bool downloadSuccess = await _updateService.DownloadUpdateAsync(_updateInfo.DownloadUrl, _updateInfo.Sha256, progress);
 
                 if (downloadSuccess)
                 {
                     ProgressText.Text = _localization.Get("Update.Installing");
                     await Task.Delay(500);
-                    _updateService.InstallUpdate();
-                    // App will close automatically
+
+                    if (_updateService.InstallUpdate())
+                    {
+                        // Der Installer ersetzt die laufende Anwendung und
+                        // startet sie anschliessend neu.
+                        Environment.Exit(0);
+                    }
+                    else
+                    {
+                        ModernMessageWindow.Show(_localization.Get("Update.GenericError"), _localization.Get("Common.Error"));
+                        Close();
+                    }
                 }
                 else
                 {
