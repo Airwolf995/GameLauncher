@@ -182,19 +182,37 @@
                         <TextBlock Text="{loc:Loc Key=Settings.SensorSource}" VerticalAlignment="Top" FontSize="14" Foreground="White"/>
                         <StackPanel Grid.Column="1">
 
-                            <!-- Alles in Ordnung: nur der Status -->
-                            <StackPanel Orientation="Horizontal"
-                                        Visibility="{Binding IsSensorSourceConnected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <!--
+                                Statuszeile: Der Knopf steht unabhaengig vom Zustand immer an
+                                derselben Stelle, damit er beim Klicken nicht unter dem
+                                Mauszeiger verschwindet. Nur der Text daneben wechselt.
+                            -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Text="{loc:Loc Key=Settings.SensorSourceChecking}" FontSize="12" Foreground="#AAAAAA"
+                                           TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,10,0"
+                                           Visibility="{Binding IsSensorSourceChecking, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
                                 <TextBlock Text="{loc:Loc Key=Settings.SensorSourceConnected}" FontSize="12" Foreground="#6FBF73"
-                                           TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <Button Content="{loc:Loc Key=Settings.SensorSourceRecheck}" Padding="10,3"
+                                           TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,10,0"
+                                           Visibility="{Binding IsSensorSourceConnected, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                                <TextBlock Text="{loc:Loc Key=Settings.SensorSourceMissing}" FontSize="12" Foreground="#C8A55A"
+                                           TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,10,0"
+                                           Visibility="{Binding IsSensorSourceMissing, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                                <Button Grid.Column="1" Content="{loc:Loc Key=Settings.SensorSourceRecheck}" Padding="10,3"
+                                        VerticalAlignment="Top"
                                         Command="{Binding RecheckSensorSourceCommand}"/>
-                            </StackPanel>
+                            </Grid>
 
                             <!-- Quelle fehlt: Erklärung und Anleitung -->
-                            <StackPanel Visibility="{Binding IsSensorSourceMissing, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                <TextBlock Text="{loc:Loc Key=Settings.SensorSourceMissing}" FontSize="12" Foreground="#C8A55A"
-                                           TextWrapping="Wrap" Margin="0,0,0,6"/>
+                            <StackPanel Margin="0,8,0,0"
+                                        Visibility="{Binding IsSensorSourceMissing, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <TextBlock Text="{loc:Loc Key=Settings.SensorSourceIntro}" FontSize="12" Foreground="#AAAAAA"
                                            TextWrapping="Wrap" Margin="0,0,0,8"/>
                                 <TextBlock Text="{loc:Loc Key=Settings.SensorSourceStep1}" FontSize="12" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,0,0,3"/>
@@ -203,12 +221,9 @@
                                 <TextBlock Text="{loc:Loc Key=Settings.SensorSourceStep4}" FontSize="12" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,0,0,8"/>
                                 <TextBlock Text="{loc:Loc Key=Settings.SensorSourceNvidiaNote}" FontSize="11" Foreground="#666666"
                                            TextWrapping="Wrap" Margin="0,0,0,8"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="{loc:Loc Key=Settings.SensorSourceDownload}" Padding="12,5" Margin="0,0,8,0"
-                                            Command="{Binding OpenSensorSourceCommand}"/>
-                                    <Button Content="{loc:Loc Key=Settings.SensorSourceRecheck}" Padding="12,5"
-                                            Command="{Binding RecheckSensorSourceCommand}"/>
-                                </StackPanel>
+                                <Button Content="{loc:Loc Key=Settings.SensorSourceDownload}" Padding="12,5"
+                                        HorizontalAlignment="Left"
+                                        Command="{Binding OpenSensorSourceCommand}"/>
                             </StackPanel>
 
                         </StackPanel>
