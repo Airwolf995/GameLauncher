@@ -26,10 +26,18 @@ namespace GameLauncher.ViewModels
         private readonly ISettingsDialogService _dialogService;
         private readonly ISettingsUpdateService _updateService;
         private readonly IPlatformStatusService _platformStatusService;
+        private readonly ISensorSourceProbe _sensorSourceProbe;
         private bool _isInitialLoading = true;
         private bool _isCheckingUpdates;
         private string _updateButtonText = "";
-        private bool _isSensorSourceMissing;
+
+        /// <summary>
+        /// Das Ergebnis der Erreichbarkeitspruefung: <c>null</c>, solange sie
+        /// laeuft. Der unbekannte Zustand ist noetig, weil die Pruefung im
+        /// Hintergrund stattfindet - ohne ihn zeigte das Fenster bis zu zwei
+        /// Sekunden lang eine bestehende Verbindung an, die es nie gab.
+        /// </summary>
+        private bool? _isSensorSourceAvailable;
 
         public SettingsViewModel(GameManager gameManager, Action<string> onThemeChanged, Action<UISettings> onSettingsChanged)
             : this(
@@ -39,7 +47,8 @@ namespace GameLauncher.ViewModels
                 new AutostartService(),
                 new SettingsDialogService(LocalizationService.Instance),
                 new SettingsUpdateService(LocalizationService.Instance),
-                new PlatformStatusService())
+                new PlatformStatusService(),
+                new SensorSourceProbe())
         {
         }
 
@@ -50,7 +59,8 @@ namespace GameLauncher.ViewModels
             IAutostartService autostartService,
             ISettingsDialogService dialogService,
             ISettingsUpdateService updateService,
-            IPlatformStatusService platformStatusService)
+            IPlatformStatusService platformStatusService,
+            ISensorSourceProbe sensorSourceProbe)
         {
             _gameManager = gameManager ?? throw new ArgumentNullException(nameof(gameManager));
             _localization = LocalizationService.Instance;
@@ -60,6 +70,7 @@ namespace GameLauncher.ViewModels
             _dialogService = dialogService;
             _updateService = updateService;
             _platformStatusService = platformStatusService;
+            _sensorSourceProbe = sensorSourceProbe;
 
             Appearance = new AppearanceSettingsViewModel(PreviewUiSettings, _onThemeChanged);
             Behavior = new BehaviorSettingsViewModel(_localization);
@@ -71,7 +82,12 @@ namespace GameLauncher.ViewModels
             CheckUpdatesCommand = new AsyncRelayCommand(CheckUpdatesAsync);
             ResetToDefaultsCommand = new RelayCommand(_ => ResetToDefaults());
             OpenSensorSourceCommand = new RelayCommand(_ => OpenSensorSourcePage());
-            RecheckSensorSourceCommand = new RelayCommand(_ => CheckSensorSourceAvailability());
+            // Waehrend einer laufenden Pruefung ist der Knopf abgeblendet. Das ist
+            // nicht nur Kosmetik: Es verhindert, dass zwei Abfragen nebeneinander
+            // laufen und eine langsame alte Antwort die neue ueberschreibt.
+            RecheckSensorSourceCommand = new RelayCommand(
+                _ => CheckSensorSourceAvailability(),
+                _ => !IsSensorSourceChecking);
 
             LoadSettings();
             CheckSensorSourceAvailability();
@@ -96,31 +112,56 @@ namespace GameLauncher.ViewModels
         /// dann erscheint der Hinweis in den Einstellungen - laeuft sie, gibt es
         /// nichts zu melden.
         /// </summary>
-        public bool IsSensorSourceMissing
-        {
-            get => _isSensorSourceMissing;
-            private set
-            {
-                if (SetProperty(ref _isSensorSourceMissing, value))
-                {
-                    OnPropertyChanged(nameof(IsSensorSourceConnected));
-                }
-            }
-        }
+        public bool IsSensorSourceMissing => _isSensorSourceAvailable == false;
 
-        public bool IsSensorSourceConnected => !_isSensorSourceMissing;
+        public bool IsSensorSourceConnected => _isSensorSourceAvailable == true;
+
+        /// <summary>
+        /// Meldet, dass die Erreichbarkeit gerade geprueft wird.
+        /// </summary>
+        public bool IsSensorSourceChecking => _isSensorSourceAvailable == null;
+
+        /// <summary>
+        /// Die laufende Pruefung. Sie laeuft im Hintergrund und meldet ihr
+        /// Ergebnis von selbst an die Anzeige; nur Tests muessen abwarten
+        /// koennen, bis sie durch ist.
+        /// </summary>
+        internal Task SensorSourceCheck { get; private set; } = Task.CompletedTask;
+
+        private void SetSensorSourceAvailability(bool? isAvailable)
+        {
+            if (_isSensorSourceAvailable == isAvailable)
+            {
+                return;
+            }
+
+            _isSensorSourceAvailable = isAvailable;
+            OnPropertyChanged(nameof(IsSensorSourceMissing));
+            OnPropertyChanged(nameof(IsSensorSourceConnected));
+            OnPropertyChanged(nameof(IsSensorSourceChecking));
+
+            // Der Knopf "Erneut pruefen" ist waehrend der Pruefung abgeblendet.
+            // Ohne diesen Anstoss fragt WPF erst bei der naechsten Eingabe nach,
+            // ob er wieder benutzbar ist - er bliebe also abgeblendet stehen,
+            // bis der Benutzer das Fenster zufaellig beruehrt.
+            CommandManager.InvalidateRequerySuggested();
+        }
 
         /// <summary>
         /// Die Pruefung ruft die Anwendung ueber HTTP ab und wartet dabei bis zu
         /// zwei Sekunden, deshalb laeuft sie im Hintergrund: das
-        /// Einstellungsfenster soll sofort erscheinen.
+        /// Einstellungsfenster soll sofort erscheinen. Bis das Ergebnis vorliegt,
+        /// weist die Anzeige die Pruefung aus, statt eine der beiden Antworten
+        /// vorwegzunehmen.
         /// </summary>
         private void CheckSensorSourceAvailability()
         {
-            Task.Run(() =>
+            SetSensorSourceAvailability(null);
+
+            SensorSourceCheck = Task.Run(() =>
             {
-                bool isAvailable = Services.LibreHardwareMonitorWebSource.IsApplicationAvailable();
-                Action applyResult = () => IsSensorSourceMissing = !isAvailable;
+                bool isAvailable = _sensorSourceProbe.IsAvailable();
+                Action applyResult = () => SetSensorSourceAvailability(isAvailable);
                 applyResult.RunOnUI();
             });
         }
