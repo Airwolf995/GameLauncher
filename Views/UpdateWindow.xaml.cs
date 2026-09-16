@@ -81,9 +81,9 @@ namespace GameLauncher
                     ProgressText.Text = _localization.Format("Update.DownloadingProgress", percent);
                 });
 
-                bool downloadSuccess = await _updateService.DownloadUpdateAsync(_updateInfo.DownloadUrl, _updateInfo.Sha256, progress);
+                UpdateDownloadResult downloadResult = await _updateService.DownloadUpdateAsync(_updateInfo.DownloadUrl, _updateInfo.Sha256, progress);
 
-                if (downloadSuccess)
+                if (downloadResult == UpdateDownloadResult.Succeeded)
                 {
                     ProgressText.Text = _localization.Get("Update.Installing");
                     await Task.Delay(500);
@@ -102,7 +102,10 @@ namespace GameLauncher
                 }
                 else
                 {
-                    ModernMessageWindow.Show(_localization.Get("Update.DownloadError"), _localization.Get("Common.Error"));
+                    string messageKey = downloadResult == UpdateDownloadResult.ChecksumMismatch
+                        ? "Update.ChecksumError"
+                        : "Update.DownloadError";
+                    ModernMessageWindow.Show(_localization.Get(messageKey), _localization.Get("Common.Error"));
                     Close();
                 }
             }
