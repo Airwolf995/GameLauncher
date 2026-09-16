@@ -4,7 +4,7 @@
 #define MyAppPublisher "Airwolf99"
 #define MyAppExeName "GameLauncher.exe"
 #define MyAppBuildDir "publish\win-x64"
-#define MyAppVersion GetFileVersion(AddBackslash(MyAppBuildDir) + MyAppExeName)
+#define MyAppVersion GetVersionNumbersString(AddBackslash(MyAppBuildDir) + MyAppExeName)
 
 [Setup]
 AppId={{8F4A2E1D-9B3C-4F7A-A8E2-5D6C9B1A3F4E}
