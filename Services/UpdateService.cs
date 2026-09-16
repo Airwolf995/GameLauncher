@@ -149,7 +149,7 @@ namespace GameLauncher.Services
                    host.EndsWith("." + domain, StringComparison.OrdinalIgnoreCase);
         }
 
-        public async Task<bool> DownloadUpdateAsync(string downloadUrl, string expectedSha256, IProgress<int>? progress = null, CancellationToken ct = default)
+        public async Task<UpdateDownloadResult> DownloadUpdateAsync(string downloadUrl, string expectedSha256, IProgress<int>? progress = null, CancellationToken ct = default)
         {
             try
             {
@@ -189,22 +189,22 @@ namespace GameLauncher.Services
                 {
                     Logger.Error($"Update download is incomplete: {bytesRead} of {totalBytes} bytes");
                     TryDeleteDownloadedInstaller();
-                    return false;
+                    return UpdateDownloadResult.Failed;
                 }
 
                 if (!await VerifyDownloadedInstallerAsync(expectedSha256, ct))
                 {
                     TryDeleteDownloadedInstaller();
-                    return false;
+                    return UpdateDownloadResult.ChecksumMismatch;
                 }
 
-                return true;
+                return UpdateDownloadResult.Succeeded;
             }
             catch (Exception ex)
             {
                 Logger.Error("Update download failed", ex);
                 TryDeleteDownloadedInstaller();
-                return false;
+                return UpdateDownloadResult.Failed;
             }
         }
 
@@ -284,6 +284,17 @@ namespace GameLauncher.Services
         {
             _httpClient.Dispose();
         }
+    }
+
+    public enum UpdateDownloadResult
+    {
+        Succeeded,
+
+        /// <summary>Abbruch, Netzwerk- oder Dateifehler, unvollstaendige Datei.</summary>
+        Failed,
+
+        /// <summary>Die Datei kam vollstaendig an, passt aber nicht zur veroeffentlichten Pruefsumme.</summary>
+        ChecksumMismatch
     }
 
     public class UpdateInfo
