@@ -15,9 +15,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Management" Version="10.0.5" />
-  </ItemGroup>
-  <ItemGroup>
     <Resource Include="Resources\Images\game.ico" />
   </ItemGroup>
 

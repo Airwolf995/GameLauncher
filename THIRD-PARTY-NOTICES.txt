@@ -3,12 +3,6 @@ Drittanbieter-Hinweise
 
 Dieses Produkt enthält die folgenden Drittanbieterkomponenten:
 
-System.Management und System.CodeDom 10.0.5
-Copyright © .NET Foundation and Contributors
-Lizenziert unter der MIT-Lizenz.
-Vollständiger Lizenztext: licenses\LICENSE.DotNet-MIT.txt
-Quellcode: https://github.com/dotnet/runtime
-
 Microsoft.Windows.SDK.NET und WinRT.Runtime
 Copyright © Microsoft Corporation
 Lizenziert unter der MIT-Lizenz.
