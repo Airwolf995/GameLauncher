@@ -51,6 +51,34 @@ public sealed class EpicScannerTests
         Assert.True(EpicScanner.IsGameManifest(document.RootElement));
     }
 
+    /// <summary>
+    /// Ein Eintrag, der kein Text ist, darf die Auswertung nicht abbrechen:
+    /// die Ausnahme wuerde den ganzen Eintrag in die Fehlerbehandlung des
+    /// Scanners schieben und das Spiel damit aus der Bibliothek entfernen.
+    /// </summary>
+    [Theory]
+    [InlineData("""{"AppCategories":[1,2]}""")]
+    [InlineData("""{"AppCategories":[{"name":"games"}]}""")]
+    [InlineData("""{"AppCategories":[null]}""")]
+    public void IsGameManifest_BehaeltManifestMitUnerwartetenKategorieneintraegen(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+
+        Assert.True(EpicScanner.IsGameManifest(document.RootElement));
+    }
+
+    /// <summary>
+    /// Auch neben einem unbrauchbaren Eintrag muss die erkennbare Kategorie
+    /// weiterhin greifen.
+    /// </summary>
+    [Fact]
+    public void IsGameManifest_ErkenntPluginNebenUnbrauchbaremEintrag()
+    {
+        using var document = JsonDocument.Parse("""{"AppCategories":[42,"plugins"]}""");
+
+        Assert.False(EpicScanner.IsGameManifest(document.RootElement));
+    }
+
     private static bool IsGameManifest(string[] categories)
     {
         string json = JsonSerializer.Serialize(new { AppCategories = categories });

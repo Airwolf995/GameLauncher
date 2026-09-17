@@ -97,6 +97,15 @@ namespace GameLauncher.Services.Scanners
 
             foreach (var category in categories.EnumerateArray())
             {
+                // GetString() wirft, sobald ein Eintrag kein Text ist. Ohne diese
+                // Prüfung verließe die Ausnahme die Methode, das Manifest fiele in
+                // die Fehlerbehandlung des Scanners und das Spiel verschwände -
+                // genau das Gegenteil der obigen Zusicherung.
+                if (category.ValueKind != JsonValueKind.String)
+                {
+                    continue;
+                }
+
                 string? value = category.GetString();
                 if (string.IsNullOrWhiteSpace(value))
                 {
