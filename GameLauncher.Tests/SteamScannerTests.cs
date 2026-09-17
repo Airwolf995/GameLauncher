@@ -52,4 +52,56 @@ public sealed class SteamScannerTests
     {
         Assert.True(SteamScanner.IsFullyInstalled(manifest));
     }
+
+    [Fact]
+    public void TryResolveLocalHeaderImage_FindetTitelbildImOrdnerJeApp()
+    {
+        string steamRoot = Directory.CreateTempSubdirectory("GameLauncherSteamCache_").FullName;
+        try
+        {
+            string appFolder = Path.Combine(steamRoot, "appcache", "librarycache", "620");
+            Directory.CreateDirectory(appFolder);
+            string expected = Path.Combine(appFolder, "header.jpg");
+            File.WriteAllText(expected, "bild");
+
+            Assert.Equal(expected, SteamScanner.TryResolveLocalHeaderImage(steamRoot, "620"));
+        }
+        finally
+        {
+            Directory.Delete(steamRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void TryResolveLocalHeaderImage_FindetTitelbildImFlachenAltformat()
+    {
+        string steamRoot = Directory.CreateTempSubdirectory("GameLauncherSteamCache_").FullName;
+        try
+        {
+            string libraryCache = Path.Combine(steamRoot, "appcache", "librarycache");
+            Directory.CreateDirectory(libraryCache);
+            string expected = Path.Combine(libraryCache, "620_header.jpg");
+            File.WriteAllText(expected, "bild");
+
+            Assert.Equal(expected, SteamScanner.TryResolveLocalHeaderImage(steamRoot, "620"));
+        }
+        finally
+        {
+            Directory.Delete(steamRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void TryResolveLocalHeaderImage_MeldetOhneZwischenspeicherKeinenPfad()
+    {
+        string steamRoot = Directory.CreateTempSubdirectory("GameLauncherSteamCache_").FullName;
+        try
+        {
+            Assert.Null(SteamScanner.TryResolveLocalHeaderImage(steamRoot, "620"));
+        }
+        finally
+        {
+            Directory.Delete(steamRoot, recursive: true);
+        }
+    }
 }
