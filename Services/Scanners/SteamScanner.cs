@@ -200,8 +200,8 @@ namespace GameLauncher.Services.Scanners
                                 // Check local cache
                                 if (!string.IsNullOrEmpty(steamRoot))
                                 {
-                                    string localCache = Path.Combine(steamRoot, "appcache", "librarycache", $"{appid}_header.jpg");
-                                    if (File.Exists(localCache))
+                                    string? localCache = TryResolveLocalHeaderImage(steamRoot, appid);
+                                    if (localCache != null)
                                     {
                                         imageUrl = localCache;
                                     }
@@ -255,6 +255,33 @@ namespace GameLauncher.Services.Scanners
             }
 
             return games;
+        }
+
+        /// <summary>
+        /// Sucht das lokal zwischengespeicherte Titelbild eines Steam-Titels.
+        /// Aktuelle Clients legen je App einen eigenen Ordner unterhalb von
+        /// appcache\librarycache an und darin die Datei header.jpg; ältere
+        /// Versionen schrieben die Bilder flach als &lt;appid&gt;_header.jpg
+        /// daneben. Geprüft werden beide Formen, damit der Scanner nicht vom
+        /// Stand des Clients abhängt. Ohne Treffer bleibt es beim CDN-Bild.
+        /// </summary>
+        internal static string? TryResolveLocalHeaderImage(string steamRoot, string appId)
+        {
+            if (string.IsNullOrWhiteSpace(steamRoot) || string.IsNullOrWhiteSpace(appId))
+            {
+                return null;
+            }
+
+            string libraryCache = Path.Combine(steamRoot, "appcache", "librarycache");
+
+            string perAppFile = Path.Combine(libraryCache, appId, "header.jpg");
+            if (File.Exists(perAppFile))
+            {
+                return perAppFile;
+            }
+
+            string legacyFlatFile = Path.Combine(libraryCache, $"{appId}_header.jpg");
+            return File.Exists(legacyFlatFile) ? legacyFlatFile : null;
         }
 
         /// <summary>
