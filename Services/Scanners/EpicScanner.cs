@@ -67,6 +67,64 @@ namespace GameLauncher.Services.Scanners
             return found;
         }
 
+        /// <summary>
+        /// Kategorien, die der Launcher zwar mitverwaltet, die aber keine Spiele
+        /// sind: die Unreal Engine selbst und die Plugins dazu.
+        /// </summary>
+        private static readonly string[] NonGameCategories = ["engines", "plugins"];
+
+        /// <summary>
+        /// Epic legt für Engine und Plugins dieselben .item-Manifeste an wie für
+        /// Spiele. Ohne diese Prüfung landeten sie als Spiele in der Bibliothek.
+        /// Schwerer wiegt, dass Plugins in MainGameAppName auf ihre Engine
+        /// zeigen: der Scanner bevorzugt dieses Feld, sodass Engine und Plugins
+        /// dieselbe Id bekamen. Da Favoriten, Spielzeit, Tags und ausgeblendete
+        /// Einträge über die Id geführt werden, teilten sich mehrere Einträge
+        /// deren Zustand.
+        ///
+        /// Aussortiert wird bewusst nur, was sich nachweislich als Engine oder
+        /// Plugin ausweist. Ein Manifest ohne Kategorien bleibt erhalten - fehlt
+        /// das Feld in einer künftigen Fassung, verschwindet lieber kein Spiel
+        /// aus der Bibliothek.
+        /// </summary>
+        internal static bool IsGameManifest(JsonElement manifest)
+        {
+            if (!manifest.TryGetProperty("AppCategories", out var categories) ||
+                categories.ValueKind != JsonValueKind.Array)
+            {
+                return true;
+            }
+
+            foreach (var category in categories.EnumerateArray())
+            {
+                // GetString() wirft, sobald ein Eintrag kein Text ist. Ohne diese
+                // Prüfung verließe die Ausnahme die Methode, das Manifest fiele in
+                // die Fehlerbehandlung des Scanners und das Spiel verschwände -
+                // genau das Gegenteil der obigen Zusicherung.
+                if (category.ValueKind != JsonValueKind.String)
+                {
+                    continue;
+                }
+
+                string? value = category.GetString();
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    continue;
+                }
+
+                foreach (string nonGameCategory in NonGameCategories)
+                {
+                    if (value.Equals(nonGameCategory, StringComparison.OrdinalIgnoreCase) ||
+                        value.StartsWith(nonGameCategory + "/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
         public Task<List<Game>> ScanAsync(CancellationToken ct = default)
         {
             return Task.Run(() => Scan(ct), ct);
@@ -98,6 +156,11 @@ namespace GameLauncher.Services.Scanners
                             using (JsonDocument doc = JsonDocument.Parse(json))
                             {
                                 var root = doc.RootElement;
+
+                                if (!IsGameManifest(root))
+                                {
+                                    continue;
+                                }
 
                                 string? displayName = null;
                                 string? appName = null;
