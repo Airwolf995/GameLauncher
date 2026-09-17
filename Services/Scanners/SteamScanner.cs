@@ -258,12 +258,25 @@ namespace GameLauncher.Services.Scanners
         }
 
         /// <summary>
+        /// Dateinamen, unter denen ein Client das Titelbild im Ordner einer App
+        /// ablegen kann. Welcher Name verwendet wird, hängt vom Stand des
+        /// Clients und vom Zeitpunkt des Zwischenspeicherns ab; beobachtet
+        /// wurde stets nur einer der beiden je App, nie beide. Beide Dateien
+        /// haben dasselbe Format (460x215) und sind damit austauschbar.
+        /// </summary>
+        private static readonly string[] LibraryCacheHeaderFileNames =
+        [
+            "header.jpg",
+            "library_header.jpg"
+        ];
+
+        /// <summary>
         /// Sucht das lokal zwischengespeicherte Titelbild eines Steam-Titels.
         /// Aktuelle Clients legen je App einen eigenen Ordner unterhalb von
-        /// appcache\librarycache an und darin die Datei header.jpg; ältere
-        /// Versionen schrieben die Bilder flach als &lt;appid&gt;_header.jpg
-        /// daneben. Geprüft werden beide Formen, damit der Scanner nicht vom
-        /// Stand des Clients abhängt. Ohne Treffer bleibt es beim CDN-Bild.
+        /// appcache\librarycache an; ältere Versionen schrieben die Bilder flach
+        /// als &lt;appid&gt;_header.jpg daneben. Geprüft werden beide Ablageformen
+        /// und beide Dateinamen, damit der Scanner nicht vom Stand des Clients
+        /// abhängt. Ohne Treffer bleibt es beim CDN-Bild.
         /// </summary>
         internal static string? TryResolveLocalHeaderImage(string steamRoot, string appId)
         {
@@ -273,11 +286,15 @@ namespace GameLauncher.Services.Scanners
             }
 
             string libraryCache = Path.Combine(steamRoot, "appcache", "librarycache");
+            string perAppFolder = Path.Combine(libraryCache, appId);
 
-            string perAppFile = Path.Combine(libraryCache, appId, "header.jpg");
-            if (File.Exists(perAppFile))
+            foreach (string fileName in LibraryCacheHeaderFileNames)
             {
-                return perAppFile;
+                string perAppFile = Path.Combine(perAppFolder, fileName);
+                if (File.Exists(perAppFile))
+                {
+                    return perAppFile;
+                }
             }
 
             string legacyFlatFile = Path.Combine(libraryCache, $"{appId}_header.jpg");
