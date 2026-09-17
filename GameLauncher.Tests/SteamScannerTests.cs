@@ -73,6 +73,25 @@ public sealed class SteamScannerTests
     }
 
     [Fact]
+    public void TryResolveLocalHeaderImage_FindetTitelbildUnterAbweichendemDateinamen()
+    {
+        string steamRoot = Directory.CreateTempSubdirectory("GameLauncherSteamCache_").FullName;
+        try
+        {
+            string appFolder = Path.Combine(steamRoot, "appcache", "librarycache", "620");
+            Directory.CreateDirectory(appFolder);
+            string expected = Path.Combine(appFolder, "library_header.jpg");
+            File.WriteAllText(expected, "bild");
+
+            Assert.Equal(expected, SteamScanner.TryResolveLocalHeaderImage(steamRoot, "620"));
+        }
+        finally
+        {
+            Directory.Delete(steamRoot, recursive: true);
+        }
+    }
+
+    [Fact]
     public void TryResolveLocalHeaderImage_FindetTitelbildImFlachenAltformat()
     {
         string steamRoot = Directory.CreateTempSubdirectory("GameLauncherSteamCache_").FullName;
