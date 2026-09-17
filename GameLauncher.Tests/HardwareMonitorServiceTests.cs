@@ -207,6 +207,88 @@ namespace GameLauncher.Tests
             Assert.Equal(1, errorCount);
         }
 
+        /// <summary>
+        /// Die Sensorquelle ist eine externe Anwendung und kann später starten
+        /// als der Launcher. Früher wurde der erste Fehlversuch dauerhaft
+        /// festgeschrieben, sodass die Gesamtgröße bis zum Neustart fehlte.
+        /// </summary>
+        [Fact]
+        public void ReadGpuMemoryTotalGb_HoltWertNachSobaldSensorquelleAntwortet()
+        {
+            var clock = new TestClock();
+            var telemetrySource = new DelayedVramTotalTelemetrySource(availableFromCall: 2, totalGb: 16f);
+            using var reader = CreateVramTotalReader(telemetrySource, clock);
+
+            Assert.Null(reader.ReadGpuMemoryTotalGb());
+
+            clock.Advance(TimeSpan.FromSeconds(31));
+
+            Assert.Equal(16f, reader.ReadGpuMemoryTotalGb());
+        }
+
+        /// <summary>
+        /// Der ermittelte Wert ändert sich im Betrieb nicht und wird deshalb
+        /// nur einmal abgefragt.
+        /// </summary>
+        [Fact]
+        public void ReadGpuMemoryTotalGb_FragtNachErfolgNichtErneutAb()
+        {
+            var clock = new TestClock();
+            var telemetrySource = new DelayedVramTotalTelemetrySource(availableFromCall: 1, totalGb: 16f);
+            using var reader = CreateVramTotalReader(telemetrySource, clock);
+
+            Assert.Equal(16f, reader.ReadGpuMemoryTotalGb());
+            clock.Advance(TimeSpan.FromSeconds(31));
+            Assert.Equal(16f, reader.ReadGpuMemoryTotalGb());
+
+            Assert.Equal(1, telemetrySource.TotalReadCalls);
+        }
+
+        /// <summary>
+        /// Ohne Antwort einer Quelle bleibt der Wert leer. Ein gedeckelter
+        /// Ersatzwert wäre schlimmer als keiner: aus ihm wurde die
+        /// VRAM-Auslastung berechnet und dauerhaft zu hoch angezeigt.
+        /// </summary>
+        [Fact]
+        public void ReadGpuMemoryTotalGb_MeldetOhneQuelleKeinenWert()
+        {
+            var clock = new TestClock();
+            var telemetrySource = new DelayedVramTotalTelemetrySource(availableFromCall: int.MaxValue, totalGb: 16f);
+            using var reader = CreateVramTotalReader(telemetrySource, clock);
+
+            Assert.Null(reader.ReadGpuMemoryTotalGb());
+            clock.Advance(TimeSpan.FromSeconds(31));
+            Assert.Null(reader.ReadGpuMemoryTotalGb());
+        }
+
+        /// <summary>
+        /// nvidia-smi wird bewusst gestellt: sonst hinge das Ergebnis davon ab,
+        /// ob auf dem Rechner des Testlaufs eine NVIDIA-Karte steckt.
+        /// </summary>
+        private static SystemUsageReader CreateVramTotalReader(
+            IHardwareTelemetrySource telemetrySource,
+            TestClock clock)
+        {
+            return new SystemUsageReader(
+                telemetrySource,
+                readCpuUsage: () => null,
+                readMemoryStats: () => (null, null, null),
+                readGpuUsage: () => null,
+                readVramStats: () => (null, null, null),
+                logError: (_, _) => { },
+                utcNow: clock.UtcNow,
+                readNvidiaSmiGpuMemoryTotalGb: () => null);
+        }
+
+        private sealed class TestClock
+        {
+            private DateTime _utcNow = new(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+
+            public DateTime UtcNow() => _utcNow;
+
+            public void Advance(TimeSpan amount) => _utcNow += amount;
+        }
+
         private static HardwareMonitorService CreateService(
             ISystemUsageReader usageReader,
             IOptionalTemperatureReader temperatureReader,
@@ -378,6 +460,39 @@ namespace GameLauncher.Tests
             public void Dispose()
             {
                 DisposeCalls++;
+            }
+        }
+
+        /// <summary>
+        /// Sensorquelle, die die Gesamtgröße des Grafikspeichers erst ab einem
+        /// bestimmten Abruf meldet. Damit lässt sich eine externe Anwendung
+        /// nachbilden, die später startet als der Launcher.
+        /// </summary>
+        private sealed class DelayedVramTotalTelemetrySource : IHardwareTelemetrySource
+        {
+            private readonly int _availableFromCall;
+            private readonly float _totalGb;
+
+            public DelayedVramTotalTelemetrySource(int availableFromCall, float totalGb)
+            {
+                _availableFromCall = availableFromCall;
+                _totalGb = totalGb;
+            }
+
+            public int TotalReadCalls { get; private set; }
+
+            public float? TryReadCpuTemperature() => null;
+            public float? TryReadGpuTemperature() => null;
+            public float? TryReadGpuLoad() => null;
+
+            public float? TryReadGpuMemoryTotalGb()
+            {
+                TotalReadCalls++;
+                return TotalReadCalls >= _availableFromCall ? _totalGb : null;
+            }
+
+            public void Dispose()
+            {
             }
         }
     }
