@@ -30,6 +30,49 @@ namespace GameLauncher.Services.Settings
                 _localization.Get("Settings.ResetConfirmBody"),
                 _localization.Get("Settings.ResetConfirmTitle"),
                 ModernMessageWindow.ModernMessageButton.YesNo,
-                Application.Current?.Windows.OfType<SettingsWindow>().FirstOrDefault()) == MessageBoxResult.Yes;
+                OwnerWindow) == MessageBoxResult.Yes;
+
+        public string? SelectConfigExportTarget(string suggestedFileName)
+        {
+            var dialog = new SaveFileDialog
+            {
+                Filter = _localization.Get("Settings.ConfigTransferDialogFilter"),
+                Title = _localization.Get("Settings.ExportConfigDialogTitle"),
+                FileName = suggestedFileName,
+                AddExtension = true,
+                DefaultExt = ".json"
+            };
+
+            return dialog.ShowDialog() == true ? dialog.FileName : null;
+        }
+
+        public string? SelectConfigImportSource()
+        {
+            var dialog = new OpenFileDialog
+            {
+                Filter = _localization.Get("Settings.ConfigTransferDialogFilter"),
+                Title = _localization.Get("Settings.ImportConfigDialogTitle"),
+                CheckFileExists = true
+            };
+
+            return dialog.ShowDialog() == true ? dialog.FileName : null;
+        }
+
+        public bool ConfirmImport() =>
+            ModernMessageWindow.Show(
+                _localization.Get("Settings.ImportConfigConfirmBody"),
+                _localization.Get("Settings.ImportConfigConfirmTitle"),
+                ModernMessageWindow.ModernMessageButton.YesNo,
+                OwnerWindow) == MessageBoxResult.Yes;
+
+        public void ShowConfigTransferResult(string message, string title) =>
+            ModernMessageWindow.Show(
+                message,
+                title,
+                ModernMessageWindow.ModernMessageButton.OK,
+                OwnerWindow);
+
+        private static SettingsWindow? OwnerWindow =>
+            Application.Current?.Windows.OfType<SettingsWindow>().FirstOrDefault();
     }
 }

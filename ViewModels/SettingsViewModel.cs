@@ -27,6 +27,8 @@ namespace GameLauncher.ViewModels
         private readonly ISettingsUpdateService _updateService;
         private readonly IPlatformStatusService _platformStatusService;
         private readonly ISensorSourceProbe _sensorSourceProbe;
+        private readonly IConfigTransferService _configTransferService;
+        private readonly IApplicationRestartService _restartService;
         private bool _isInitialLoading = true;
         private bool _isCheckingUpdates;
         private string _updateButtonText = "";
@@ -48,7 +50,9 @@ namespace GameLauncher.ViewModels
                 new SettingsDialogService(LocalizationService.Instance),
                 new SettingsUpdateService(LocalizationService.Instance),
                 new PlatformStatusService(),
-                new SensorSourceProbe())
+                new SensorSourceProbe(),
+                new ConfigTransferService(gameManager.ConfigService),
+                new ApplicationRestartService(ExitRunningApplication))
         {
         }
 
@@ -60,7 +64,9 @@ namespace GameLauncher.ViewModels
             ISettingsDialogService dialogService,
             ISettingsUpdateService updateService,
             IPlatformStatusService platformStatusService,
-            ISensorSourceProbe sensorSourceProbe)
+            ISensorSourceProbe sensorSourceProbe,
+            IConfigTransferService configTransferService,
+            IApplicationRestartService restartService)
         {
             _gameManager = gameManager ?? throw new ArgumentNullException(nameof(gameManager));
             _localization = LocalizationService.Instance;
@@ -71,6 +77,8 @@ namespace GameLauncher.ViewModels
             _updateService = updateService;
             _platformStatusService = platformStatusService;
             _sensorSourceProbe = sensorSourceProbe;
+            _configTransferService = configTransferService;
+            _restartService = restartService;
 
             Appearance = new AppearanceSettingsViewModel(PreviewUiSettings, _onThemeChanged);
             Behavior = new BehaviorSettingsViewModel(_localization);
@@ -81,6 +89,8 @@ namespace GameLauncher.ViewModels
             ClearBackgroundCommand = new RelayCommand(_ => ClearBackground());
             CheckUpdatesCommand = new AsyncRelayCommand(CheckUpdatesAsync);
             ResetToDefaultsCommand = new RelayCommand(_ => ResetToDefaults());
+            ExportConfigCommand = new RelayCommand(_ => ExportConfig());
+            ImportConfigCommand = new RelayCommand(_ => ImportConfig());
             OpenSensorSourceCommand = new RelayCommand(_ => OpenSensorSourcePage());
             // Waehrend einer laufenden Pruefung ist der Knopf abgeblendet. Das ist
             // nicht nur Kosmetik: Es verhindert, dass zwei Abfragen nebeneinander
@@ -104,6 +114,8 @@ namespace GameLauncher.ViewModels
         public ICommand ClearBackgroundCommand { get; }
         public ICommand CheckUpdatesCommand { get; }
         public ICommand ResetToDefaultsCommand { get; }
+        public ICommand ExportConfigCommand { get; }
+        public ICommand ImportConfigCommand { get; }
         public ICommand OpenSensorSourceCommand { get; }
         public ICommand RecheckSensorSourceCommand { get; }
 
@@ -374,6 +386,107 @@ namespace GameLauncher.ViewModels
                 _onThemeChanged(colorCode);
             }
         }
+
+        /// <summary>
+        /// Sichert den aktuellen Stand in eine frei gewählte Datei. Gesichert
+        /// wird die Konfiguration mitsamt Spielzeiten, Favoriten, Schlagwörtern
+        /// und manuellen Einträgen.
+        /// </summary>
+        private void ExportConfig()
+        {
+            string? targetPath = _dialogService.SelectConfigExportTarget(
+                $"GameLauncher-Konfiguration-{DateTime.Now:yyyy-MM-dd}.json");
+            if (string.IsNullOrWhiteSpace(targetPath))
+            {
+                return;
+            }
+
+            var result = _configTransferService.Export(targetPath);
+            ShowTransferResult(
+                result == ConfigTransferResult.Success
+                    ? "Settings.ExportConfigSucceeded"
+                    : "Settings.ExportConfigFailed",
+                "Settings.ExportConfigTitle");
+        }
+
+        /// <summary>
+        /// Spielt eine gesicherte Konfiguration ein. Sie ersetzt den bisherigen
+        /// Stand vollständig und wird erst mit dem nächsten Start wirksam, da die
+        /// laufende Anwendung noch die bisherige Konfiguration im Speicher führt.
+        /// </summary>
+        private void ImportConfig()
+        {
+            string? sourcePath = _dialogService.SelectConfigImportSource();
+            if (string.IsNullOrWhiteSpace(sourcePath))
+            {
+                return;
+            }
+
+            if (!_dialogService.ConfirmImport())
+            {
+                return;
+            }
+
+            var result = _configTransferService.Import(sourcePath);
+            if (result != ConfigTransferResult.Success)
+            {
+                ShowTransferResult(
+                    result switch
+                    {
+                        ConfigTransferResult.NotAConfigFile => "Settings.ImportConfigNotAConfigFile",
+                        ConfigTransferResult.SourceUnreadable => "Settings.ImportConfigUnreadable",
+                        _ => "Settings.ImportConfigFailed"
+                    },
+                    "Settings.ImportConfigTitle");
+                return;
+            }
+
+            // Ab hier speichert die Anwendung nichts mehr, damit sie die gerade
+            // eingespielte Datei nicht mit ihrem alten Stand überschreibt. Der
+            // Neustart ist deshalb keine eigene Frage, sondern gehört zum
+            // Einspielen: "eingespielt, aber nicht neu gestartet" wäre genau der
+            // Zustand, in dem gesammelte Spielzeit verloren ginge. Die Rückfrage
+            // oben kündigt ihn an.
+            if (_restartService.Restart())
+            {
+                return;
+            }
+
+            // Nur wenn sich die neue Sitzung nicht starten liess, bleibt etwas zu
+            // melden - dann muss der Benutzer selbst neu starten.
+            ShowTransferResult("Settings.ImportConfigRestartFailed", "Settings.ImportConfigTitle");
+        }
+
+        /// <summary>
+        /// Beendet die Anwendung über denselben Weg wie der Eintrag "Beenden" im
+        /// Infobereich. Ein einfaches Schließen des Hauptfensters genügt nicht:
+        /// Ist "Beim Schließen in den Tray minimieren" gesetzt, würde es nur
+        /// versteckt, und der Neustart träfe die noch laufende Sitzung an.
+        /// </summary>
+        private static void ExitRunningApplication()
+        {
+            var application = Application.Current;
+            if (application == null)
+            {
+                return;
+            }
+
+            application.Dispatcher.Invoke(() =>
+            {
+                if (application.MainWindow is MainWindow mainWindow)
+                {
+                    mainWindow.ExitApplication();
+                    return;
+                }
+
+                application.Shutdown();
+            });
+        }
+
+        private void ShowTransferResult(string messageKey, string titleKey) =>
+            _dialogService.ShowConfigTransferResult(
+                _localization.Get(messageKey),
+                _localization.Get(titleKey));
 
         private void LoadAutomaticPlatformPaths()
         {
