@@ -442,15 +442,19 @@ namespace GameLauncher.ViewModels
             }
 
             // Ab hier speichert die Anwendung nichts mehr, damit sie die gerade
-            // eingespielte Datei nicht mit ihrem alten Stand überschreibt. Wer
-            // jetzt weiterspielt, verlöre die dabei gesammelte Spielzeit -
-            // deshalb wird der Neustart angeboten und nicht nur empfohlen.
-            if (_dialogService.ConfirmRestartAfterImport() && _restartService.Restart())
+            // eingespielte Datei nicht mit ihrem alten Stand überschreibt. Der
+            // Neustart ist deshalb keine eigene Frage, sondern gehört zum
+            // Einspielen: "eingespielt, aber nicht neu gestartet" wäre genau der
+            // Zustand, in dem gesammelte Spielzeit verloren ginge. Die Rückfrage
+            // oben kündigt ihn an.
+            if (_restartService.Restart())
             {
                 return;
             }
 
-            ShowTransferResult("Settings.ImportConfigSucceeded", "Settings.ImportConfigTitle");
+            // Nur wenn sich die neue Sitzung nicht starten liess, bleibt etwas zu
+            // melden - dann muss der Benutzer selbst neu starten.
+            ShowTransferResult("Settings.ImportConfigRestartFailed", "Settings.ImportConfigTitle");
         }
 
         /// <summary>

@@ -197,8 +197,6 @@ namespace GameLauncher.Tests
 
             public bool ConfirmImport() => false;
 
-            public bool ConfirmRestartAfterImport() => false;
-
             public void ShowConfigTransferResult(string message, string title)
             {
             }

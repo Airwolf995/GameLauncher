@@ -19,7 +19,7 @@ public sealed class ModernMessageWindowSizeTests
     /// recht.
     /// </summary>
     private static string LongestMessage =>
-        LocalizedTextCatalog.GetTexts(AppLanguage.German)["Settings.ImportConfigRestartBody"];
+        LocalizedTextCatalog.GetTexts(AppLanguage.German)["Settings.ImportConfigConfirmBody"];
 
     [Fact]
     public void LangeMeldungIstOhneScrollenVollstaendigSichtbar()

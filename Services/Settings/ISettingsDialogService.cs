@@ -12,18 +12,13 @@ namespace GameLauncher.Services.Settings
         string? SelectConfigImportSource();
 
         /// <summary>
-        /// Rückfrage vor dem Import. Er ersetzt den gesamten bisherigen Stand,
-        /// deshalb wird er ausdrücklich bestätigt.
+        /// Rückfrage vor dem Einspielen. Sie deckt den gesamten Vorgang ab: das
+        /// Ersetzen des bisherigen Stands und den anschließenden Neustart. Beides
+        /// getrennt zu fragen wäre keine echte Wahl - ohne Neustart bliebe die
+        /// Anwendung in dem Zustand, in dem sie nichts mehr speichert.
         /// </summary>
         bool ConfirmImport();
 
         void ShowConfigTransferResult(string message, string title);
-
-        /// <summary>
-        /// Rückfrage nach dem Einspielen: Die Sicherung wird erst mit einem
-        /// neuen Start wirksam, und bis dahin speichert die laufende Anwendung
-        /// nichts mehr.
-        /// </summary>
-        bool ConfirmRestartAfterImport();
     }
 }

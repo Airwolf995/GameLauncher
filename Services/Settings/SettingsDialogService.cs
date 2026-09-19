@@ -65,13 +65,6 @@ namespace GameLauncher.Services.Settings
                 ModernMessageWindow.ModernMessageButton.YesNo,
                 OwnerWindow) == MessageBoxResult.Yes;
 
-        public bool ConfirmRestartAfterImport() =>
-            ModernMessageWindow.Show(
-                _localization.Get("Settings.ImportConfigRestartBody"),
-                _localization.Get("Settings.ImportConfigTitle"),
-                ModernMessageWindow.ModernMessageButton.YesNo,
-                OwnerWindow) == MessageBoxResult.Yes;
-
         public void ShowConfigTransferResult(string message, string title) =>
             ModernMessageWindow.Show(
                 message,
