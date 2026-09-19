@@ -136,7 +136,8 @@ namespace GameLauncher.Tests
                         new StubSettingsDialogService(),
                         new StubSettingsUpdateService(),
                         new StubPlatformStatusService(),
-                        probe);
+                        probe,
+                        new StubConfigTransferService());
 
                     assert(viewModel);
                 }
@@ -188,6 +189,23 @@ namespace GameLauncher.Tests
             public string? SelectBackgroundImage() => null;
 
             public bool ConfirmReset() => false;
+
+            public string? SelectConfigExportTarget(string suggestedFileName) => null;
+
+            public string? SelectConfigImportSource() => null;
+
+            public bool ConfirmImport() => false;
+
+            public void ShowConfigTransferResult(string message, string title)
+            {
+            }
+        }
+
+        private sealed class StubConfigTransferService : IConfigTransferService
+        {
+            public ConfigTransferResult Export(string targetPath) => ConfigTransferResult.Success;
+
+            public ConfigTransferResult Import(string sourcePath) => ConfigTransferResult.Success;
         }
 
         private sealed class StubSettingsUpdateService : ISettingsUpdateService

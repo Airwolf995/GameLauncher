@@ -28,6 +28,13 @@ namespace GameLauncher.Services.GameManagement
         public GameConfig Config => _configService.Config;
 
         /// <summary>
+        /// Der Konfigurationsdienst selbst. Wird fuer das Sichern und Einspielen
+        /// der Konfiguration benoetigt, das Serialisierung, Dateipfad und das
+        /// Anhalten weiterer Schreibvorgaenge zugleich braucht.
+        /// </summary>
+        internal ConfigService ConfigService => _configService;
+
+        /// <summary>
         /// Plattformen, deren Scan im letzten Durchlauf fehlgeschlagen ist oder das
         /// Zeitlimit überschritten hat. Die Oberfläche weist damit auf eine
         /// unvollständige Bibliothek hin, statt sie stillschweigend zu verkürzen.

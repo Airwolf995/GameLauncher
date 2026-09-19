@@ -328,6 +328,18 @@
                              Text="{Binding Library.IgnoredProcessesText, UpdateSourceTrigger=LostFocus}"/>
                 </StackPanel>
 
+                <!-- Backup Section -->
+                <StackPanel Margin="0,0,0,20">
+                    <TextBlock Text="{loc:Loc Key=Settings.BackupSection}" FontSize="12" FontWeight="Bold" Foreground="#888888" Margin="0,0,0,5"/>
+                    <TextBlock Text="{loc:Loc Key=Settings.BackupHint}" FontSize="11" Foreground="#666666" Margin="0,0,0,10" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="{loc:Loc Key=Settings.ExportConfig}" Command="{Binding ExportConfigCommand}"
+                                Padding="12,5" Background="#333333" Foreground="White" FontSize="12" Margin="0,0,10,0"/>
+                        <Button Content="{loc:Loc Key=Settings.ImportConfig}" Command="{Binding ImportConfigCommand}"
+                                Padding="12,5" Background="#333333" Foreground="White" FontSize="12"/>
+                    </StackPanel>
+                </StackPanel>
+
                 <!-- About Section -->
                 <StackPanel Margin="0,0,0,20">
                     <TextBlock Text="{loc:Loc Key=Settings.AboutSection}" FontSize="12" FontWeight="Bold" Foreground="#888888" Margin="0,0,0,10"/>

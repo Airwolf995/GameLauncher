@@ -215,7 +215,7 @@ namespace GameLauncher.Services
             }
         }
 
-        private string? TrySerializeCurrentConfig()
+        internal string? TrySerializeCurrentConfig()
         {
             lock (_configSync)
             {
@@ -392,6 +392,27 @@ namespace GameLauncher.Services
                 _disposed = true;
                 _saveTimer.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Hält jedes weitere Schreiben der Konfigurationsdatei an.
+        ///
+        /// Gedacht für den Import: danach steht eine fremde Konfiguration in der
+        /// Datei, während die laufende Anwendung noch die alte im Speicher hält.
+        /// Ohne diese Bremse würde der nächste Speichervorgang - eine geänderte
+        /// Einstellung, ein Tick der Spielzeiterfassung oder das Beenden - die
+        /// gerade eingespielte Datei wieder überschreiben.
+        /// </summary>
+        internal void SuspendSaving()
+        {
+            lock (_saveSync)
+            {
+                _saveTimer.Stop();
+                _pendingSave = false;
+                _canOverwriteConfig = false;
+            }
+
+            Logger.Log("Weiteres Speichern der Konfiguration wurde angehalten.");
         }
 
         private bool TryBackupInvalidConfig()

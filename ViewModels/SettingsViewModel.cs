@@ -27,6 +27,7 @@ namespace GameLauncher.ViewModels
         private readonly ISettingsUpdateService _updateService;
         private readonly IPlatformStatusService _platformStatusService;
         private readonly ISensorSourceProbe _sensorSourceProbe;
+        private readonly IConfigTransferService _configTransferService;
         private bool _isInitialLoading = true;
         private bool _isCheckingUpdates;
         private string _updateButtonText = "";
@@ -48,7 +49,8 @@ namespace GameLauncher.ViewModels
                 new SettingsDialogService(LocalizationService.Instance),
                 new SettingsUpdateService(LocalizationService.Instance),
                 new PlatformStatusService(),
-                new SensorSourceProbe())
+                new SensorSourceProbe(),
+                new ConfigTransferService(gameManager.ConfigService))
         {
         }
 
@@ -60,7 +62,8 @@ namespace GameLauncher.ViewModels
             ISettingsDialogService dialogService,
             ISettingsUpdateService updateService,
             IPlatformStatusService platformStatusService,
-            ISensorSourceProbe sensorSourceProbe)
+            ISensorSourceProbe sensorSourceProbe,
+            IConfigTransferService configTransferService)
         {
             _gameManager = gameManager ?? throw new ArgumentNullException(nameof(gameManager));
             _localization = LocalizationService.Instance;
@@ -71,6 +74,7 @@ namespace GameLauncher.ViewModels
             _updateService = updateService;
             _platformStatusService = platformStatusService;
             _sensorSourceProbe = sensorSourceProbe;
+            _configTransferService = configTransferService;
 
             Appearance = new AppearanceSettingsViewModel(PreviewUiSettings, _onThemeChanged);
             Behavior = new BehaviorSettingsViewModel(_localization);
@@ -81,6 +85,8 @@ namespace GameLauncher.ViewModels
             ClearBackgroundCommand = new RelayCommand(_ => ClearBackground());
             CheckUpdatesCommand = new AsyncRelayCommand(CheckUpdatesAsync);
             ResetToDefaultsCommand = new RelayCommand(_ => ResetToDefaults());
+            ExportConfigCommand = new RelayCommand(_ => ExportConfig());
+            ImportConfigCommand = new RelayCommand(_ => ImportConfig());
             OpenSensorSourceCommand = new RelayCommand(_ => OpenSensorSourcePage());
             // Waehrend einer laufenden Pruefung ist der Knopf abgeblendet. Das ist
             // nicht nur Kosmetik: Es verhindert, dass zwei Abfragen nebeneinander
@@ -104,6 +110,8 @@ namespace GameLauncher.ViewModels
         public ICommand ClearBackgroundCommand { get; }
         public ICommand CheckUpdatesCommand { get; }
         public ICommand ResetToDefaultsCommand { get; }
+        public ICommand ExportConfigCommand { get; }
+        public ICommand ImportConfigCommand { get; }
         public ICommand OpenSensorSourceCommand { get; }
         public ICommand RecheckSensorSourceCommand { get; }
 
@@ -374,6 +382,63 @@ namespace GameLauncher.ViewModels
                 _onThemeChanged(colorCode);
             }
         }
+
+        /// <summary>
+        /// Sichert den aktuellen Stand in eine frei gewählte Datei. Gesichert
+        /// wird die Konfiguration mitsamt Spielzeiten, Favoriten, Schlagwörtern
+        /// und manuellen Einträgen.
+        /// </summary>
+        private void ExportConfig()
+        {
+            string? targetPath = _dialogService.SelectConfigExportTarget(
+                $"GameLauncher-Konfiguration-{DateTime.Now:yyyy-MM-dd}.json");
+            if (string.IsNullOrWhiteSpace(targetPath))
+            {
+                return;
+            }
+
+            var result = _configTransferService.Export(targetPath);
+            ShowTransferResult(
+                result == ConfigTransferResult.Success
+                    ? "Settings.ExportConfigSucceeded"
+                    : "Settings.ExportConfigFailed",
+                "Settings.ExportConfigTitle");
+        }
+
+        /// <summary>
+        /// Spielt eine gesicherte Konfiguration ein. Sie ersetzt den bisherigen
+        /// Stand vollständig und wird erst mit dem nächsten Start wirksam, da die
+        /// laufende Anwendung noch die bisherige Konfiguration im Speicher führt.
+        /// </summary>
+        private void ImportConfig()
+        {
+            string? sourcePath = _dialogService.SelectConfigImportSource();
+            if (string.IsNullOrWhiteSpace(sourcePath))
+            {
+                return;
+            }
+
+            if (!_dialogService.ConfirmImport())
+            {
+                return;
+            }
+
+            var result = _configTransferService.Import(sourcePath);
+            ShowTransferResult(
+                result switch
+                {
+                    ConfigTransferResult.Success => "Settings.ImportConfigSucceeded",
+                    ConfigTransferResult.NotAConfigFile => "Settings.ImportConfigNotAConfigFile",
+                    ConfigTransferResult.SourceUnreadable => "Settings.ImportConfigUnreadable",
+                    _ => "Settings.ImportConfigFailed"
+                },
+                "Settings.ImportConfigTitle");
+        }
+
+        private void ShowTransferResult(string messageKey, string titleKey) =>
+            _dialogService.ShowConfigTransferResult(
+                _localization.Get(messageKey),
+                _localization.Get(titleKey));
 
         private void LoadAutomaticPlatformPaths()
         {
