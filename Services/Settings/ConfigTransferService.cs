@@ -156,9 +156,13 @@ namespace GameLauncher.Services.Settings
                 return ConfigTransferResult.WriteFailed;
             }
 
-            StampImportTime();
-
+            // Das Anhalten kommt unmittelbar nach dem Kopieren und vor allem
+            // anderen: bis dahin koennte ein noch ausstehender, verzoegerter
+            // Speichervorgang die gerade eingespielte Datei mit dem alten Stand
+            // aus dem Speicher ueberschreiben. Das Zeitfenster ist winzig, aber
+            // es kostet nichts, es gar nicht erst zu vergroessern.
             _configService.SuspendSaving();
+            StampImportTime();
             Logger.Log($"Konfiguration wurde eingespielt: {sourcePath}. Sie wird mit dem naechsten Start wirksam.");
             return ConfigTransferResult.Success;
         }
