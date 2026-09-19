@@ -156,6 +156,8 @@ namespace GameLauncher.Services.Settings
                 return ConfigTransferResult.WriteFailed;
             }
 
+            StampImportTime();
+
             _configService.SuspendSaving();
             Logger.Log($"Konfiguration wurde eingespielt: {sourcePath}. Sie wird mit dem naechsten Start wirksam.");
             return ConfigTransferResult.Success;
@@ -196,6 +198,32 @@ namespace GameLauncher.Services.Settings
             catch (JsonException)
             {
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Setzt das Aenderungsdatum der eingespielten Konfiguration auf jetzt.
+        ///
+        /// File.Copy uebernimmt das Datum der Quelle: die Konfiguration truege
+        /// sonst den Zeitpunkt, zu dem die Sicherung entstand, und saehe im
+        /// Ordner aelter aus, als der Import war - als haette er nie
+        /// stattgefunden.
+        ///
+        /// Ein Fehlschlag darf den Import nicht scheitern lassen. Die Datei ist
+        /// an dieser Stelle bereits ersetzt; ein gemeldeter Fehlschlag wuerde
+        /// das Anhalten des Speicherns verhindern, und die Anwendung
+        /// ueberschriebe die eingespielte Datei wieder mit ihrem alten Stand.
+        /// Ein falsches Datum ist demgegenueber belanglos.
+        /// </summary>
+        private void StampImportTime()
+        {
+            try
+            {
+                File.SetLastWriteTime(_configService.ConfigPath, DateTime.Now);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Aenderungsdatum der eingespielten Konfiguration konnte nicht gesetzt werden: {ex.GetType().Name}");
             }
         }
 

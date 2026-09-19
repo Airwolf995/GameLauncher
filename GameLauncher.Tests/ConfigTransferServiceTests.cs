@@ -79,6 +79,37 @@ public sealed class ConfigTransferServiceTests
         });
     }
 
+    /// <summary>
+    /// File.Copy uebernimmt das Aenderungsdatum der Quelle. Ohne Nachsetzen
+    /// truege die eingespielte Konfiguration den Zeitpunkt der Sicherung und
+    /// saehe im Ordner aelter aus, als der Import war.
+    /// </summary>
+    [Fact]
+    public void Import_SetztDasAenderungsdatumAufDenZeitpunktDesImports()
+    {
+        RunInTempDirectory(directory =>
+        {
+            string configPath = Path.Combine(directory, "config.json");
+            using var configService = new ConfigService(configPath);
+            var transfer = new ConfigTransferService(configService);
+
+            string sourcePath = Path.Combine(directory, "sicherung.json");
+            File.WriteAllText(sourcePath, """{"favorites":[],"theme":"Blue","ui_settings":{}}""");
+
+            var alterZeitpunkt = DateTime.Now.AddDays(-30);
+            File.SetLastWriteTime(sourcePath, alterZeitpunkt);
+
+            var vorDemImport = DateTime.Now.AddSeconds(-5);
+            Assert.Equal(ConfigTransferResult.Success, transfer.Import(sourcePath));
+
+            var datum = File.GetLastWriteTime(configPath);
+            Assert.True(
+                datum >= vorDemImport,
+                $"Die eingespielte Konfiguration traegt {datum:g}, erwartet wurde der Zeitpunkt des Imports.");
+            Assert.Equal(alterZeitpunkt, File.GetLastWriteTime(sourcePath), TimeSpan.FromSeconds(2));
+        });
+    }
+
     [Fact]
     public void Import_LehntFremdeDateiAbUndLaesstDenBestandUnberuehrt()
     {
