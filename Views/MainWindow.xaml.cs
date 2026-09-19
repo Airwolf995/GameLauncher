@@ -161,7 +161,7 @@ namespace GameLauncher
             _shutdownCoordinator.RequestExit();
         }
 
-        private void ExitApplication()
+        internal void ExitApplication()
         {
             BeginExit();
             _trayController?.Dispose();

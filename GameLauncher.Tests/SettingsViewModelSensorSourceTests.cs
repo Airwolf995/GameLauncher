@@ -137,7 +137,8 @@ namespace GameLauncher.Tests
                         new StubSettingsUpdateService(),
                         new StubPlatformStatusService(),
                         probe,
-                        new StubConfigTransferService());
+                        new StubConfigTransferService(),
+                        new StubApplicationRestartService());
 
                     assert(viewModel);
                 }
@@ -196,6 +197,8 @@ namespace GameLauncher.Tests
 
             public bool ConfirmImport() => false;
 
+            public bool ConfirmRestartAfterImport() => false;
+
             public void ShowConfigTransferResult(string message, string title)
             {
             }
@@ -206,6 +209,11 @@ namespace GameLauncher.Tests
             public ConfigTransferResult Export(string targetPath) => ConfigTransferResult.Success;
 
             public ConfigTransferResult Import(string sourcePath) => ConfigTransferResult.Success;
+        }
+
+        private sealed class StubApplicationRestartService : IApplicationRestartService
+        {
+            public bool Restart() => false;
         }
 
         private sealed class StubSettingsUpdateService : ISettingsUpdateService

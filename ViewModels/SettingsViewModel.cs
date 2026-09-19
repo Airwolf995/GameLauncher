@@ -28,6 +28,7 @@ namespace GameLauncher.ViewModels
         private readonly IPlatformStatusService _platformStatusService;
         private readonly ISensorSourceProbe _sensorSourceProbe;
         private readonly IConfigTransferService _configTransferService;
+        private readonly IApplicationRestartService _restartService;
         private bool _isInitialLoading = true;
         private bool _isCheckingUpdates;
         private string _updateButtonText = "";
@@ -50,7 +51,8 @@ namespace GameLauncher.ViewModels
                 new SettingsUpdateService(LocalizationService.Instance),
                 new PlatformStatusService(),
                 new SensorSourceProbe(),
-                new ConfigTransferService(gameManager.ConfigService))
+                new ConfigTransferService(gameManager.ConfigService),
+                new ApplicationRestartService(ExitRunningApplication))
         {
         }
 
@@ -63,7 +65,8 @@ namespace GameLauncher.ViewModels
             ISettingsUpdateService updateService,
             IPlatformStatusService platformStatusService,
             ISensorSourceProbe sensorSourceProbe,
-            IConfigTransferService configTransferService)
+            IConfigTransferService configTransferService,
+            IApplicationRestartService restartService)
         {
             _gameManager = gameManager ?? throw new ArgumentNullException(nameof(gameManager));
             _localization = LocalizationService.Instance;
@@ -75,6 +78,7 @@ namespace GameLauncher.ViewModels
             _platformStatusService = platformStatusService;
             _sensorSourceProbe = sensorSourceProbe;
             _configTransferService = configTransferService;
+            _restartService = restartService;
 
             Appearance = new AppearanceSettingsViewModel(PreviewUiSettings, _onThemeChanged);
             Behavior = new BehaviorSettingsViewModel(_localization);
@@ -424,15 +428,55 @@ namespace GameLauncher.ViewModels
             }
 
             var result = _configTransferService.Import(sourcePath);
-            ShowTransferResult(
-                result switch
+            if (result != ConfigTransferResult.Success)
+            {
+                ShowTransferResult(
+                    result switch
+                    {
+                        ConfigTransferResult.NotAConfigFile => "Settings.ImportConfigNotAConfigFile",
+                        ConfigTransferResult.SourceUnreadable => "Settings.ImportConfigUnreadable",
+                        _ => "Settings.ImportConfigFailed"
+                    },
+                    "Settings.ImportConfigTitle");
+                return;
+            }
+
+            // Ab hier speichert die Anwendung nichts mehr, damit sie die gerade
+            // eingespielte Datei nicht mit ihrem alten Stand überschreibt. Wer
+            // jetzt weiterspielt, verlöre die dabei gesammelte Spielzeit -
+            // deshalb wird der Neustart angeboten und nicht nur empfohlen.
+            if (_dialogService.ConfirmRestartAfterImport() && _restartService.Restart())
+            {
+                return;
+            }
+
+            ShowTransferResult("Settings.ImportConfigSucceeded", "Settings.ImportConfigTitle");
+        }
+
+        /// <summary>
+        /// Beendet die Anwendung über denselben Weg wie der Eintrag "Beenden" im
+        /// Infobereich. Ein einfaches Schließen des Hauptfensters genügt nicht:
+        /// Ist "Beim Schließen in den Tray minimieren" gesetzt, würde es nur
+        /// versteckt, und der Neustart träfe die noch laufende Sitzung an.
+        /// </summary>
+        private static void ExitRunningApplication()
+        {
+            var application = Application.Current;
+            if (application == null)
+            {
+                return;
+            }
+
+            application.Dispatcher.Invoke(() =>
+            {
+                if (application.MainWindow is MainWindow mainWindow)
                 {
-                    ConfigTransferResult.Success => "Settings.ImportConfigSucceeded",
-                    ConfigTransferResult.NotAConfigFile => "Settings.ImportConfigNotAConfigFile",
-                    ConfigTransferResult.SourceUnreadable => "Settings.ImportConfigUnreadable",
-                    _ => "Settings.ImportConfigFailed"
-                },
-                "Settings.ImportConfigTitle");
+                    mainWindow.ExitApplication();
+                    return;
+                }
+
+                application.Shutdown();
+            });
         }
 
         private void ShowTransferResult(string messageKey, string titleKey) =>

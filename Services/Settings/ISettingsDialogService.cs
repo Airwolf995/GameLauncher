@@ -18,5 +18,12 @@ namespace GameLauncher.Services.Settings
         bool ConfirmImport();
 
         void ShowConfigTransferResult(string message, string title);
+
+        /// <summary>
+        /// Rückfrage nach dem Einspielen: Die Sicherung wird erst mit einem
+        /// neuen Start wirksam, und bis dahin speichert die laufende Anwendung
+        /// nichts mehr.
+        /// </summary>
+        bool ConfirmRestartAfterImport();
     }
 }
