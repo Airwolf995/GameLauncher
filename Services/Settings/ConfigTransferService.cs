@@ -31,8 +31,23 @@ namespace GameLauncher.Services.Settings
     internal sealed class ConfigTransferService : IConfigTransferService
     {
         /// <summary>
-        /// Eigenschaftsnamen aus <see cref="GameConfig"/>. Mindestens einer muss
-        /// vorkommen, damit eine Datei als Konfiguration gilt.
+        /// So viele bekannte Felder muessen vorkommen, damit eine Datei als
+        /// Sicherung gilt.
+        ///
+        /// Ein einzelnes Feld genuegt bewusst nicht: unter den Namen sind mit
+        /// "theme" und "favorites" zwei sehr gebraeuchliche, die auch in der
+        /// Konfigurationsdatei einer voellig anderen Anwendung stehen koennen.
+        /// Eine solche Datei ginge sonst als Sicherung durch und loeschte beim
+        /// Einspielen den gesamten Bestand.
+        ///
+        /// Fuer echte Sicherungen ist die Huerde folgenlos: sie entstehen durch
+        /// Serialisieren der vollstaendigen Konfiguration und enthalten daher
+        /// immer alle Felder.
+        /// </summary>
+        private const int RequiredConfigPropertyMatches = 3;
+
+        /// <summary>
+        /// Eigenschaftsnamen aus <see cref="GameConfig"/>.
         ///
         /// Ohne diese Pruefung genuegte die Zeichenfolge "{}", um eine gueltige,
         /// aber vollstaendig leere Konfiguration zu erzeugen - die falsche Datei
@@ -166,9 +181,11 @@ namespace GameLauncher.Services.Settings
                     return false;
                 }
 
+                int matches = 0;
                 foreach (string propertyName in KnownConfigProperties)
                 {
-                    if (document.RootElement.TryGetProperty(propertyName, out _))
+                    if (document.RootElement.TryGetProperty(propertyName, out _) &&
+                        ++matches >= RequiredConfigPropertyMatches)
                     {
                         return true;
                     }

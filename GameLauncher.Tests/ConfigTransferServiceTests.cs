@@ -39,7 +39,7 @@ public sealed class ConfigTransferServiceTests
             configService.SaveConfigImmediate(configService.Config);
 
             string sourcePath = Path.Combine(directory, "sicherung.json");
-            File.WriteAllText(sourcePath, """{"favorites":["steam:neu"],"theme":"Blue"}""");
+            File.WriteAllText(sourcePath, """{"favorites":["steam:neu"],"theme":"Blue","ui_settings":{}}""");
 
             Assert.Equal(ConfigTransferResult.Success, transfer.Import(sourcePath));
 
@@ -68,7 +68,7 @@ public sealed class ConfigTransferServiceTests
             configService.SaveConfigImmediate(configService.Config);
 
             string sourcePath = Path.Combine(directory, "sicherung.json");
-            File.WriteAllText(sourcePath, """{"favorites":["steam:neu"],"theme":"Blue"}""");
+            File.WriteAllText(sourcePath, """{"favorites":["steam:neu"],"theme":"Blue","ui_settings":{}}""");
             Assert.Equal(ConfigTransferResult.Success, transfer.Import(sourcePath));
 
             // Ein Speicherversuch mit dem alten Stand aus dem Speicher.
@@ -92,7 +92,7 @@ public sealed class ConfigTransferServiceTests
             configService.SaveConfigImmediate(configService.Config);
 
             string sourcePath = Path.Combine(directory, "fremd.json");
-            File.WriteAllText(sourcePath, """{"irgendwas":true}""");
+            File.WriteAllText(sourcePath, """{"theme":"dark","editor":{"fontSize":14}}""");
 
             Assert.Equal(ConfigTransferResult.NotAConfigFile, transfer.Import(sourcePath));
             Assert.Contains("steam:alt", File.ReadAllText(configPath));
@@ -126,17 +126,32 @@ public sealed class ConfigTransferServiceTests
     [InlineData("kein json")]
     [InlineData("")]
     [InlineData("""{"foo":1,"bar":2}""")]
-    public void IsConfigFile_LehntAlleseAbWasKeineKonfigurationIst(string json)
+    public void IsConfigFile_LehntAllesAbWasKeineKonfigurationIst(string json)
+    {
+        Assert.False(ConfigTransferService.IsConfigFile(json));
+    }
+
+    /// <summary>
+    /// "theme" und "favorites" sind gebraeuchliche Schluesselnamen und stehen
+    /// auch in der Konfigurationsdatei ganz anderer Anwendungen. Genuegte ein
+    /// einzelner Treffer, ginge eine solche Datei als Sicherung durch und
+    /// loeschte beim Einspielen den gesamten Bestand.
+    /// </summary>
+    [Theory]
+    [InlineData("""{"theme":"dark"}""")]
+    [InlineData("""{"favorites":["etwas"]}""")]
+    [InlineData("""{"theme":"dark","editor":{"fontSize":14}}""")]
+    [InlineData("""{"theme":"dark","favorites":[]}""")]
+    public void IsConfigFile_LehntFremdeDateiMitGebraeuchlichenNamenAb(string json)
     {
         Assert.False(ConfigTransferService.IsConfigFile(json));
     }
 
     [Theory]
-    [InlineData("""{"favorites":[]}""")]
-    [InlineData("""{"play_time":{}}""")]
-    [InlineData("""{"ui_settings":{}}""")]
-    [InlineData("""{"theme":"Blue"}""")]
-    public void IsConfigFile_ErkenntKonfigurationAnIhrenFeldern(string json)
+    [InlineData("""{"favorites":[],"play_time":{},"ui_settings":{}}""")]
+    [InlineData("""{"theme":"Blue","hidden_games":[],"game_tags":{}}""")]
+    [InlineData("""{"steam_library_paths":[],"manual_games":[],"last_played":{}}""")]
+    public void IsConfigFile_ErkenntKonfigurationAnMehrerenFeldern(string json)
     {
         Assert.True(ConfigTransferService.IsConfigFile(json));
     }
@@ -161,19 +176,35 @@ public sealed class ConfigTransferServiceTests
 
     /// <summary>
     /// Die geprueften Feldnamen muessen zu den tatsaechlichen Namen im Modell
-    /// passen; sonst wuerde eine echte Sicherung abgelehnt.
+    /// passen. Wird ein Feld umbenannt, ohne die Liste nachzuziehen, sinkt die
+    /// Zahl der Treffer - bei genug Umbenennungen wuerde eine echte Sicherung
+    /// abgelehnt. Geprueft wird deshalb jedes einzelne Feld.
     /// </summary>
     [Fact]
-    public void IsConfigFile_PasstZuDenFeldnamenDesModells()
+    public void IsConfigFile_KenntJedesFeldnamenDesModells()
     {
         string json = JsonSerializer.Serialize(new GameLauncher.Models.GameConfig());
 
         using var document = JsonDocument.Parse(json);
-        foreach (var property in document.RootElement.EnumerateObject())
+        string[] modelProperties = document.RootElement
+            .EnumerateObject()
+            .Select(property => property.Name)
+            .ToArray();
+
+        foreach (string propertyName in modelProperties)
         {
+            // Zwei andere Felder als Sockel, damit allein das dritte entscheidet.
+            // Sie muessen sich vom geprueften Namen unterscheiden: derselbe Name
+            // zweimal in einem Objekt zaehlt nur als ein Treffer.
+            string[] socle = modelProperties.Where(name => name != propertyName).Take(2).ToArray();
+            string socleJson = string.Join(",", socle.Select(name => $"\"{name}\":null"));
+
+            Assert.False(
+                ConfigTransferService.IsConfigFile($"{{{socleJson}}}"),
+                "Der Sockel allein darf noch nicht genuegen.");
             Assert.True(
-                ConfigTransferService.IsConfigFile($$"""{"{{property.Name}}":null}"""),
-                $"Das Feld '{property.Name}' des Modells wird nicht als Kennzeichen einer Konfiguration erkannt.");
+                ConfigTransferService.IsConfigFile($"{{{socleJson},\"{propertyName}\":null}}"),
+                $"Das Feld '{propertyName}' des Modells wird nicht als Kennzeichen einer Konfiguration erkannt.");
         }
     }
 
