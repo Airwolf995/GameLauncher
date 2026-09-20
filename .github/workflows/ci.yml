@@ -26,16 +26,11 @@ jobs:
           dotnet --version
           dotnet --list-sdks
 
-      # Beide Projekte einzeln: Die Projektmappe führt nur das Hauptprojekt,
-      # das Testprojekt gehört nicht dazu. Über sie wiederhergestellt fehlten
-      # dem Testprojekt die Abhängigkeiten.
       - name: Abhängigkeiten laden
-        run: |
-          dotnet restore GameLauncher.csproj
-          dotnet restore GameLauncher.Tests/GameLauncher.Tests.csproj
+        run: dotnet restore GameLauncher-CSharp.sln
 
-      - name: Hauptprojekt bauen
-        run: dotnet build GameLauncher.csproj -c Release --no-restore
+      - name: Projektmappe bauen
+        run: dotnet build GameLauncher-CSharp.sln -c Release --no-restore
 
       # Ohne --no-restore: Der Befehl stellt das Testprojekt selbst wieder her
       # und baut es. Mit --no-restore beendete er sich auf dem Läufer wortlos
