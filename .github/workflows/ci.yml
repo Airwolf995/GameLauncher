@@ -1,0 +1,31 @@
+name: Build und Tests
+
+# Prüft jeden Pull Request und jeden direkten Push auf main. WPF lässt sich
+# nur unter Windows bauen, deshalb ein Windows-Läufer; bei öffentlichen
+# Repositories ist er kostenfrei.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-und-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Quellcode holen
+        uses: actions/checkout@v4
+
+      - name: .NET 8 bereitstellen
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Abhängigkeiten laden
+        run: dotnet restore GameLauncher-CSharp.sln
+
+      - name: Hauptprojekt bauen
+        run: dotnet build GameLauncher.csproj -c Release --no-restore
+
+      - name: Tests ausführen
+        run: dotnet test GameLauncher.Tests -c Release --no-restore
