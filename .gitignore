@@ -21,3 +21,6 @@ publish/
 settings.local.json
 syncthing-folder-*.txt
 CHANGELOG.md
+
+# Testergebnisse lokaler Laeufe
+testergebnisse/

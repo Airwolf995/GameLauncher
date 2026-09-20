@@ -21,11 +21,45 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Verwendetes SDK melden
+        run: |
+          dotnet --version
+          dotnet --list-sdks
+
       - name: Abhängigkeiten laden
         run: dotnet restore GameLauncher-CSharp.sln
 
       - name: Hauptprojekt bauen
         run: dotnet build GameLauncher.csproj -c Release --no-restore
 
+      # Die Projektdatei wird ausdrücklich genannt; mit dem Ordner als Argument
+      # beendete sich der Befehl auf dem Läufer wortlos und erfolgreich, ohne
+      # einen einzigen Test auszuführen.
       - name: Tests ausführen
-        run: dotnet test GameLauncher.Tests -c Release --no-restore
+        run: >
+          dotnet test GameLauncher.Tests/GameLauncher.Tests.csproj
+          -c Release --no-restore
+          --logger "trx;LogFileName=ergebnisse.trx"
+          --results-directory testergebnisse
+
+      # Ein grüner Haken muss bedeuten, dass geprüft wurde. Ohne diese Kontrolle
+      # sieht ein Lauf, der gar keine Tests findet, genauso aus wie ein
+      # bestandener.
+      - name: Nachweisen, dass Tests gelaufen sind
+        shell: pwsh
+        run: |
+          $datei = Get-ChildItem testergebnisse -Filter *.trx -Recurse | Select-Object -First 1
+          if (-not $datei) { throw "Keine Ergebnisdatei gefunden - es liefen offenbar keine Tests." }
+          $xml = [xml](Get-Content $datei.FullName)
+          $gesamt = [int]$xml.TestRun.ResultSummary.Counters.total
+          $bestanden = [int]$xml.TestRun.ResultSummary.Counters.passed
+          Write-Host "$bestanden von $gesamt Tests bestanden."
+          if ($gesamt -lt 1) { throw "Der Lauf enthielt keine Tests." }
+
+      - name: Testergebnisse sichern
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testergebnisse
+          path: testergebnisse
+          if-no-files-found: warn
