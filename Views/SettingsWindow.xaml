@@ -109,7 +109,8 @@
                          ItemContainerStyle="{StaticResource SettingsCategoryItem}"
                          HorizontalContentAlignment="Stretch"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         SelectedIndex="0">
+                         SelectedIndex="0"
+                         SelectionChanged="CategoryList_SelectionChanged">
                     <ListBoxItem Tag="Appearance" Content="{loc:Loc Key=Settings.CategoryAppearance}"/>
                     <ListBoxItem Tag="Behavior" Content="{loc:Loc Key=Settings.CategoryBehavior}"/>
                     <ListBoxItem Tag="Overlay" Content="{loc:Loc Key=Settings.CategoryOverlay}"/>
@@ -136,7 +137,7 @@
 
                 <!-- Erscheinungsbild -->
                 <ScrollViewer Style="{StaticResource CategoryPage}"
-                              Visibility="{Binding SelectedItem.Tag, ElementName=CategoryList, Converter={StaticResource TagMatchToVisibilityConverter}, ConverterParameter=Appearance}">
+                              Visibility="{Binding SelectedItem.Tag, ElementName=CategoryList, Converter={StaticResource TagMatchToVisibilityConverter}, ConverterParameter=Appearance, FallbackValue=Collapsed}">
                     <StackPanel>
                         <Grid Style="{StaticResource SettingRow}">
                             <Grid.ColumnDefinitions>
@@ -245,7 +246,7 @@
 
                 <!-- Verhalten -->
                 <ScrollViewer Style="{StaticResource CategoryPage}"
-                              Visibility="{Binding SelectedItem.Tag, ElementName=CategoryList, Converter={StaticResource TagMatchToVisibilityConverter}, ConverterParameter=Behavior}">
+                              Visibility="{Binding SelectedItem.Tag, ElementName=CategoryList, Converter={StaticResource TagMatchToVisibilityConverter}, ConverterParameter=Behavior, FallbackValue=Collapsed}">
                     <StackPanel>
                         <Grid Style="{StaticResource SettingRow}">
                             <Grid.ColumnDefinitions>
@@ -277,7 +278,7 @@
 
                 <!-- Overlay -->
                 <ScrollViewer Style="{StaticResource CategoryPage}"
-                              Visibility="{Binding SelectedItem.Tag, ElementName=CategoryList, Converter={StaticResource TagMatchToVisibilityConverter}, ConverterParameter=Overlay}">
+                              Visibility="{Binding SelectedItem.Tag, ElementName=CategoryList, Converter={StaticResource TagMatchToVisibilityConverter}, ConverterParameter=Overlay, FallbackValue=Collapsed}">
                     <StackPanel>
                         <Grid Style="{StaticResource SettingRow}">
                             <Grid.ColumnDefinitions>
@@ -365,7 +366,7 @@
 
                 <!-- Bibliotheken -->
                 <ScrollViewer Style="{StaticResource CategoryPage}"
-                              Visibility="{Binding SelectedItem.Tag, ElementName=CategoryList, Converter={StaticResource TagMatchToVisibilityConverter}, ConverterParameter=Libraries}">
+                              Visibility="{Binding SelectedItem.Tag, ElementName=CategoryList, Converter={StaticResource TagMatchToVisibilityConverter}, ConverterParameter=Libraries, FallbackValue=Collapsed}">
                     <StackPanel>
                         <TextBlock Text="{loc:Loc Key=Settings.LibraryHint}" Style="{StaticResource SettingHint}" Margin="0,0,0,15"/>
 
@@ -416,7 +417,7 @@
 
                 <!-- Updates -->
                 <ScrollViewer Style="{StaticResource CategoryPage}"
-                              Visibility="{Binding SelectedItem.Tag, ElementName=CategoryList, Converter={StaticResource TagMatchToVisibilityConverter}, ConverterParameter=Updates}">
+                              Visibility="{Binding SelectedItem.Tag, ElementName=CategoryList, Converter={StaticResource TagMatchToVisibilityConverter}, ConverterParameter=Updates, FallbackValue=Collapsed}">
                     <StackPanel>
                         <CheckBox Content="{loc:Loc Key=Settings.AutoCheckUpdates}" Foreground="#AAAAAA" Margin="0,0,0,15"
                                   IsChecked="{Binding Behavior.AutoCheckUpdates}"/>
@@ -428,7 +429,7 @@
 
                 <!-- Sicherung -->
                 <ScrollViewer Style="{StaticResource CategoryPage}"
-                              Visibility="{Binding SelectedItem.Tag, ElementName=CategoryList, Converter={StaticResource TagMatchToVisibilityConverter}, ConverterParameter=Backup}">
+                              Visibility="{Binding SelectedItem.Tag, ElementName=CategoryList, Converter={StaticResource TagMatchToVisibilityConverter}, ConverterParameter=Backup, FallbackValue=Collapsed}">
                     <StackPanel>
                         <TextBlock Text="{loc:Loc Key=Settings.BackupHint}" Style="{StaticResource SettingHint}" Margin="0,0,0,15"/>
                         <StackPanel Orientation="Horizontal">
@@ -442,7 +443,7 @@
 
                 <!-- Über -->
                 <ScrollViewer Style="{StaticResource CategoryPage}"
-                              Visibility="{Binding SelectedItem.Tag, ElementName=CategoryList, Converter={StaticResource TagMatchToVisibilityConverter}, ConverterParameter=About}">
+                              Visibility="{Binding SelectedItem.Tag, ElementName=CategoryList, Converter={StaticResource TagMatchToVisibilityConverter}, ConverterParameter=About, FallbackValue=Collapsed}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
                             <Image Source="pack://application:,,,/Resources/Images/game.ico" Width="56" Height="56"
