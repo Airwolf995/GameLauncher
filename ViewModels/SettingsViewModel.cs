@@ -17,6 +17,8 @@ namespace GameLauncher.ViewModels
 {
     public sealed class SettingsViewModel : ObservableObject, IDisposable
     {
+        /// <summary>Projektseite, die der Knopf unter "Ueber" oeffnet.</summary>
+        private const string ProjectUrl = "https://github.com/Airwolf995/GameLauncher";
 
         private readonly GameManager _gameManager;
         private readonly LocalizationService _localization;
@@ -92,6 +94,7 @@ namespace GameLauncher.ViewModels
             ExportConfigCommand = new RelayCommand(_ => ExportConfig());
             ImportConfigCommand = new RelayCommand(_ => ImportConfig());
             OpenSensorSourceCommand = new RelayCommand(_ => OpenSensorSourcePage());
+            OpenProjectPageCommand = new RelayCommand(_ => OpenProjectPage());
             // Waehrend einer laufenden Pruefung ist der Knopf abgeblendet. Das ist
             // nicht nur Kosmetik: Es verhindert, dass zwei Abfragen nebeneinander
             // laufen und eine langsame alte Antwort die neue ueberschreibt.
@@ -118,6 +121,7 @@ namespace GameLauncher.ViewModels
         public ICommand ImportConfigCommand { get; }
         public ICommand OpenSensorSourceCommand { get; }
         public ICommand RecheckSensorSourceCommand { get; }
+        public ICommand OpenProjectPageCommand { get; }
 
         /// <summary>
         /// Meldet, dass keine LibreHardwareMonitor-Anwendung erreichbar ist. Nur
@@ -180,17 +184,29 @@ namespace GameLauncher.ViewModels
 
         private void OpenSensorSourcePage()
         {
+            OpenInBrowser(
+                Services.LibreHardwareMonitorWebSource.DownloadUrl,
+                "Downloadseite von LibreHardwareMonitor");
+        }
+
+        private void OpenProjectPage()
+        {
+            OpenInBrowser(ProjectUrl, "Projektseite");
+        }
+
+        private static void OpenInBrowser(string url, string description)
+        {
             try
             {
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = Services.LibreHardwareMonitorWebSource.DownloadUrl,
+                    FileName = url,
                     UseShellExecute = true
                 });
             }
             catch (Exception ex)
             {
-                Models.Logger.Error("Downloadseite von LibreHardwareMonitor konnte nicht geoeffnet werden", ex);
+                Models.Logger.Error($"{description} konnte nicht geoeffnet werden", ex);
             }
         }
 

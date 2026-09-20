@@ -72,6 +72,21 @@ namespace GameLauncher
             licenseInfo.ShowDialog();
         }
 
+        /// <summary>
+        /// Haelt immer eine Kategorie ausgewaehlt. Strg+Klick auf den gewaehlten
+        /// Eintrag hebt die Auswahl einer ListBox auch im Einzelauswahlmodus auf;
+        /// der rechte Bereich stuende dann ohne Ueberschrift und ohne Inhalt da.
+        /// </summary>
+        private void CategoryList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (CategoryList.SelectedIndex >= 0 || e.RemovedItems.Count == 0)
+            {
+                return;
+            }
+
+            CategoryList.SelectedItem = e.RemovedItems[0];
+        }
+
         private void OnLanguageChanged(object? sender, EventArgs e)
         {
             CardSizeBox.Items.Refresh();

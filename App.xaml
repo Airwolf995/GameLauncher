@@ -12,6 +12,7 @@
             
             <vm:InverseBoolConverter x:Key="InverseBoolConverter"/>
             <vm:EnumLocalizationConverter x:Key="EnumLocalizationConverter"/>
+            <vm:TagMatchToVisibilityConverter x:Key="TagMatchToVisibilityConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
