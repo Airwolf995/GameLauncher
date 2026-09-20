@@ -1,0 +1,65 @@
+name: Build und Tests
+
+# Prüft jeden Pull Request und jeden direkten Push auf main. WPF lässt sich
+# nur unter Windows bauen, deshalb ein Windows-Läufer; bei öffentlichen
+# Repositories ist er kostenfrei.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-und-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Quellcode holen
+        uses: actions/checkout@v7
+
+      - name: .NET 8 bereitstellen
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Verwendetes SDK melden
+        run: |
+          dotnet --version
+          dotnet --list-sdks
+
+      - name: Abhängigkeiten laden
+        run: dotnet restore GameLauncher-CSharp.sln
+
+      - name: Projektmappe bauen
+        run: dotnet build GameLauncher-CSharp.sln -c Release --no-restore
+
+      # Ohne --no-restore: Der Befehl stellt das Testprojekt selbst wieder her
+      # und baut es. Mit --no-restore beendete er sich auf dem Läufer wortlos
+      # und erfolgreich, ohne einen einzigen Test auszuführen.
+      - name: Tests ausführen
+        run: >
+          dotnet test GameLauncher.Tests/GameLauncher.Tests.csproj
+          -c Release
+          --logger "trx;LogFileName=ergebnisse.trx"
+          --results-directory testergebnisse
+
+      # Ein grüner Haken muss bedeuten, dass geprüft wurde. Ohne diese Kontrolle
+      # sieht ein Lauf, der gar keine Tests findet, genauso aus wie ein
+      # bestandener.
+      - name: Nachweisen, dass Tests gelaufen sind
+        shell: pwsh
+        run: |
+          $datei = Get-ChildItem testergebnisse -Filter *.trx -Recurse | Select-Object -First 1
+          if (-not $datei) { throw "Keine Ergebnisdatei gefunden - es liefen offenbar keine Tests." }
+          $xml = [xml](Get-Content $datei.FullName)
+          $gesamt = [int]$xml.TestRun.ResultSummary.Counters.total
+          $bestanden = [int]$xml.TestRun.ResultSummary.Counters.passed
+          Write-Host "$bestanden von $gesamt Tests bestanden."
+          if ($gesamt -lt 1) { throw "Der Lauf enthielt keine Tests." }
+
+      - name: Testergebnisse sichern
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: testergebnisse
+          path: testergebnisse
+          if-no-files-found: warn
