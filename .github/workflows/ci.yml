@@ -14,10 +14,10 @@ jobs:
 
     steps:
       - name: Quellcode holen
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: .NET 8 bereitstellen
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
 
@@ -58,7 +58,7 @@ jobs:
 
       - name: Testergebnisse sichern
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: testergebnisse
           path: testergebnisse
