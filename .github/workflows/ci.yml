@@ -55,11 +55,3 @@ jobs:
           $bestanden = [int]$xml.TestRun.ResultSummary.Counters.passed
           Write-Host "$bestanden von $gesamt Tests bestanden."
           if ($gesamt -lt 1) { throw "Der Lauf enthielt keine Tests." }
-
-      - name: Testergebnisse sichern
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: testergebnisse
-          path: testergebnisse
-          if-no-files-found: warn
