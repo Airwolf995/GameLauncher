@@ -37,9 +37,6 @@ jobs:
       - name: Hauptprojekt bauen
         run: dotnet build GameLauncher.csproj -c Release --no-restore
 
-      # Die Projektdatei wird ausdrücklich genannt; mit dem Ordner als Argument
-      # beendete sich der Befehl auf dem Läufer wortlos und erfolgreich, ohne
-      # einen einzigen Test auszuführen.
       # Ohne --no-restore: Der Befehl stellt das Testprojekt selbst wieder her
       # und baut es. Mit --no-restore beendete er sich auf dem Läufer wortlos
       # und erfolgreich, ohne einen einzigen Test auszuführen.
