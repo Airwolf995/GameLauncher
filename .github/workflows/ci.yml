@@ -26,8 +26,13 @@ jobs:
           dotnet --version
           dotnet --list-sdks
 
+      # Beide Projekte einzeln: Die Projektmappe führt nur das Hauptprojekt,
+      # das Testprojekt gehört nicht dazu. Über sie wiederhergestellt fehlten
+      # dem Testprojekt die Abhängigkeiten.
       - name: Abhängigkeiten laden
-        run: dotnet restore GameLauncher-CSharp.sln
+        run: |
+          dotnet restore GameLauncher.csproj
+          dotnet restore GameLauncher.Tests/GameLauncher.Tests.csproj
 
       - name: Hauptprojekt bauen
         run: dotnet build GameLauncher.csproj -c Release --no-restore
@@ -35,13 +40,15 @@ jobs:
       # Die Projektdatei wird ausdrücklich genannt; mit dem Ordner als Argument
       # beendete sich der Befehl auf dem Läufer wortlos und erfolgreich, ohne
       # einen einzigen Test auszuführen.
+      # Ohne --no-restore: Der Befehl stellt das Testprojekt selbst wieder her
+      # und baut es. Mit --no-restore beendete er sich auf dem Läufer wortlos
+      # und erfolgreich, ohne einen einzigen Test auszuführen.
       - name: Tests ausführen
-        shell: pwsh
-        run: |
-          dotnet test GameLauncher.Tests/GameLauncher.Tests.csproj -c Release --logger "trx;LogFileName=ergebnisse.trx" --results-directory testergebnisse --verbosity normal
-          Write-Host "Rueckgabewert von dotnet test: $LASTEXITCODE"
-          Write-Host "--- Inhalt des Ergebnisordners:"
-          Get-ChildItem -Recurse testergebnisse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_.FullName }
+        run: >
+          dotnet test GameLauncher.Tests/GameLauncher.Tests.csproj
+          -c Release
+          --logger "trx;LogFileName=ergebnisse.trx"
+          --results-directory testergebnisse
 
       # Ein grüner Haken muss bedeuten, dass geprüft wurde. Ohne diese Kontrolle
       # sieht ein Lauf, der gar keine Tests findet, genauso aus wie ein
