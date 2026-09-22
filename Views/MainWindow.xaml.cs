@@ -806,7 +806,7 @@ namespace GameLauncher
             catch (Exception ex)
             {
                 // Logger.Error handled in GameManager
-                if (ex.Message.Contains("find") || ex is System.ComponentModel.Win32Exception)
+                if (GameManager.IsMissingFileError(ex))
                 {
                      ModernMessageWindow.Show(_localization.Format("Main.FileMissingBody", game.Path), _localization.Get("Main.FileMissingTitle"), ModernMessageWindow.ModernMessageButton.OK, this);
                 }

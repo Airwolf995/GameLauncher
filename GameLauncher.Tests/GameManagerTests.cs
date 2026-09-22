@@ -136,5 +136,25 @@ namespace GameLauncher.Tests
             {
             }
         }
+
+        [Theory]
+        [InlineData(2, true)]      // Datei nicht gefunden
+        [InlineData(3, true)]      // Pfad nicht gefunden
+        [InlineData(5, false)]     // Zugriff verweigert
+        [InlineData(1223, false)]  // UAC-Abfrage abgelehnt
+        public void IsMissingFileError_MeldetNurFehlendeDateiOderOrdner(int nativeErrorCode, bool expected)
+        {
+            var ex = new System.ComponentModel.Win32Exception(nativeErrorCode);
+
+            Assert.Equal(expected, GameManager.IsMissingFileError(ex));
+        }
+
+        [Fact]
+        public void IsMissingFileError_WertetAndereAusnahmenNichtAlsFehlendeDatei()
+        {
+            var ex = new InvalidOperationException("Could not find anything");
+
+            Assert.False(GameManager.IsMissingFileError(ex));
+        }
     }
 }
