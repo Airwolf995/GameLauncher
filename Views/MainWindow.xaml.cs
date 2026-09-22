@@ -846,23 +846,16 @@ namespace GameLauncher
             return game != null;
         }
 
-
-
-
-
         private async void AnimateItemsStaggered(bool instant = false)
         {
             instant = instant || !AreAnimationsEnabled;
             await _animationService.AnimateItemsStaggeredAsync(
                 GameListControl,
                 instant);
-
         }
 
         private void ShowStatus(string message, int delayMs = 3000) =>
             _statusMessageService.ShowStatus(message, delayMs);
-
-
 
         #endregion
     }
