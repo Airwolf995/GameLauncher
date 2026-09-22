@@ -474,21 +474,7 @@ namespace GameLauncher.Services
                 return configPathOverride;
             }
 
-#if DEBUG
-            // In Debug mode, prioritize project root config for development
-            string headers = AppDomain.CurrentDomain.BaseDirectory;
-            string projectRoot = Path.GetFullPath(Path.Combine(headers, @"..\..\..\"));
-            string devConfig = Path.Combine(projectRoot, "game_launcher_config.json");
-
-            if (File.Exists(devConfig))
-            {
-                return devConfig;
-            }
-#endif
-
-            // Fall back to Documents
-            string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            string appDataDir = Path.Combine(documentsPath, "GameLauncher");
+            string appDataDir = AppPaths.GetDocumentsRoot();
             if (ensureDirectory && !Directory.Exists(appDataDir))
             {
                 Directory.CreateDirectory(appDataDir);
