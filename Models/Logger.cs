@@ -137,14 +137,12 @@ namespace GameLauncher.Models
                         try
                         {
                             file.Delete();
-                            // We can't log this yet as we might strictly not have initialized _logPath fully if we called this before setting it, 
-                            // but in this flow Initialize calls RotateLogs after setting _logPath, so we can Log.
-                            // However, let's just do it silently or write to the new log.
                         }
-                        catch { } 
+                        catch
+                        {
+                            // Ein gesperrtes altes Protokoll bleibt stehen und wird beim nächsten Start erneut versucht.
+                        }
                     }
-                    // We can log to the new file about the cleanup
-                    // But Initialize hasn't written the first line yet. It's fine.
                 }
             }
             catch (Exception ex)
