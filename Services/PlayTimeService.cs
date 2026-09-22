@@ -255,6 +255,7 @@ namespace GameLauncher.Services
                 }
 #endif
 
+                bool unexpectedErrorLogged = false;
                 foreach (var process in processes)
                 {
                     try
@@ -295,9 +296,20 @@ namespace GameLauncher.Services
                             }
                         }
                     }
-                    catch (Exception)
+                    catch (InvalidOperationException)
                     {
-                        // Fehler abfangen
+                        // Der Prozess wurde zwischen Auflistung und Abfrage beendet.
+                    }
+                    catch (Exception ex)
+                    {
+                        // Alles andere deutet auf einen Fehler in der Zuordnung hin
+                        // und bliebe sonst unbemerkt. Einmal je Durchlauf genügt,
+                        // sonst füllt ein Fehler, der jeden Prozess trifft, das Protokoll.
+                        if (!unexpectedErrorLogged)
+                        {
+                            Logger.Error($"Spielerkennung für Prozess {process.Id} fehlgeschlagen", ex);
+                            unexpectedErrorLogged = true;
+                        }
                     }
                     finally
                     {
