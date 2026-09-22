@@ -153,9 +153,6 @@ namespace GameLauncher
             _trayController.HideTrayIcon();
         }
 
-        internal static bool ShouldMinimizeToTrayOnClose(bool isExiting, bool minimizeToTray) =>
-            !isExiting && minimizeToTray;
-
         private void BeginExit()
         {
             _shutdownCoordinator.RequestExit();

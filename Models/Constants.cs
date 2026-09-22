@@ -12,19 +12,7 @@ namespace GameLauncher
             public const string UbisoftConnect = "Ubisoft Connect";
             public const string EAApp = "EA App";
             public const string Xbox = "Xbox";
-            public const string Manual = "Manual";
             public const string BattleNet = "Battle.net";
-            
-            /// <summary>
-            /// Checks if the given platform string represents Epic Games.
-            /// Handles both "Epic Games" and "Epic" variants.
-            /// </summary>
-            public static bool IsEpicPlatform(string platform)
-            {
-                if (string.IsNullOrEmpty(platform)) return false;
-                return platform.Equals(Epic, StringComparison.OrdinalIgnoreCase) || 
-                       platform.Equals("Epic", StringComparison.OrdinalIgnoreCase);
-            }
         }
         
         /// <summary>

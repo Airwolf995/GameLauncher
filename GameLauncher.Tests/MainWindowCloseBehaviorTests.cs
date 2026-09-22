@@ -1,4 +1,3 @@
-using GameLauncher;
 using GameLauncher.Models;
 using GameLauncher.Services.MainWindow;
 
@@ -11,22 +10,16 @@ namespace GameLauncher.Tests
         [InlineData(false, true, true)]
         [InlineData(true, false, false)]
         [InlineData(true, true, false)]
-        public void ShouldMinimizeToTrayOnClose_RespectsExplicitExit(bool isExiting, bool minimizeToTray, bool expected)
-        {
-            var result = MainWindow.ShouldMinimizeToTrayOnClose(isExiting, minimizeToTray);
-
-            Assert.Equal(expected, result);
-        }
-
-        [Fact]
-        public void ShutdownCoordinator_RequestExit_DisablesTrayMinimization()
+        public void ShutdownCoordinator_ShouldMinimizeToTray_RespectsExplicitExit(bool isExiting, bool minimizeToTray, bool expected)
         {
             var coordinator = new MainWindowShutdownCoordinator();
-            var settings = new UISettings { MinimizeToTray = true };
+            var settings = new UISettings { MinimizeToTray = minimizeToTray };
+            if (isExiting)
+            {
+                coordinator.RequestExit();
+            }
 
-            coordinator.RequestExit();
-
-            Assert.False(coordinator.ShouldMinimizeToTray(settings));
+            Assert.Equal(expected, coordinator.ShouldMinimizeToTray(settings));
         }
 
         [Fact]

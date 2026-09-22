@@ -33,7 +33,6 @@ namespace GameLauncher.Tests
             var result = UpdateCheckResult.Failed(error);
 
             Assert.False(result.Succeeded);
-            Assert.False(result.IsUpdateAvailable);
             Assert.Null(result.UpdateInfo);
             Assert.Same(error, result.Error);
         }

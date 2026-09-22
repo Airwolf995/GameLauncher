@@ -279,8 +279,8 @@ namespace GameLauncher.Services.GameManagement
             if (path.Contains("://") || path.StartsWith("com.epicgames.launcher"))
             {
                 launchType = "uri";
-                if (path.Contains("battlenet")) platform = "Battle.net";
-                if (path.Contains("epicgames")) platform = "Epic Games";
+                if (path.Contains("battlenet")) platform = Constants.Platforms.BattleNet;
+                if (path.Contains("epicgames")) platform = Constants.Platforms.Epic;
             }
             else
             {

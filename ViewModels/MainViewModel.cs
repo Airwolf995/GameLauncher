@@ -370,15 +370,11 @@ namespace GameLauncher.ViewModels
             }
             finally
             {
-                if (ReferenceEquals(Interlocked.CompareExchange(ref _gamesViewRefreshCts, null, refreshCts), refreshCts))
-                {
-                    // Das aktuelle Refresh-Token wurde bereits per using entsorgt.
-                }
+                // Nur austragen, wenn inzwischen kein neuerer Durchlauf sein Token eingetragen hat.
+                // Entsorgt wird das eigene Token über using.
+                Interlocked.CompareExchange(ref _gamesViewRefreshCts, null, refreshCts);
             }
         }
-
-        private bool FilterGames(Game game) =>
-            LibraryViewSnapshotBuilder.MatchesFilter(game, _searchText, _selectedFilter);
 
         private void RebuildCardRowsFromCurrentView()
         {
