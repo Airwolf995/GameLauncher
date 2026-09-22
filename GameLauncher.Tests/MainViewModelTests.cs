@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using System.Threading;
 using GameLauncher.Models;
+using GameLauncher.Services;
 using GameLauncher.Services.GameManagement;
 using GameLauncher.Services.Localization;
 using GameLauncher.ViewModels;
@@ -13,7 +14,7 @@ namespace GameLauncher.Tests
     public class MainViewModelTests
     {
         [Fact]
-        public void FilterGames_SearchTextMatchesTagsAndNames()
+        public void SearchText_MatchesTagsAndNames()
         {
             RunInSta(() =>
             {
@@ -48,9 +49,9 @@ namespace GameLauncher.Tests
 
                     viewModel.SearchText = "coop";
 
-                    Assert.True(InvokeFilterGames(viewModel, matchingByTag));
-                    Assert.True(InvokeFilterGames(viewModel, matchingByName));
-                    Assert.False(InvokeFilterGames(viewModel, nonMatching));
+                    Assert.True(MatchesCurrentFilter(viewModel, matchingByTag));
+                    Assert.True(MatchesCurrentFilter(viewModel, matchingByName));
+                    Assert.False(MatchesCurrentFilter(viewModel, nonMatching));
                 }
                 finally
                 {
@@ -94,8 +95,8 @@ namespace GameLauncher.Tests
                         Tags = new List<string> { "Sandbox" }
                     };
 
-                    Assert.True(InvokeFilterGames(viewModel, coopGame));
-                    Assert.False(InvokeFilterGames(viewModel, otherGame));
+                    Assert.True(MatchesCurrentFilter(viewModel, coopGame));
+                    Assert.False(MatchesCurrentFilter(viewModel, otherGame));
                 }
                 finally
                 {
@@ -203,14 +204,12 @@ namespace GameLauncher.Tests
             }
         }
 
-        private static bool InvokeFilterGames(MainViewModel viewModel, Game game)
-        {
-            var method = typeof(MainViewModel).GetMethod("FilterGames", BindingFlags.Instance | BindingFlags.NonPublic)
-                ?? throw new InvalidOperationException("FilterGames-Methode wurde nicht gefunden.");
-
-            return (bool)(method.Invoke(viewModel, new object[] { game })
-                ?? throw new InvalidOperationException("FilterGames lieferte kein Ergebnis."));
-        }
+        /// <summary>
+        /// Wertet Suche und Filter so aus, wie die Bibliotheksansicht sie aus
+        /// dem Zustand des ViewModels übernimmt.
+        /// </summary>
+        private static bool MatchesCurrentFilter(MainViewModel viewModel, Game game) =>
+            LibraryViewSnapshotBuilder.MatchesFilter(game, viewModel.SearchText, viewModel.SelectedFilter);
 
         private static void InvokeReplaceFilterOptions(MainViewModel viewModel, IReadOnlyList<LocalizedOption> options)
         {

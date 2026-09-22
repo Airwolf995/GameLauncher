@@ -269,6 +269,15 @@ namespace GameLauncher.Services.GameManagement
             }
         }
 
+        /// <summary>
+        /// Unterscheidet eine fehlende Datei von anderen Startfehlern. Process.Start
+        /// meldet beides als Win32Exception, etwa auch eine abgelehnte
+        /// UAC-Abfrage (1223); nur die Fehlercodes 2 und 3 bedeuten, dass Datei
+        /// oder Ordner fehlen.
+        /// </summary>
+        internal static bool IsMissingFileError(Exception ex) =>
+            ex is System.ComponentModel.Win32Exception { NativeErrorCode: 2 or 3 };
+
         public Game AddManualGame(string name, string path, string args = "", string customImage = "", bool notifyUI = true)
         {
             // Detect Platform/Type
@@ -279,8 +288,8 @@ namespace GameLauncher.Services.GameManagement
             if (path.Contains("://") || path.StartsWith("com.epicgames.launcher"))
             {
                 launchType = "uri";
-                if (path.Contains("battlenet")) platform = "Battle.net";
-                if (path.Contains("epicgames")) platform = "Epic Games";
+                if (path.Contains("battlenet")) platform = Constants.Platforms.BattleNet;
+                if (path.Contains("epicgames")) platform = Constants.Platforms.Epic;
             }
             else
             {

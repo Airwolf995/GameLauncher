@@ -322,7 +322,6 @@ namespace GameLauncher.Services
         public bool Succeeded { get; }
         public UpdateInfo? UpdateInfo { get; }
         public Exception? Error { get; }
-        public bool IsUpdateAvailable => UpdateInfo != null;
 
         public static UpdateCheckResult UpdateAvailable(UpdateInfo updateInfo) =>
             new(true, updateInfo, null);
