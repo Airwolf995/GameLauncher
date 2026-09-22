@@ -156,5 +156,106 @@ namespace GameLauncher.Tests
 
             Assert.False(GameManager.IsMissingFileError(ex));
         }
+
+        [Fact]
+        public void UpdateManualGame_UebernimmtEingabenUndBehaeltIdSowieSpielzeit()
+        {
+            var tempRoot = CreateTempRoot();
+            var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+            string newPath = Path.Combine(tempRoot, "Spiele", "Neu", "neu.exe");
+            string coverPath = Path.Combine(tempRoot, "cover.png");
+
+            try
+            {
+                string gameId;
+                using (var manager = new GameManager(configPath))
+                {
+                    // URI und eigenes Bild, damit kein Symbol ins Benutzerprofil extrahiert wird.
+                    var game = manager.AddManualGame("Alt", "steam://rungameid/1", "", coverPath, notifyUI: false);
+                    gameId = game.Id;
+                    manager.Config.PlayTime[gameId] = new PlayTimeEntry { Name = "Alt", Seconds = 3600 };
+                    manager.Config.Favorites.Add(gameId);
+                    int updateEvents = 0;
+                    manager.GamesUpdated += (_, _) => updateEvents++;
+
+                    manager.UpdateManualGame(game, "Neu", newPath, "-windowed");
+
+                    Assert.Equal(gameId, game.Id);
+                    Assert.Equal("Neu", game.Name);
+                    Assert.Equal(newPath, game.Path);
+                    Assert.Equal("-windowed", game.Args);
+                    Assert.Equal("exe", game.LaunchType);
+                    Assert.Equal(Path.GetDirectoryName(newPath), game.InstallDirectory);
+                    Assert.Equal(1, updateEvents);
+                }
+
+                // Nach dem Neuladen muss die Änderung gespeichert sein, Spielzeit und Favorit unverändert.
+                using var reloaded = new GameManager(configPath);
+                var stored = Assert.Single(reloaded.Config.ManualGames, entry => entry.Id == gameId);
+                Assert.Equal("Neu", stored.Name);
+                Assert.Equal(newPath, stored.Path);
+                Assert.Equal("-windowed", stored.Args);
+                Assert.Equal(coverPath, stored.ImageUrl);
+                Assert.Equal(3600, reloaded.Config.PlayTime[gameId].Seconds);
+                Assert.Contains(gameId, reloaded.Config.Favorites);
+            }
+            finally
+            {
+                CleanupTempRoot(tempRoot);
+            }
+        }
+
+        [Fact]
+        public void UpdateManualGame_IgnoriertUnbekanntesSpiel()
+        {
+            var tempRoot = CreateTempRoot();
+            var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+
+            try
+            {
+                using var manager = new GameManager(configPath);
+                var game = new Game { Id = "manual_unbekannt", Name = "Alt", Path = "steam://rungameid/1", IsManual = true };
+                int updateEvents = 0;
+                manager.GamesUpdated += (_, _) => updateEvents++;
+
+                manager.UpdateManualGame(game, "Neu", "steam://rungameid/2", "");
+
+                Assert.Equal("Alt", game.Name);
+                Assert.Empty(manager.Config.ManualGames);
+                Assert.Equal(0, updateEvents);
+            }
+            finally
+            {
+                CleanupTempRoot(tempRoot);
+            }
+        }
+
+        [Theory]
+        [InlineData("steam://rungameid/1", "Manuell", "uri")]
+        [InlineData("com.epicgames.launcher://apps/abc?action=launch", "Epic Games", "uri")]
+        [InlineData("battlenet://Pro", "Battle.net", "uri")]
+        public void ApplyManualGameInput_StuftUriNachPlattformEin(string path, string expectedPlatform, string expectedLaunchType)
+        {
+            var game = new Game();
+
+            GameManager.ApplyManualGameInput(game, "Spiel", path, "");
+
+            Assert.Equal(path, game.Path);
+            Assert.Equal(expectedPlatform, game.Platform);
+            Assert.Equal(expectedLaunchType, game.LaunchType);
+        }
+
+        [Fact]
+        public void ApplyManualGameInput_NormalisiertProgrammpfad()
+        {
+            var game = new Game();
+
+            GameManager.ApplyManualGameInput(game, "Spiel", @"C:\Spiele\\Ordner\..\Spiel\spiel.exe", "");
+
+            Assert.Equal(@"C:\Spiele\Spiel\spiel.exe", game.Path);
+            Assert.Equal("Manuell", game.Platform);
+            Assert.Equal("exe", game.LaunchType);
+            Assert.Equal(@"C:\Spiele\Spiel", game.InstallDirectory);
+        }
     }
 }

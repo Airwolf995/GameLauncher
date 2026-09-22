@@ -11,8 +11,23 @@ namespace GameLauncher.Models
         [JsonPropertyName("id")]
         public string Id { get; set; } = "";
 
+        private string _name = "";
+
+        // Meldet Änderungen, damit eine umbenannte Karte in der virtualisierten
+        // Bibliothek auch dann den neuen Namen zeigt, wenn ihr Container
+        // wiederverwendet wird.
         [JsonPropertyName("name")]
-        public string Name { get; set; } = "";
+        public string Name
+        {
+            get => _name;
+            set
+            {
+                if (SetProperty(ref _name, value ?? ""))
+                {
+                    OnPropertyChanged(nameof(DisplayName));
+                }
+            }
+        }
 
         [JsonPropertyName("platform")]
         public string Platform { get; set; } = ""; // Steam, Xbox, Battle.net, etc.

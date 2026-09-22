@@ -280,8 +280,75 @@ namespace GameLauncher.Services.GameManagement
 
         public Game AddManualGame(string name, string path, string args = "", string customImage = "", bool notifyUI = true)
         {
-            // Detect Platform/Type
             string id = $"manual_{DateTime.Now.Ticks}";
+            var game = new Game
+            {
+                Id = id,
+                Source = "Manuell",
+                IsManual = true
+            };
+            ApplyManualGameInput(game, name, path, args);
+
+            if (!string.IsNullOrEmpty(customImage))
+            {
+                game.ImageUrl = customImage;
+            }
+            else if (game.LaunchType == "exe")
+            {
+                game.ImageUrl = IconExtractor.GetIconFromExe(game.Path, id);
+            }
+
+            _configService.UpdateConfig(config => config.ManualGames.Add(game));
+            Logger.Log($"Added manual game: {name} ({game.Platform})");
+            _configService.SaveConfig();
+            
+            if (notifyUI)
+            {
+                _stateService.RaiseGamesUpdated();
+            }
+
+            return CreateManualRuntimeGame(game);
+        }
+
+        /// <summary>
+        /// Übernimmt Name, Pfad und Argumente eines manuell hinzugefügten Spiels.
+        /// Die ID bleibt gleich, damit Spielzeit, Favorit, Tags und Bild erhalten
+        /// bleiben. Die Änderung wird immer gemeldet: die Spielzeiterfassung
+        /// sucht sonst weiter nach dem alten Pfad.
+        /// </summary>
+        public void UpdateManualGame(Game game, string name, string path, string args)
+        {
+            bool wasUpdated = false;
+            _configService.UpdateConfig(config =>
+            {
+                var stored = config.ManualGames.FirstOrDefault(candidate => candidate.Id == game.Id);
+                if (stored == null)
+                {
+                    return;
+                }
+
+                ApplyManualGameInput(stored, name, path, args);
+                wasUpdated = true;
+            });
+
+            if (!wasUpdated)
+            {
+                return;
+            }
+
+            ApplyManualGameInput(game, name, path, args);
+            _configService.SaveConfig();
+            Logger.Log($"Updated manual game: {game.Name} ({game.Platform})");
+            _stateService.RaiseGamesUpdated();
+        }
+
+        /// <summary>
+        /// Leitet Plattform, Starttyp und Installationsordner aus dem Pfad ab.
+        /// Hinzufügen und Bearbeiten nutzen dieselbe Regel, damit ein
+        /// bearbeitetes Spiel genauso eingestuft wird wie ein neu angelegtes.
+        /// </summary>
+        internal static void ApplyManualGameInput(Game game, string name, string path, string args)
+        {
             string platform = "Manuell";
             string launchType = "exe";
 
@@ -297,40 +364,12 @@ namespace GameLauncher.Services.GameManagement
                 try { path = Path.GetFullPath(path); } catch { /* Keep original if invalid */ }
             }
 
-            string imageUrl = "";
-            if (!string.IsNullOrEmpty(customImage))
-            {
-                imageUrl = customImage;
-            }
-            else if (launchType == "exe")
-            {
-                imageUrl = IconExtractor.GetIconFromExe(path, id);
-            }
-
-            var game = new Game
-            {
-                Id = id,
-                Name = name,
-                Path = path,
-                Args = args,
-                Platform = platform,
-                Source = "Manuell",
-                LaunchType = launchType,
-                IsManual = true,
-                ImageUrl = imageUrl,
-                InstallDirectory = Path.GetDirectoryName(Environment.ExpandEnvironmentVariables(path)) ?? ""
-            };
-
-            _configService.UpdateConfig(config => config.ManualGames.Add(game));
-            Logger.Log($"Added manual game: {name} ({platform})");
-            _configService.SaveConfig();
-            
-            if (notifyUI)
-            {
-                _stateService.RaiseGamesUpdated();
-            }
-
-            return CreateManualRuntimeGame(game);
+            game.Name = name;
+            game.Path = path;
+            game.Args = args;
+            game.Platform = platform;
+            game.LaunchType = launchType;
+            game.InstallDirectory = Path.GetDirectoryName(Environment.ExpandEnvironmentVariables(path)) ?? "";
         }
 
         private static Game CreateManualRuntimeGame(Game source)

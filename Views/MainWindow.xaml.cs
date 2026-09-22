@@ -751,6 +751,29 @@ namespace GameLauncher
             }
         }
 
+        private void Edit_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.DataContext is Game game)
+            {
+                string apiKey = _gameManager.GetConfig().UISettings.SteamGridDbApiKey;
+                var dialog = new AddGameWindow(apiKey, game) { Owner = this };
+                if (dialog.ShowDialog() != true)
+                {
+                    return;
+                }
+
+                // Das Bild zuerst setzen: UpdateManualGame meldet die Änderung
+                // und löst damit die Aktualisierung der Bibliothek aus.
+                if (!string.IsNullOrEmpty(dialog.GameCoverPath))
+                {
+                    _gameManager.SetManualGameImage(game, dialog.GameCoverPath, notifyUI: false);
+                }
+
+                _gameManager.UpdateManualGame(game, dialog.GameName, dialog.GamePath, dialog.GameArgs);
+                ShowStatus(_localization.Get("Main.StatusGameUpdated"));
+            }
+        }
+
         private async void Delete_Click(object sender, RoutedEventArgs e)
         {
             if (sender is MenuItem item && item.DataContext is Game game)

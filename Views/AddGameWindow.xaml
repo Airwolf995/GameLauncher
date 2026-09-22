@@ -113,7 +113,7 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <TextBlock Text="{loc:Loc Key=AddGame.Header}" FontSize="20" FontWeight="Bold" Foreground="White" Margin="0,0,0,20"/>
+        <TextBlock x:Name="HeaderText" Text="{loc:Loc Key=AddGame.Header}" FontSize="20" FontWeight="Bold" Foreground="White" Margin="0,0,0,20"/>
 
         <!-- Name -->
         <StackPanel Grid.Row="1" Margin="0,0,0,15">
