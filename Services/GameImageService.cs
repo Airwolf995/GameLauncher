@@ -44,36 +44,56 @@ namespace GameLauncher.Services
                 string destFileName = $"{safeGameName}{extension}";
                 string destPath = Path.Combine(imagesDir, destFileName);
 
-                string oldImageUrl = game.ImageUrl;
-
-                // Invalidate bitmap cache for old and new path
-                GameImageBitmapCache.Invalidate(game.ImageUrl);
+                // Invalidate bitmap cache before the file is overwritten
                 GameImageBitmapCache.Invalidate(destPath);
-
-                // Copy image
                 File.Copy(imagePath, destPath, true);
 
-                // Spiel und Override bilden einen gemeinsamen persistierten Zustand.
-                _configService.UpdateConfig(config =>
-                {
-                    game.ImageUrl = destPath;
-                    config.ImageOverrides[game.Id] = destPath;
-                });
-                _configService.SaveConfig();
-
-                Logger.Log($"Set custom image for '{game.Name}': {destPath}");
-
-                // Wird erneut ein Bild mit gleicher Endung gewählt, ist das Ziel
-                // dieselbe Datei wie das alte Bild; die Bereinigung löschte sonst
-                // das gerade gesetzte Bild.
-                if (!IsSameFile(oldImageUrl, destPath))
-                {
-                    CleanupImageIfUnused(game.Id, oldImageUrl);
-                }
+                ApplyImage(game, destPath);
             }
             catch (Exception ex)
             {
                 Logger.Error($"Error setting image for '{game.Name}'", ex);
+            }
+        }
+
+        /// <summary>
+        /// Übernimmt ein heruntergeladenes Cover ohne Kopie. Es liegt bereits im
+        /// verwalteten Ordner DownloadedCovers; eine Kopie ließe die
+        /// heruntergeladene Datei unbenutzt zurück.
+        /// </summary>
+        public void SetDownloadedGameImage(Game game, string downloadedImagePath)
+        {
+            try
+            {
+                ApplyImage(game, downloadedImagePath);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting image for '{game.Name}'", ex);
+            }
+        }
+
+        private void ApplyImage(Game game, string imagePath)
+        {
+            string oldImageUrl = game.ImageUrl;
+            GameImageBitmapCache.Invalidate(oldImageUrl);
+
+            // Spiel und Override bilden einen gemeinsamen persistierten Zustand.
+            _configService.UpdateConfig(config =>
+            {
+                game.ImageUrl = imagePath;
+                config.ImageOverrides[game.Id] = imagePath;
+            });
+            _configService.SaveConfig();
+
+            Logger.Log($"Set custom image for '{game.Name}': {imagePath}");
+
+            // Ist das neue Bild dieselbe Datei wie das alte (gleiche Endung bei
+            // "Bild ändern", gleiches Cover bei der Suche), löschte die
+            // Bereinigung sonst das gerade gesetzte Bild.
+            if (!IsSameFile(oldImageUrl, imagePath))
+            {
+                CleanupImageIfUnused(game.Id, oldImageUrl);
             }
         }
 

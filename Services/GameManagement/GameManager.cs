@@ -451,6 +451,14 @@ namespace GameLauncher.Services.GameManagement
             }
         }
 
+        /// <summary>
+        /// Übernimmt ein über die Cover-Suche heruntergeladenes Bild. Meldet die
+        /// Änderung nicht selbst; der Aufrufer bearbeitet das Spiel anschließend
+        /// mit UpdateManualGame, das die Bibliothek aktualisiert.
+        /// </summary>
+        public void SetDownloadedGameImage(Game game, string downloadedImagePath) =>
+            _imageService.SetDownloadedGameImage(game, downloadedImagePath);
+
         public void HideGame(Game game, bool notifyUI = true)
         {
             _stateService.HideGame(game);

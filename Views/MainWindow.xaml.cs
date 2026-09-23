@@ -766,7 +766,7 @@ namespace GameLauncher
                 // und löst damit die Aktualisierung der Bibliothek aus.
                 if (!string.IsNullOrEmpty(dialog.GameCoverPath))
                 {
-                    _gameManager.SetManualGameImage(game, dialog.GameCoverPath, notifyUI: false);
+                    _gameManager.SetDownloadedGameImage(game, dialog.GameCoverPath);
                 }
 
                 _gameManager.UpdateManualGame(game, dialog.GameName, dialog.GamePath, dialog.GameArgs);

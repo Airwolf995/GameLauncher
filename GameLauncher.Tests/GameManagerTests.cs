@@ -239,6 +239,66 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
+        public void SetDownloadedGameImage_UebernimmtCoverOhneKopieUndBereinigtAltesBild()
+        {
+            var tempRoot = CreateTempRoot();
+            var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+            var oldImage = Path.Combine(tempRoot, "images", "alt.png");
+            var downloadedCover = Path.Combine(tempRoot, "download", "neu.png");
+
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(oldImage)!);
+                Directory.CreateDirectory(Path.GetDirectoryName(downloadedCover)!);
+                File.WriteAllText(oldImage, "Altes Bild");
+                File.WriteAllText(downloadedCover, "Neues Cover");
+
+                using var manager = new GameManager(configPath);
+                var game = new Game { Id = "manual_cover", Name = "Covertest", IsManual = true, ImageUrl = oldImage };
+                manager.Config.ManualGames.Add(game);
+
+                manager.SetDownloadedGameImage(game, downloadedCover);
+
+                Assert.Equal(downloadedCover, game.ImageUrl);
+                Assert.Equal(downloadedCover, manager.Config.ImageOverrides[game.Id]);
+                Assert.True(File.Exists(downloadedCover));
+                Assert.False(File.Exists(oldImage));
+                Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(oldImage)!));
+            }
+            finally
+            {
+                CleanupTempRoot(tempRoot);
+            }
+        }
+
+        [Fact]
+        public void SetDownloadedGameImage_GleichesCoverBleibtErhalten()
+        {
+            var tempRoot = CreateTempRoot();
+            var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+            var cover = Path.Combine(tempRoot, "images", "cover.png");
+
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(cover)!);
+                File.WriteAllText(cover, "Cover");
+
+                using var manager = new GameManager(configPath);
+                var game = new Game { Id = "manual_gleich", Name = "Gleiches Cover", IsManual = true, ImageUrl = cover };
+                manager.Config.ManualGames.Add(game);
+
+                manager.SetDownloadedGameImage(game, cover);
+
+                Assert.True(File.Exists(cover));
+                Assert.Equal(cover, manager.Config.ImageOverrides[game.Id]);
+            }
+            finally
+            {
+                CleanupTempRoot(tempRoot);
+            }
+        }
+
+        [Fact]
         public void UpdateManualGame_IgnoriertUnbekanntesSpiel()
         {
             var tempRoot = CreateTempRoot();
