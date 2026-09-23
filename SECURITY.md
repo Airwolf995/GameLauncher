@@ -2,17 +2,23 @@
 
 ## Unterstützte Versionen
 
-Aktiv gepflegt wird jeweils der aktuelle Hauptstand auf `main`.
+Sicherheitskorrekturen erscheinen mit der jeweils nächsten Version. Unterstützt wird nur die [neueste veröffentlichte Version](https://github.com/Airwolf995/GameLauncher/releases/latest); ältere Versionen erhalten keine eigenen Korrekturen. Der Launcher meldet neue Versionen selbst und installiert sie auf Wunsch.
 
 ## Meldung von Sicherheitsproblemen
 
-Bitte keine Sicherheitslücken öffentlich als GitHub Issue posten.
+Bitte Sicherheitslücken **nicht** öffentlich als GitHub Issue, Diskussion oder Pull Request melden.
 
-Melde Sicherheitsprobleme verantwortungsvoll mit:
+Nutze stattdessen die private Meldefunktion von GitHub:
 
-- kurzer Beschreibung des Problems
-- betroffenen Versionen oder Commits
-- Schritten zur Reproduktion
-- möglicher Auswirkung
+**[Sicherheitslücke privat melden](https://github.com/Airwolf995/GameLauncher/security/advisories/new)**
 
-Bis ein eigener privater Meldeweg eingerichtet ist, sollten sicherheitsrelevante Details zunächst vertraulich mit dem Maintainer abgestimmt werden.
+Alternativ: im Repository auf den Reiter **Security** gehen und **Report a vulnerability** wählen. Die Meldung ist nur für dich und den Maintainer sichtbar.
+
+Hilfreich sind:
+
+- eine kurze Beschreibung des Problems
+- betroffene Versionen oder Commits
+- Schritte zur Reproduktion
+- die mögliche Auswirkung
+
+Rückfragen und Rückmeldungen laufen über dieselbe Meldung.
