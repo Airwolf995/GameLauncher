@@ -206,6 +206,39 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
+        public void SetManualGameImage_ZweimalGleicherNameBehaeltDasBild()
+        {
+            var tempRoot = CreateTempRoot();
+            var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+            var firstSource = Path.Combine(tempRoot, "quelle", "erstes.png");
+            var secondSource = Path.Combine(tempRoot, "quelle", "zweites.png");
+
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(firstSource)!);
+                File.WriteAllText(firstSource, "Erstes Bild");
+                File.WriteAllText(secondSource, "Zweites Bild");
+
+                using var manager = new GameManager(configPath);
+                var game = new Game { Id = "manual_bild", Name = "Bildtest", IsManual = true };
+                manager.Config.ManualGames.Add(game);
+
+                manager.SetManualGameImage(game, firstSource, notifyUI: false);
+                manager.SetManualGameImage(game, secondSource, notifyUI: false);
+
+                // Beide Male heißt das Ziel images\Bildtest.png; das zweite Bild darf
+                // nicht als "altes, nicht mehr verwendetes" Bild gelöscht werden.
+                Assert.True(File.Exists(game.ImageUrl));
+                Assert.Equal("Zweites Bild", File.ReadAllText(game.ImageUrl));
+                Assert.Equal(game.ImageUrl, manager.Config.ImageOverrides[game.Id]);
+            }
+            finally
+            {
+                CleanupTempRoot(tempRoot);
+            }
+        }
+
+        [Fact]
         public void UpdateManualGame_IgnoriertUnbekanntesSpiel()
         {
             var tempRoot = CreateTempRoot();

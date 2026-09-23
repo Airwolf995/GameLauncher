@@ -63,13 +63,23 @@ namespace GameLauncher.Services
 
                 Logger.Log($"Set custom image for '{game.Name}': {destPath}");
 
-                CleanupImageIfUnused(game.Id, oldImageUrl);
+                // Wird erneut ein Bild mit gleicher Endung gewählt, ist das Ziel
+                // dieselbe Datei wie das alte Bild; die Bereinigung löschte sonst
+                // das gerade gesetzte Bild.
+                if (!IsSameFile(oldImageUrl, destPath))
+                {
+                    CleanupImageIfUnused(game.Id, oldImageUrl);
+                }
             }
             catch (Exception ex)
             {
                 Logger.Error($"Error setting image for '{game.Name}'", ex);
             }
         }
+
+        private static bool IsSameFile(string first, string second) =>
+            !string.IsNullOrEmpty(first) &&
+            string.Equals(Path.GetFullPath(first), Path.GetFullPath(second), StringComparison.OrdinalIgnoreCase);
 
         public void CleanupImageIfUnused(string gameId, string imagePath)
         {
