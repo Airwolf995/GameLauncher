@@ -35,6 +35,20 @@ namespace GameLauncher
             }
         }
 
+        /// <summary>
+        /// Öffnet das Fenster zum Bearbeiten eines vorhandenen Spiels mit
+        /// vorausgefüllten Feldern.
+        /// </summary>
+        public AddGameWindow(string apiKey, Models.Game gameToEdit)
+            : this(apiKey)
+        {
+            Title = _localization.Get("EditGame.Title");
+            HeaderText.Text = _localization.Get("EditGame.Title");
+            NameBox.Text = gameToEdit.Name;
+            PathBox.Text = gameToEdit.Path;
+            ArgsBox.Text = gameToEdit.Args;
+        }
+
         private void Browse_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFileDialog

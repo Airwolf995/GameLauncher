@@ -363,6 +363,7 @@
                                 </Style>
                             </MenuItem.Style>
                         </MenuItem>
+                        <MenuItem Header="{loc:Loc Key=Main.Context.Edit}" Click="Edit_Click" IsEnabled="{Binding IsManual}"/>
                         <MenuItem Header="{loc:Loc Key=Main.Context.Delete}" Click="Delete_Click" IsEnabled="{Binding IsManual}"/>
                     </ContextMenu>
                 </Border.ContextMenu>
