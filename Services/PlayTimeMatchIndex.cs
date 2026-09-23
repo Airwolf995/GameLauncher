@@ -36,8 +36,14 @@ namespace GameLauncher.Services
                     continue;
                 }
 
+                // Startet der Eintrag über einen Launcher, ist dessen Programmdatei
+                // nicht das Spiel. Ihr Name würde den dauerhaft laufenden Client
+                // als Spielsitzung erfassen.
+                bool startsViaLauncher = Constants.Launchers.IsLauncherExecutable(game.Path);
+
                 var exeName = game.ExecutableName;
-                if (string.IsNullOrWhiteSpace(exeName) && game.LaunchType == "exe" && !string.IsNullOrWhiteSpace(game.Path))
+                if (string.IsNullOrWhiteSpace(exeName) && game.LaunchType == "exe" &&
+                    !startsViaLauncher && !string.IsNullOrWhiteSpace(game.Path))
                 {
                     try
                     {
@@ -64,13 +70,15 @@ namespace GameLauncher.Services
                     }
                 }
 
-                // Zeigt der Eintrag auf einen Launcher, ist das umgebende Verzeichnis
-                // der Ordner des Clients und enthält dessen Prozesse, nicht die des
-                // Spiels. Würde er beobachtet, zählte jeder Client-Prozess auf das
-                // Spiel. Die Zuordnung bleibt dann allein über den Prozessnamen
-                // möglich, den der Benutzer in ExecutableName hinterlegen kann.
+                // Bei einem manuellen Eintrag auf einen Launcher ist das
+                // Installationsverzeichnis aus dessen Pfad abgeleitet, also der
+                // Ordner des Clients mit dessen Prozessen. Würde er beobachtet,
+                // zählte jeder Client-Prozess auf das Spiel. Die Zuordnung bleibt
+                // dann allein über den Prozessnamen möglich, den der Benutzer in
+                // ExecutableName hinterlegen kann. Plattform-Scanner wie Battle.net
+                // liefern dagegen den echten Spielordner.
                 if (string.IsNullOrWhiteSpace(game.InstallDirectory) ||
-                    Constants.Launchers.IsLauncherExecutable(game.Path))
+                    (game.IsManual && startsViaLauncher))
                 {
                     continue;
                 }

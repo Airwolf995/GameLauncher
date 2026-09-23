@@ -210,5 +210,37 @@ namespace GameLauncher.Tests
             Assert.True(index.TryMatchProcess("Diablo IV", @"D:\Diablo IV\Diablo IV.exe", out var gameId));
             Assert.Equal("manual_launcher", gameId);
         }
+
+        /// <summary>
+        /// Ein gescanntes Battle.net-Spiel startet über den Client, liegt aber in
+        /// einem eigenen Ordner. Erfasst wird das Spiel dort, nicht der Client.
+        /// </summary>
+        [Fact]
+        public void TryMatchProcess_ErfasstGescanntesLauncherSpielUeberDenSpielordner()
+        {
+            var index = new PlayTimeMatchIndex();
+            var games = new List<Game>
+            {
+                new()
+                {
+                    Id = "bnet_zeus",
+                    Name = "Call of Duty Black Ops Cold War",
+                    Path = @"C:\Program Files (x86)\Battle.net\Battle.net.exe",
+                    Args = "--exec=\"launch_uid zeus\"",
+                    InstallDirectory = @"D:\Battle.net\Call of Duty Black Ops Cold War",
+                    LaunchType = "exe",
+                    IsManual = false
+                }
+            };
+
+            index.Rebuild(games);
+
+            Assert.True(index.TryMatchProcess(
+                "BlackOpsColdWar", @"D:\Battle.net\Call of Duty Black Ops Cold War\BlackOpsColdWar.exe", out var gameId));
+            Assert.Equal("bnet_zeus", gameId);
+            Assert.False(index.TryMatchProcess(
+                "Battle.net", @"C:\Program Files (x86)\Battle.net\Battle.net.exe", out _));
+            Assert.False(index.TryMatchProcessByName("Battle.net", out _));
+        }
     }
 }

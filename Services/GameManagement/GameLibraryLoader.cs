@@ -26,14 +26,16 @@ namespace GameLauncher.Services.GameManagement
             var epicTask = ScanPlatformAsync("Epic", () => new EpicScanner(config.EpicLibraryPaths), cancellationToken);
             var eaTask = ScanPlatformAsync("EA", () => new EaScanner(), cancellationToken);
             var xboxTask = ScanPlatformAsync("Xbox", () => new XboxScanner(config.XboxLibraryPaths), cancellationToken);
+            var battleNetTask = ScanPlatformAsync("Battle.net", () => new BattleNetScanner(), cancellationToken);
 
-            await Task.WhenAll(steamTask, gogTask, epicTask, eaTask, xboxTask);
+            await Task.WhenAll(steamTask, gogTask, epicTask, eaTask, xboxTask, battleNetTask);
 
-            var results = new[] { steamTask.Result, gogTask.Result, epicTask.Result, eaTask.Result, xboxTask.Result };
+            var results = new[] { steamTask.Result, gogTask.Result, epicTask.Result, eaTask.Result, xboxTask.Result, battleNetTask.Result };
 
             Logger.Log(
                 $"Parallel scan finished. Steam: {steamTask.Result.Games.Count}, GOG: {gogTask.Result.Games.Count}, " +
-                $"Epic: {epicTask.Result.Games.Count}, EA: {eaTask.Result.Games.Count}, Xbox: {xboxTask.Result.Games.Count}");
+                $"Epic: {epicTask.Result.Games.Count}, EA: {eaTask.Result.Games.Count}, Xbox: {xboxTask.Result.Games.Count}, " +
+                $"Battle.net: {battleNetTask.Result.Games.Count}");
 
             var games = new List<Game>();
             var failedPlatforms = new List<string>();

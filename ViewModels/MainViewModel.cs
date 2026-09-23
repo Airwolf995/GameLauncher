@@ -259,7 +259,7 @@ namespace GameLauncher.ViewModels
 
         private void UpdateStatusText()
         {
-            int steam = 0, gog = 0, epic = 0, ubi = 0, ea = 0, xbox = 0, manual = 0;
+            int steam = 0, gog = 0, epic = 0, ubi = 0, ea = 0, xbox = 0, battleNet = 0, manual = 0;
             foreach (var game in _games)
             {
                 if (game.IsManual) manual++;
@@ -269,9 +269,10 @@ namespace GameLauncher.ViewModels
                 else if (game.Platform == Constants.Platforms.UbisoftConnect) ubi++;
                 else if (game.Platform == Constants.Platforms.EAApp) ea++;
                 else if (game.Platform == Constants.Platforms.Xbox) xbox++;
+                else if (game.Platform == Constants.Platforms.BattleNet) battleNet++;
             }
 
-            string summary = _localization.Format("Main.StatusSummary", _games.Count, steam, gog, epic, ubi, ea, xbox, manual);
+            string summary = _localization.Format("Main.StatusSummary", _games.Count, steam, gog, epic, ubi, ea, xbox, battleNet, manual);
 
             // Fehlgeschlagene Plattformen benennen, damit eine unvollständige
             // Bibliothek nicht wie ein normales Ergebnis aussieht.
