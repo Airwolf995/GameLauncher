@@ -11,6 +11,8 @@ Game Launcher führt deine Spiele aus Steam, Epic, GOG, Xbox / Game Pass, EA und
 
 Der Launcher ist eine schnelle, native Windows-Anwendung. Bibliothek, Einstellungen, Spielzeiten und eigene Anpassungen bleiben auf deinem Rechner – es gibt weder ein Benutzerkonto noch eine Cloud-Anbindung.
 
+![Die Bibliothek des Game Launchers in der Kartenansicht, sortiert nach Spielzeit](./docs/images/bibliothek.png)
+
 ---
 
 ## Funktionen
