@@ -43,7 +43,7 @@ dotnet build .\GameLauncher.csproj -c Release
 
 ## Orientierungsstruktur
 - `Services/MainWindow/`: Hauptfenster-spezifische UI-Orchestrierung wie Animationen, Tray, Overlay, Statusmeldungen und Update-Ablauf.
-- `Services/Scanners/`: Plattform-Scanner für Steam, Epic, GOG, Xbox / Game Pass, EA und Ubisoft.
+- `Services/Scanners/`: Plattform-Scanner für Steam, Epic, GOG, Xbox / Game Pass, EA, Ubisoft und Battle.net.
 - `Services/Localization/`: Sprachlogik und lokalisierte Texte.
 - `Controls/`: Spezielle WPF-Controls, insbesondere Virtualisierung für die Bibliotheksansicht.
 - `Views/`: WPF-Fenster und deren Code-behind-Dateien.

@@ -5,7 +5,7 @@ Diese Datenschutzerklärung erklärt, welche Daten beim Nutzen des Game Launcher
 ## 1. Lokale Datenverarbeitung
 Der Game Launcher arbeitet grundsätzlich lokal auf deinem Rechner. Er benötigt kein Benutzerkonto, und es findet **keine Übertragung** deiner installierten Spiele, Spielzeiten oder sonstigen persönlichen Daten an den Entwickler statt.
 
-- **Spiele-Scan:** Die Anwendung liest lokal die Installationsdaten von Steam (einschließlich der dort eingetragenen Nicht-Steam-Spiele), Epic Games, GOG Galaxy, Xbox / Game Pass, EA App und Ubisoft Connect, um deine Bibliothek anzuzeigen. Beim Import werden außerdem die Verknüpfungen im Startmenü und auf dem Desktop gelesen.
+- **Spiele-Scan:** Die Anwendung liest lokal die Installationsdaten von Steam (einschließlich der dort eingetragenen Nicht-Steam-Spiele), Epic Games, GOG Galaxy, Xbox / Game Pass, EA App, Ubisoft Connect und Battle.net, um deine Bibliothek anzuzeigen. Beim Import werden außerdem die Verknüpfungen im Startmenü und auf dem Desktop gelesen.
 - **Konfiguration:** Einstellungen, Favoriten, Schlagwörter, ausgeblendete Spiele, eigene Einträge und Spielzeiten werden in deinem Dokumente-Ordner gespeichert (`Dokumente\GameLauncher\game_launcher_config.json`).
 - **Bilder und Zwischenspeicher:** Titelbilder, aus Programmdateien gelesene Symbole und Steam-Spieldetails werden ebenfalls unter `Dokumente\GameLauncher` zwischengespeichert.
 - **Protokolle:** Zur Fehlersuche schreibt die Anwendung Protokolldateien nach `Dokumente\GameLauncher\Logs`. Sie enthalten unter anderem Namen und Pfade erkannter Spiele sowie Fehlermeldungen. Es werden nur die vier neuesten Protokolle aufbewahrt; sie verlassen deinen Rechner nicht.
