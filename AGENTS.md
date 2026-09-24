@@ -3,7 +3,7 @@
 Kurzleitfaden für Arbeiten am Projekt.
 
 ## Projekt
-- WPF‑Launcher für Spiele (Windows, .NET 8)
+- WPF‑Launcher für Spiele (Windows, .NET 10)
 - Hauptprojekt: `GameLauncher.csproj`
 
 ## Build
@@ -13,8 +13,8 @@ dotnet build .\GameLauncher.csproj -c Release
 ```
 
 ## Output-Ordner
-- Debug-Build: `bin\Debug\net8.0-windows10.0.19041.0\`
-- Release-Build: `bin\Release\net8.0-windows10.0.19041.0\`
+- Debug-Build: `bin\Debug\net10.0-windows10.0.19041.0\`
+- Release-Build: `bin\Release\net10.0-windows10.0.19041.0\`
 - Installer-/Publish-Output: `publish\win-x64\`
 
 ## Publish
