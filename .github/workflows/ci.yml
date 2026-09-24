@@ -16,10 +16,10 @@ jobs:
       - name: Quellcode holen
         uses: actions/checkout@v7
 
-      - name: .NET 8 bereitstellen
+      - name: .NET 10 bereitstellen
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Verwendetes SDK melden
         run: |
