@@ -63,6 +63,7 @@ namespace GameLauncher.Services.Settings
             "favorites",
             "last_played",
             "play_time",
+            "play_time_by_day",
             "ignored_processes",
             "image_overrides",
             "hidden_games",
