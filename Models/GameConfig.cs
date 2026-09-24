@@ -38,9 +38,10 @@ namespace GameLauncher.Models
 
         /// <summary>
         /// Gilt nur für neue Konfigurationen; eine gespeicherte Liste ersetzt den
-        /// Standard vollständig. Die großen Store-Clients stehen nicht darin: Sie
-        /// sind über <see cref="Constants.Launchers"/> bereits von der Zuordnung
-        /// ausgenommen. Der BsgLauncher fehlt dort und bleibt deshalb hier.
+        /// Standard vollständig. Die großen Store-Clients stehen nicht darin: Ihre
+        /// Prozesse zählen nur, wenn ein Eintrag sie abdeckt, und bei Einträgen auf
+        /// einen Client wird dessen Ordner über <see cref="Constants.Launchers"/>
+        /// bereits nicht beobachtet. Der BsgLauncher fehlt dort und bleibt deshalb hier.
         /// </summary>
         [JsonPropertyName("ignored_processes")]
         public List<string> IgnoredProcesses { get; set; } = new List<string> { "BsgLauncher.exe" };
