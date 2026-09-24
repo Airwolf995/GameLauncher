@@ -21,6 +21,7 @@ namespace GameLauncher.Services
                 CreateOption(Constants.Platforms.UbisoftConnect, Constants.Platforms.UbisoftConnect),
                 CreateOption(Constants.Platforms.EAApp, Constants.Platforms.EAApp),
                 CreateOption(Constants.Platforms.Xbox, Constants.Platforms.Xbox),
+                CreateOption(Constants.Platforms.BattleNet, Constants.Platforms.BattleNet),
                 CreateOption(Constants.Filters.Manual, localization.Get("Filter.Manual")),
                 CreateOption(Constants.Filters.Hidden, localization.Get("Filter.Hidden"))
             };

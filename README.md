@@ -7,7 +7,7 @@
 
 **Alle Spiele an einem Ort – ohne Konto, ohne Cloud.**
 
-Game Launcher führt deine Spiele aus Steam, Epic, GOG, Xbox / Game Pass, EA und Ubisoft in einer gemeinsamen Bibliothek zusammen. Er ergänzt Titelbilder und Beschreibungen, erfasst deine Spielzeit und zeigt beim Spielen auf Wunsch ein Overlay mit Hardwarewerten.
+Game Launcher führt deine Spiele aus Steam, Epic, GOG, Xbox / Game Pass, EA, Ubisoft und Battle.net in einer gemeinsamen Bibliothek zusammen. Er ergänzt Titelbilder und Beschreibungen, erfasst deine Spielzeit und zeigt beim Spielen auf Wunsch ein Overlay mit Hardwarewerten.
 
 Der Launcher ist eine schnelle, native Windows-Anwendung. Bibliothek, Einstellungen, Spielzeiten und eigene Anpassungen bleiben auf deinem Rechner – es gibt weder ein Benutzerkonto noch eine Cloud-Anbindung.
 
@@ -18,7 +18,7 @@ Der Launcher ist eine schnelle, native Windows-Anwendung. Bibliothek, Einstellun
 ## Funktionen
 
 ### 🎮 Eine Bibliothek für alles
-- **Automatische Erkennung** installierter Spiele aus **Steam, Epic Games, GOG, Xbox / Game Pass, EA App und Ubisoft Connect**.
+- **Automatische Erkennung** installierter Spiele aus **Steam, Epic Games, GOG, Xbox / Game Pass, EA App, Ubisoft Connect und Battle.net**. Battle.net-Spiele öffnen ihre Seite im Battle.net-Client; gestartet wird dort mit „Spielen“, weil Battle.net keinen offiziellen Direktstart anbietet.
 - **Nicht-Steam-Spiele**, die du in Steam eingetragen hast, erscheinen ebenfalls.
 - **Import** weiterer Spiele aus Verknüpfungen im Startmenü und auf dem Desktop.
 - **Eigene Einträge** für Programme und Start-Links wie `steam://`, per Dateiauswahl oder Hineinziehen – nachträglich jederzeit **bearbeitbar**, ohne dass Spielzeit oder Favoriten verloren gehen.

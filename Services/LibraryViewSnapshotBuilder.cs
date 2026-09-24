@@ -82,6 +82,7 @@ namespace GameLauncher.Services
                 Constants.Platforms.EAApp => game.Platform == Constants.Platforms.EAApp,
                 Constants.Platforms.Xbox => game.Platform == Constants.Platforms.Xbox,
                 Constants.Platforms.GOG => game.Platform == Constants.Platforms.GOG,
+                Constants.Platforms.BattleNet => game.Platform == Constants.Platforms.BattleNet,
                 _ when selectedFilter.StartsWith(Constants.Filters.TagPrefix, StringComparison.Ordinal) =>
                     game.Tags.Contains(selectedFilter.Substring(Constants.Filters.TagPrefix.Length)),
                 _ => true
