@@ -1,16 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using System.ComponentModel;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Controls.Primitives;
-using System.Windows.Media;
-using System.Windows.Media.Animation;
-using System.Windows.Input;
-using System.Windows.Threading;
 using GameLauncher.Models;
 using GameLauncher.Core;
 using GameLauncher.Services.Localization;
@@ -20,12 +12,17 @@ namespace GameLauncher
 {
     using GameLauncher.ViewModels;
 
+    /// <summary>
+    /// Lebenszyklus des Hauptfensters: Aufbau, Infobereich, Beenden und die
+    /// Befehle der Kopfleiste. Bibliotheksdarstellung und Spielaktionen liegen
+    /// in MainWindow.LibraryView.cs und MainWindow.GameActions.cs.
+    /// </summary>
     public partial class MainWindow : Window
     {
         private GameManager _gameManager = null!;
         private MainViewModel _viewModel = null!;
         private DataTemplate? _originalCardTemplate; // Store original XAML template
-        
+
         private Services.PlayTimeService _playTimeService = null!;
         private Services.UISettingsService _uiSettingsService = null!;
         private Services.MainWindow.GameCardLayoutService _gameCardLayoutService = null!;
@@ -37,11 +34,6 @@ namespace GameLauncher
         private readonly Services.MainWindow.MainWindowShutdownCoordinator _shutdownCoordinator = new();
         private Services.MainWindow.AnimationService _animationService = null!;
         private readonly LocalizationService _localization = LocalizationService.Instance;
-        private UiSettingsSnapshot? _lastAppliedUiSettings;
-        private ViewMode _currentViewMode = ViewMode.Cards;
-        private CardSize _currentCardSize = CardSize.Medium;
-        private int _currentCardColumns = 1;
-        private bool _resetViewportAfterNextRefresh;
 
         public static readonly DependencyProperty IsInitialLoadingProperty =
             DependencyProperty.Register("IsInitialLoading", typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
@@ -132,8 +124,6 @@ namespace GameLauncher
             _overlayController.Initialize(this, _playTimeService);
         }
 
-
-
         private void OnGamesUpdatedInWindow(object? sender, EventArgs e)
         {
             // Trigger visual refresh (animation/stats) when data updates
@@ -223,7 +213,6 @@ namespace GameLauncher
             Close();
         }
 
-
         private async void MainWindow_ContentRendered(object? sender, EventArgs e)
         {
             ContentRendered -= MainWindow_ContentRendered;
@@ -242,136 +231,10 @@ namespace GameLauncher
             _uiSettingsService.ApplyTheme(colorCode);
         }
 
-
-
-
-
-        private void ComboBox_DropDownOpened(object sender, EventArgs e)
-        {
-            if (sender is not ComboBox comboBox)
-            {
-                return;
-            }
-
-            Dispatcher.BeginInvoke(
-                new Action(() => AlignComboBoxDropDown(comboBox)),
-                DispatcherPriority.Loaded);
-        }
-
-        private static void AlignComboBoxDropDown(ComboBox comboBox)
-        {
-            if (comboBox.SelectedIndex < 0)
-            {
-                return;
-            }
-
-            if (comboBox.Template.FindName("Popup", comboBox) is not Popup popup || popup.Child is not DependencyObject popupChild)
-            {
-                return;
-            }
-
-            var scrollViewer = popupChild.FindDescendant<ScrollViewer>();
-            if (scrollViewer == null)
-            {
-                return;
-            }
-
-            comboBox.UpdateLayout();
-
-            int anchorIndex = Math.Max(0, comboBox.SelectedIndex - 1);
-            if (comboBox.ItemContainerGenerator.ContainerFromIndex(anchorIndex) is not ComboBoxItem anchorItem)
-            {
-                return;
-            }
-
-            var top = anchorItem.TransformToAncestor(scrollViewer).Transform(new Point(0, 0)).Y;
-            if (Math.Abs(top) > 0.5)
-            {
-                scrollViewer.ScrollToVerticalOffset(Math.Max(0, scrollViewer.VerticalOffset + top));
-            }
-        }
-
-        private void RefreshList(bool instant = true)
-        {
-            // Re-animate items when list is refreshed/filtered
-            Dispatcher.BeginInvoke(new Action(() => {
-                AnimateItemsStaggered(instant);
-            }), System.Windows.Threading.DispatcherPriority.Background);
-        }
-
-        internal void RefreshLibrary(bool instant) => RefreshList(instant);
-
-        // Fix for ClearSearch_Click build error
-        private void ClearSearch_Click(object sender, RoutedEventArgs e)
-        {
-            _viewModel.SearchText = string.Empty;
-        }
-
         private void OnLanguageChanged(object? sender, EventArgs e)
         {
             Title = _localization.Get("AppName");
         }
-
-        private void LibraryViewStateChanged(object sender, RoutedEventArgs e)
-        {
-            if (!IsLoaded || IsInitialLoading)
-            {
-                return;
-            }
-
-            string sourceName = sender switch
-            {
-                FrameworkElement element when !string.IsNullOrWhiteSpace(element.Name) => element.Name,
-                _ => sender.GetType().Name
-            };
-            Logger.Log($"Bibliotheksansicht geändert: Auslöser={sourceName}, Einträge={GameListControl.Items.Count}.");
-
-            if (ReferenceEquals(sender, FilterBox) || ReferenceEquals(sender, SortBox))
-            {
-                _resetViewportAfterNextRefresh = true;
-            }
-        }
-
-        private void OnLibraryViewRefreshed(object? sender, EventArgs e)
-        {
-            if (!IsLoaded || IsInitialLoading)
-            {
-                return;
-            }
-
-            if (_resetViewportAfterNextRefresh)
-            {
-                ResetLibraryViewportToTop();
-                _resetViewportAfterNextRefresh = false;
-            }
-
-            Dispatcher.BeginInvoke(
-                new Action(() =>
-                {
-                    var realizedRange = GameLauncher.Core.RealizedItemRange.For(GameListControl);
-                    if (realizedRange.IsEmpty)
-                    {
-                        Logger.Log($"Virtualisierung nach Ansichtswechsel: noch nichts realisiert, Gesamt={GameListControl.Items.Count}.");
-                    }
-                    else
-                    {
-                        Logger.Log($"Virtualisierung nach Ansichtswechsel: realisiert={realizedRange.Count}, Bereich={realizedRange.FirstIndex}-{realizedRange.LastIndexExclusive - 1}, Gesamt={GameListControl.Items.Count}.");
-                    }
-                }),
-                DispatcherPriority.Loaded);
-        }
-
-        private void ResetLibraryViewportToTop()
-        {
-            if (GameListControl.FindDescendant<ScrollViewer>() is ScrollViewer scrollViewer)
-            {
-                scrollViewer.ScrollToVerticalOffset(0);
-            }
-        }
-
-
-        #region Event Handlers
-        // Event handlers for Search/Filter/Sort Removed - Handled by ViewModel
 
         /// <summary>
         /// Die Mindestgröße hält das Layout der Kopfleiste zusammen, liegt aber
@@ -403,22 +266,13 @@ namespace GameLauncher
 
         private void Settings_Click(object sender, RoutedEventArgs e)
         {
-            var settings = new SettingsWindow(_gameManager, _uiSettingsService.ApplyTheme, ApplyUISettingsPreview);
+            var settings = new SettingsWindow(_gameManager, _uiSettingsService.ApplyTheme, ApplyUiSettingsPreview);
             settings.Owner = this;
             if (settings.ShowDialog() == true)
             {
                 // Apply UI settings immediately without restart
-                ApplyUISettings();
+                ApplySavedUiSettings();
             }
-        }
-
-        private void LicenseInfo_Click(object sender, RoutedEventArgs e)
-        {
-            var licenseInfo = new LicenseInfoWindow
-            {
-                Owner = this
-            };
-            licenseInfo.ShowDialog();
         }
 
         private async void RefreshLibrary_Click(object sender, RoutedEventArgs e)
@@ -445,438 +299,7 @@ namespace GameLauncher
             }
         }
 
-
-
-        private void ApplyUISettings()
-        {
-            ApplyUISettings(_gameManager.GetConfig().UISettings, registerHotkey: true, writeLog: true);
-        }
-
-        private void ApplyUISettingsPreview(UISettings uiSettings)
-        {
-            ApplyUISettings(uiSettings, registerHotkey: false, writeLog: false);
-        }
-
-        private void ApplyUISettings(UISettings uiSettings, bool registerHotkey, bool writeLog)
-        {
-            var snapshot = UiSettingsSnapshot.From(uiSettings);
-            if (_lastAppliedUiSettings == snapshot)
-            {
-                if (registerHotkey && IsLoaded)
-                {
-                    _overlayController.RegisterHotkey(this, uiSettings);
-                }
-                return;
-            }
-
-            var previous = _lastAppliedUiSettings;
-            
-            if (previous == null ||
-                previous.ViewMode != snapshot.ViewMode ||
-                previous.CardSize != snapshot.CardSize)
-            {
-                ApplyViewMode(uiSettings.ViewMode, uiSettings.CardSize, false);
-            }
-            
-            if (previous == null || previous.AnimationsEnabled != snapshot.AnimationsEnabled)
-            {
-                ApplyAnimations(uiSettings.AnimationsEnabled, writeLog);
-            }
-            
-            if (previous == null || Math.Abs(previous.FontScale - snapshot.FontScale) > 0.0001)
-            {
-                _uiSettingsService.ApplyFontScale(uiSettings.FontScale, this.Content as Grid, writeLog);
-            }
-            
-            if (previous == null || !string.Equals(previous.BackgroundImage, snapshot.BackgroundImage, StringComparison.Ordinal))
-            {
-                _uiSettingsService.ApplyBackgroundImage(uiSettings.BackgroundImage, BackgroundImage);
-            }
-            
-            if (writeLog)
-            {
-                Logger.Log($"UI Settings applied: CardSize={uiSettings.CardSize}, ViewMode={uiSettings.ViewMode}, Animations={uiSettings.AnimationsEnabled}, FontScale={uiSettings.FontScale}");
-            }
-
-            if (registerHotkey && IsLoaded)
-            {
-                _overlayController.RegisterHotkey(this, uiSettings);
-            }
-
-            _lastAppliedUiSettings = snapshot;
-        }
-
-        internal void ApplyUiSettings(UISettings uiSettings, bool registerHotkey, bool writeLog) =>
-            ApplyUISettings(uiSettings, registerHotkey, writeLog);
-
-        private void ApplyViewMode(Models.ViewMode mode, Models.CardSize size, bool refresh = true)
-        {
-            _currentViewMode = mode;
-            _currentCardSize = size;
-            BindingOperations.SetBinding(
-                GameListControl,
-                ItemsControl.ItemsSourceProperty,
-                new Binding(mode == ViewMode.Cards ? nameof(MainViewModel.CardRows) : nameof(MainViewModel.GamesView)));
-            GameListControl.ItemContainerStyle = mode == ViewMode.Cards
-                ? Resources["GameRowItemContainerStyle"] as Style
-                : Resources["GameListItemContainerStyle"] as Style;
-
-            var action = _gameCardLayoutService.ApplyViewMode(
-                GameListControl,
-                Resources,
-                mode,
-                _originalCardTemplate,
-                size,
-                refresh);
-
-            UpdateCardRowsLayout();
-
-            if (action == Services.MainWindow.ViewModeAnimationAction.Animate)
-            {
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    AnimateItemsStaggered();
-                }), System.Windows.Threading.DispatcherPriority.Background);
-            }
-            else if (action == Services.MainWindow.ViewModeAnimationAction.AnimateInstant)
-            {
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    AnimateItemsStaggered(true);
-                }), System.Windows.Threading.DispatcherPriority.Background);
-            }
-        }
-
-        private void GameListControl_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            if (!IsLoaded || _currentViewMode != ViewMode.Cards)
-            {
-                return;
-            }
-
-            UpdateCardRowsLayout();
-        }
-
-        private void UpdateCardRowsLayout()
-        {
-            if (_viewModel == null || _currentViewMode != ViewMode.Cards || GameListControl.ActualWidth <= 0)
-            {
-                return;
-            }
-
-            var layoutResult = _gameCardLayoutService.ApplyCardRowLayout(
-                Resources,
-                GameListControl.ActualWidth,
-                _currentCardSize,
-                _currentCardColumns);
-
-            _currentCardColumns = layoutResult.Columns;
-            if (_viewModel.UpdateCardColumns(layoutResult.Columns))
-            {
-                Logger.Log($"Kartenzeilen aktualisiert: Breite={GameListControl.ActualWidth:0.#}, Spalten={layoutResult.Columns}, Kartenbreite={layoutResult.CardWidth:0.#}, Kartengröße={_currentCardSize}.");
-            }
-        }
-
-        private void ApplyAnimations(bool enabled, bool writeLog = true)
-        {
-            // Toggle the dependency property so XAML triggers can react
-            this.AreAnimationsEnabled = enabled;
-            if (writeLog)
-            {
-                Logger.Log($"Animations {(enabled ? "enabled" : "disabled")}");
-            }
-        }
-
-        private sealed record UiSettingsSnapshot(
-            Models.CardSize CardSize,
-            Models.ViewMode ViewMode,
-            bool AnimationsEnabled,
-            double FontScale,
-            string BackgroundImage,
-            bool OverlayHotkeyCtrl,
-            bool OverlayHotkeyAlt,
-            bool OverlayHotkeyShift,
-            bool OverlayHotkeyWin,
-            string OverlayHotkeyKey)
-        {
-            public static UiSettingsSnapshot From(UISettings settings) =>
-                new(
-                    settings.CardSize,
-                    settings.ViewMode,
-                    settings.AnimationsEnabled,
-                    settings.FontScale,
-                    settings.BackgroundImage ?? "",
-                    settings.OverlayHotkeyCtrl,
-                    settings.OverlayHotkeyAlt,
-                    settings.OverlayHotkeyShift,
-                    settings.OverlayHotkeyWin,
-                    settings.OverlayHotkeyKey ?? "");
-        }
-
-        private async void AddGame_Click(object sender, RoutedEventArgs e)
-        {
-            string apiKey = _gameManager.GetConfig().UISettings.SteamGridDbApiKey;
-            var dialog = new AddGameWindow(apiKey) { Owner = this };
-            if (dialog.ShowDialog() == true)
-            {
-                // Add game in manager but don't trigger the global event (that would cause a full reload/re-animation)
-                var newGame = _gameManager.AddManualGame(dialog.GameName, dialog.GamePath, dialog.GameArgs, dialog.GameCoverPath, notifyUI: false);
-                
-                // Add to our main collection instantly via ViewModel
-                _viewModel.Games.Add(newGame);
-                
-                await _viewModel.RebuildLibraryViewAsync();
-                ShowStatus(_localization.Get("Main.StatusGameAdded"));
-                Logger.Log("User added a manual game. Added instantly to list.");
-                
-                // Refresh instantly so the new item (Opacity 0) becomes visible immediately
-                RefreshList(instant: true);
-            }
-        }
-
-        private async void ImportGames_Click(object sender, RoutedEventArgs e)
-        {
-            var dialog = new ImportGamesWindow(_viewModel.Games) { Owner = this };
-            if (dialog.ShowDialog() != true || dialog.SelectedCandidates.Count == 0)
-            {
-                return;
-            }
-
-            // Wie beim manuellen Hinzufügen ohne globales Event arbeiten, damit die
-            // Bibliothek nicht komplett neu geladen und animiert wird. Das Übernehmen
-            // liest je Spiel das Symbol aus der Programmdatei und läuft deshalb
-            // außerhalb des UI-Threads.
-            var candidates = dialog.SelectedCandidates;
-            var addedGames = await Task.Run(() => candidates
-                .Select(candidate => _gameManager.AddManualGame(
-                    candidate.Name,
-                    candidate.TargetPath,
-                    candidate.Arguments,
-                    notifyUI: false))
-                .ToList());
-
-            foreach (var game in addedGames)
-            {
-                _viewModel.Games.Add(game);
-            }
-
-            await _viewModel.RebuildLibraryViewAsync();
-            ShowStatus(_localization.Format("Main.StatusGamesImported", dialog.SelectedCandidates.Count));
-            Logger.Log($"{dialog.SelectedCandidates.Count} Spiel(e) über Verknüpfungen importiert.");
-
-            RefreshList(instant: true);
-        }
-
-        private void GameCard_Click(object sender, RoutedEventArgs e)
-        {
-            if (TryGetGameFromSender(sender, out Game? game))
-            {
-                OpenGameDetails(game!);
-            }
-        }
-
-        private void GameTile_Click(object sender, MouseButtonEventArgs e)
-        {
-            if (!TryGetGameFromSender(sender, out Game? game))
-            {
-                return;
-            }
-
-            OpenGameDetails(game!);
-            e.Handled = true;
-        }
-
-        private void Play_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is MenuItem item && item.DataContext is Game game)
-            {
-               LaunchGame(game);
-            }
-        }
-
-        private async void ChangeImage_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is MenuItem item && item.DataContext is Game game)
-            {
-                var dialog = new Microsoft.Win32.OpenFileDialog
-                {
-                    Filter = _localization.Get("Main.ChangeImageDialogFilter"),
-                    Title = _localization.Get("Main.ChangeImageDialogTitle")
-                };
-
-                if (dialog.ShowDialog() == true)
-                {
-                    _gameManager.SetManualGameImage(game, dialog.FileName, notifyUI: false);
-                    await _viewModel.RebuildLibraryViewAsync();
-                    RefreshList(instant: true);
-                    ShowStatus(_localization.Get("Main.StatusImageUpdated"));
-                }
-            }
-        }
-
-        private async void Favorite_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is MenuItem item && item.DataContext is Game game)
-            {
-                _gameManager.ToggleFavorite(game, notifyUI: false);
-                 await _viewModel.RebuildLibraryViewAsync();
-                 RefreshList(instant: true);
-                 ShowStatus(game.IsFavorite ? _localization.Get("Main.StatusFavoriteAdded") : _localization.Get("Main.StatusFavoriteRemoved"));
-            }
-        }
-
-        private async void Hide_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is MenuItem item && item.DataContext is Game game)
-            {
-                 if (game.IsHidden)
-                 {
-                     _gameManager.UnhideGame(game, notifyUI: false);
-                     ShowStatus(_localization.Get("Main.StatusGameShown"));
-                 }
-                 else
-                 {
-                     if (ModernMessageWindow.Show(
-                         _localization.Format("Main.HideConfirmBody", game.Name),
-                         _localization.Get("Main.HideConfirmTitle"),
-                         ModernMessageWindow.ModernMessageButton.YesNo,
-                         this) == MessageBoxResult.Yes)
-                     {
-                         _gameManager.HideGame(game, notifyUI: false);
-                         ShowStatus(_localization.Get("Main.StatusGameHidden"));
-                     }
-                 }
-                 await _viewModel.RebuildLibraryViewAsync();
-                 RefreshList(instant: true);
-            }
-        }
-
-        private void Edit_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is MenuItem item && item.DataContext is Game game)
-            {
-                string apiKey = _gameManager.GetConfig().UISettings.SteamGridDbApiKey;
-                var dialog = new AddGameWindow(apiKey, game) { Owner = this };
-                if (dialog.ShowDialog() != true)
-                {
-                    return;
-                }
-
-                // Das Bild zuerst setzen: UpdateManualGame meldet die Änderung
-                // und löst damit die Aktualisierung der Bibliothek aus.
-                if (!string.IsNullOrEmpty(dialog.GameCoverPath))
-                {
-                    _gameManager.SetDownloadedGameImage(game, dialog.GameCoverPath);
-                }
-
-                _gameManager.UpdateManualGame(game, dialog.GameName, dialog.GamePath, dialog.GameArgs);
-                ShowStatus(_localization.Get("Main.StatusGameUpdated"));
-            }
-        }
-
-        private async void Delete_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is MenuItem item && item.DataContext is Game game)
-            {
-                if (ModernMessageWindow.Show(
-                    _localization.Format("Main.DeleteConfirmBody", game.Name),
-                    _localization.Get("Main.DeleteConfirmTitle"),
-                    ModernMessageWindow.ModernMessageButton.YesNo,
-                    this) == MessageBoxResult.Yes)
-                {
-                    // Remove but don't trigger global update
-                    _gameManager.RemoveManualGame(game, notifyUI: false);
-                    
-                    // Remove from our visible collection instantly via ViewModel
-                    _viewModel.Games.Remove(game);
-                    
-                    await _viewModel.RebuildLibraryViewAsync();
-                    ShowStatus(_localization.Get("Main.StatusGameDeleted"));
-                    RefreshList(instant: true);
-                }
-            }
-        }
-
-        private void LaunchGame(Game game)
-        {
-            try
-            {
-                _gameManager.LaunchGame(game, notifyUI: false);
-                
-                // Update LastPlayed immediately on launch
-                game.LastPlayed = DateTime.Now;
-                _gameManager.UpdateLastPlayed(game.Id, game.LastPlayed.Value);
-                _gameManager.NotifyGamesUpdated();
-
-                ShowStatus(_localization.Format("Main.StatusLaunching", game.Name));
-
-                // Handle launcher behavior on game start
-                var settings = _gameManager?.GetConfig()?.UISettings;
-                if (settings != null)
-                {
-                    if (settings.CloseOnGameStart)
-                    {
-                        // Mark as explicit exit so OnClosing bypasses MinimizeToTray.
-                        BeginExit();
-                        Close();
-                    }
-                    else if (settings.MinimizeOnGameStart)
-                    {
-                        this.WindowState = WindowState.Minimized;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // Logger.Error handled in GameManager
-                if (GameManager.IsMissingFileError(ex))
-                {
-                     ModernMessageWindow.Show(_localization.Format("Main.FileMissingBody", game.Path), _localization.Get("Main.FileMissingTitle"), ModernMessageWindow.ModernMessageButton.OK, this);
-                }
-                else
-                {
-                     ModernMessageWindow.Show(_localization.Get("Main.LaunchErrorBody"), _localization.Get("Common.Error"), ModernMessageWindow.ModernMessageButton.OK, this);
-                }
-                ShowStatus(_localization.Get("Main.StatusError"));
-            }
-        }
-
-        private void OpenGameDetails(Game game)
-        {
-            var details = new GameDetailsWindow(game, _gameManager);
-            details.Owner = this;
-            details.LaunchGameRequested += LaunchGame;
-            Logger.Log($"Opening details for: {game.Name}");
-            details.ShowDialog();
-
-            if (details.GameWasModified)
-            {
-                RefreshList(instant: true);
-            }
-        }
-
-        private static bool TryGetGameFromSender(object sender, out Game? game)
-        {
-            game = sender switch
-            {
-                FrameworkElement element when element.DataContext is Game senderGame => senderGame,
-                _ => null
-            };
-
-            return game != null;
-        }
-
-        private async void AnimateItemsStaggered(bool instant = false)
-        {
-            instant = instant || !AreAnimationsEnabled;
-            await _animationService.AnimateItemsStaggeredAsync(
-                GameListControl,
-                instant);
-        }
-
         private void ShowStatus(string message, int delayMs = 3000) =>
             _statusMessageService.ShowStatus(message, delayMs);
-
-        #endregion
     }
 }
