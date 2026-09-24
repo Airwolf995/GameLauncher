@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Controls;
@@ -10,6 +11,14 @@ namespace GameLauncher
 {
     public partial class GameDetailsWindow : Window
     {
+        private const double MaxPlayTimeBarHeight = 50;
+
+        /// <summary>
+        /// Mindesthöhe eines Tages mit Spielzeit, damit wenige Minuten neben
+        /// einem langen Abend nicht unsichtbar werden.
+        /// </summary>
+        private const double MinPlayTimeBarHeight = 2;
+
         private Game _game = null!;
         private GameManager _manager = null!;
         private readonly LocalizationService _localization = LocalizationService.Instance;
@@ -186,6 +195,37 @@ namespace GameLauncher
             LastPlayedText.Text = _game.LastPlayed.HasValue
                 ? _localization.Format("Details.LastPlayed", _game.LastPlayed.Value)
                 : _localization.Get("Details.NeverPlayed");
+            UpdateRecentPlayTime();
         }
+
+        private void UpdateRecentPlayTime()
+        {
+            if (!_game.SupportsPlayTimeTracking)
+            {
+                RecentPlayTimePanel.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            DateTime today = DateTime.Today;
+            int[] daily = _manager.GetDailyPlayTime(_game.Id, today);
+            int maxSeconds = daily.Max();
+            DateTime firstDay = today.AddDays(-(daily.Length - 1));
+
+            RecentPlayTimeBars.ItemsSource = daily
+                .Select((seconds, index) => new PlayTimeBar(
+                    seconds > 0 ? Math.Max(MinPlayTimeBarHeight, MaxPlayTimeBarHeight * seconds / maxSeconds) : 0,
+                    seconds > 0
+                        ? _localization.Format("Details.DayPlayTime", firstDay.AddDays(index), Game.FormatDuration(seconds))
+                        : _localization.Format("Details.DayNotPlayed", firstDay.AddDays(index))))
+                .ToList();
+
+            int lastSevenDays = daily.Skip(daily.Length - 7).Sum();
+            int total = daily.Sum();
+            RecentPlayTimeSummaryText.Text = total > 0
+                ? _localization.Format("Details.RecentPlayTimeSummary", Game.FormatDuration(lastSevenDays), Game.FormatDuration(total))
+                : _localization.Get("Details.NoRecentPlayTime");
+        }
+
+        public sealed record PlayTimeBar(double Height, string ToolTip);
     }
 }

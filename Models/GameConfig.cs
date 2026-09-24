@@ -29,6 +29,13 @@ namespace GameLauncher.Models
         [JsonConverter(typeof(PlayTimeDictionaryJsonConverter))]
         public Dictionary<string, PlayTimeEntry> PlayTime { get; set; } = new Dictionary<string, PlayTimeEntry>();
 
+        /// <summary>
+        /// Spielzeit in Sekunden je Spiel und Kalendertag ("yyyy-MM-dd"); nur die
+        /// letzten <see cref="Services.PlayTimeHistory.RetainedDays"/> Tage bleiben erhalten.
+        /// </summary>
+        [JsonPropertyName("play_time_by_day")]
+        public Dictionary<string, Dictionary<string, int>> PlayTimeByDay { get; set; } = new Dictionary<string, Dictionary<string, int>>();
+
         [JsonPropertyName("ignored_processes")]
         public List<string> IgnoredProcesses { get; set; } = new List<string> { "BsgLauncher.exe", "Steam.exe", "GalaxyClient.exe", "EpicGamesLauncher.exe", "Origin.exe", "UbisoftConnect.exe" };
 

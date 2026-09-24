@@ -99,6 +99,12 @@ namespace GameLauncher.Services
                 {
                     config.PlayTime[update.GameId] = CreatePlayTimeEntry(config, update.GameName, update.PlayTimeSeconds, update.GameId);
                     config.LastPlayed[update.GameId] = update.LastPlayed;
+                    PlayTimeHistory.Add(config.PlayTimeByDay, update.GameId, update.LastPlayed, update.AddedSeconds);
+                }
+
+                if (updatesSnapshot.Count > 0)
+                {
+                    PlayTimeHistory.RemoveExpired(config.PlayTimeByDay, updatesSnapshot.Max(update => update.LastPlayed));
                 }
             });
             if (persistConfig)

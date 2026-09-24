@@ -563,7 +563,7 @@ namespace GameLauncher.Tests
                 {
                     manager.UpdatePlaySessions(new[]
                     {
-                        new PlaySessionUpdate("steam:123", "Portal 2", 345, new DateTime(2026, 6, 22, 12, 0, 0, DateTimeKind.Local))
+                        new PlaySessionUpdate("steam:123", "Portal 2", 345, new DateTime(2026, 6, 22, 12, 0, 0, DateTimeKind.Local), 10)
                     });
                 }
 
