@@ -236,22 +236,7 @@ namespace GameLauncher.Models
 
             if (_playTime > 0)
             {
-                int totalMinutes = _playTime / 60;
-                int hours = totalMinutes / 60;
-                int minutes = totalMinutes % 60;
-                int seconds = _playTime % 60;
-
-                if (hours > 0)
-                    return localization.CurrentLanguage == AppLanguage.German
-                        ? $"{hours} Std. {minutes} Min."
-                        : $"{hours} hr {minutes} min";
-                if (minutes > 0)
-                    return localization.CurrentLanguage == AppLanguage.German
-                        ? $"{minutes} Min. {seconds} Sek."
-                        : $"{minutes} min {seconds} sec";
-                return localization.CurrentLanguage == AppLanguage.German
-                    ? $"{seconds} Sek."
-                    : $"{seconds} sec";
+                return FormatDuration(_playTime);
             }
 
             if (_lastPlayed != null)
@@ -270,6 +255,24 @@ namespace GameLauncher.Models
             }
 
             return localization.Get("Details.NeverPlayed");
+        }
+
+        /// <summary>
+        /// Eine Spieldauer in der aktuellen Sprache, etwa "2 Std. 15 Min.".
+        /// </summary>
+        public static string FormatDuration(int totalSeconds)
+        {
+            bool german = LocalizationService.Instance.CurrentLanguage == AppLanguage.German;
+            int totalMinutes = totalSeconds / 60;
+            int hours = totalMinutes / 60;
+            int minutes = totalMinutes % 60;
+            int seconds = totalSeconds % 60;
+
+            if (hours > 0)
+                return german ? $"{hours} Std. {minutes} Min." : $"{hours} hr {minutes} min";
+            if (minutes > 0)
+                return german ? $"{minutes} Min. {seconds} Sek." : $"{minutes} min {seconds} sec";
+            return german ? $"{seconds} Sek." : $"{seconds} sec";
         }
 
         public void RefreshLocalizedProperties()
