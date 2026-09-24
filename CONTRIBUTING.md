@@ -5,7 +5,7 @@ Danke für dein Interesse an Beiträgen zu Game Launcher.
 ## Voraussetzungen
 
 - Windows 10/11
-- .NET 8 SDK – die Version legt [`global.json`](./global.json) fest (8.0.400 oder ein neueres Feature-Release)
+- .NET 10 SDK – die Version legt [`global.json`](./global.json) fest (10.0.100 oder ein neueres Feature-Release)
 - Optional: [Inno Setup](https://jrsoftware.org/isinfo.php) zum Bauen des Installers
 
 ## Lokaler Ablauf

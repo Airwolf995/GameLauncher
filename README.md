@@ -3,7 +3,7 @@
 [![Neueste Version](https://img.shields.io/github/v/release/Airwolf995/GameLauncher?label=Version)](https://github.com/Airwolf995/GameLauncher/releases/latest)
 [![Lizenz: GPL v3](https://img.shields.io/badge/Lizenz-GPLv3-blue.svg)](./LICENSE)
 ![Plattform: Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6)
-![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
+![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)
 
 **Alle Spiele an einem Ort – ohne Konto, ohne Cloud.**
 
@@ -53,7 +53,7 @@ Der Launcher ist eine schnelle, native Windows-Anwendung. Bibliothek, Einstellun
 
 ## Installation
 
-1. Die **[.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)** installieren, falls noch nicht vorhanden. Der Launcher bringt sie nicht selbst mit und startet ohne sie nicht.
+1. Die **[.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)** installieren, falls noch nicht vorhanden. Der Launcher bringt sie nicht selbst mit und startet ohne sie nicht.
 2. Den Installer `GameLauncher_Setup_<Version>.exe` aus dem **[neuesten Release](https://github.com/Airwolf995/GameLauncher/releases/latest)** herunterladen und ausführen.
 3. Beim ersten Start führt der Einrichtungsassistent durch Sprache, Spielbibliotheken und Aussehen.
 
@@ -78,7 +78,7 @@ Der Launcher speichert alles lokal unter `Dokumente\GameLauncher`. Verbindungen 
 
 ## Entwicklung
 
-Voraussetzungen: Windows 10/11 und das **.NET 8 SDK** (festgelegt in [`global.json`](./global.json)).
+Voraussetzungen: Windows 10/11 und das **.NET 10 SDK** (festgelegt in [`global.json`](./global.json)).
 
 ```powershell
 dotnet build .\GameLauncher.csproj -c Debug
