@@ -457,6 +457,11 @@ namespace GameLauncher.Services
                 : "en";
 
             config.UISettings.LibraryFilter = LibraryFilterService.NormalizeFilterKey(config.UISettings.LibraryFilter);
+
+            // Beim Spielen räumt jeder Erfassungsschritt den Verlauf auf. Wer eine
+            // Weile nicht spielt, hätte sonst Tage außerhalb der 14 Tage in der
+            // Datei stehen, bis wieder ein Spiel läuft.
+            PlayTimeHistory.RemoveExpired(config.PlayTimeByDay, DateTime.Today);
         }
 
         private static string ResolveConfigPath(string? configPathOverride, bool ensureDirectory)
