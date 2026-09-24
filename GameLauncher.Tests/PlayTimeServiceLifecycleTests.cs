@@ -44,7 +44,14 @@ namespace GameLauncher.Tests
                 Task? stopTask = null;
                 try
                 {
-                    runningTick = Task.Run(service.RunTick);
+                    // Eigener Thread statt Thread-Pool: Andere, parallel laufende
+                    // Testklassen blockieren Pool-Threads, dann startet der Tick
+                    // mitunter nicht innerhalb der zwei Sekunden unten.
+                    runningTick = Task.Factory.StartNew(
+                        service.RunTick,
+                        CancellationToken.None,
+                        TaskCreationOptions.LongRunning,
+                        TaskScheduler.Default);
                     bool didStartTick = tickStarted.Wait(TimeSpan.FromSeconds(2));
                     Assert.True(didStartTick);
 
