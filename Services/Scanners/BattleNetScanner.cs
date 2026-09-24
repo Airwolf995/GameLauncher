@@ -111,6 +111,11 @@ namespace GameLauncher.Services.Scanners
         /// verlangt den exakten Produktcode ("ZEUS" startet, "zeus" nicht). Der
         /// Code steht nirgends verlässlich auf dem Rechner und lässt sich nicht
         /// immer aus der uid ableiten (Diablo IV: "fenris" gegenüber "Fen").
+        /// Die Verknüpfung, die Battle.net selbst anlegt, zeigt auf
+        /// "&lt;Spiel&gt; Launcher.exe" im Spielordner und verhält sich gleich: Sie
+        /// öffnet ebenfalls nur die Seite, bei laufendem wie bei geschlossenem
+        /// Client. Da sie nichts gewinnt, bleibt es beim Aufruf über den Client,
+        /// der für jedes Spiel ohne Suche nach einer Programmdatei auskommt.
         /// </summary>
         internal static Game CreateGame(UninstallEntry entry, string clientPath)
         {
