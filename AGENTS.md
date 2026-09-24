@@ -34,9 +34,9 @@ dotnet build .\GameLauncher.csproj -c Release
 
 ## Wichtige Bereiche
 - UI: `Views/MainWindow.xaml`, `Views/OverlayWindow.xaml`
-- Logik: `Views/MainWindow.xaml.cs`, `ViewModels/`
+- Logik: `Views/MainWindow.xaml.cs` (Lebenszyklus), `Views/MainWindow.LibraryView.cs` (Bibliotheksdarstellung), `Views/MainWindow.GameActions.cs` (Spielaktionen), `ViewModels/`
 - Hardware‑Monitoring: `Services/HardwareMonitorService.cs`
-- Spielzeit: `Services/PlayTimeService.cs`
+- Spielzeit: `Services/PlayTimeService.cs`, Tagesverlauf: `Services/PlayTimeHistory.cs`
 - Fenster-/UI-Orchestrierung: `Services/MainWindow/`
 - Virtualisierte Bibliotheksansicht: `Controls/VirtualizingWrapPanel.cs`
 - Einstellungen & Pfadpflege: `ViewModels/SettingsViewModel.cs`
