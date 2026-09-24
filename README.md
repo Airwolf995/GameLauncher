@@ -36,6 +36,7 @@ Der Launcher ist eine schnelle, native Windows-Anwendung. Bibliothek, Einstellun
 ### ⏱️ Spielzeit
 - Erfasst die **Spielzeit automatisch** anhand der laufenden Prozesse – egal, ob du das Spiel über den Launcher oder anderswo startest.
 - Zeigt die **Gesamtspielzeit** direkt auf der Karte, den Zeitpunkt der letzten Sitzung in der Detailansicht.
+- **Verlauf der letzten 14 Tage** als Säulendiagramm in der Detailansicht, mit der Summe der letzten 7 und 14 Tage.
 - Programme, die fälschlich als Spiel zählen würden, lassen sich **ausschließen**.
 
 ### 📊 Overlay
