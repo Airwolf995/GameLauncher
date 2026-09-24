@@ -36,8 +36,14 @@ namespace GameLauncher.Models
         [JsonPropertyName("play_time_by_day")]
         public Dictionary<string, Dictionary<string, int>> PlayTimeByDay { get; set; } = new Dictionary<string, Dictionary<string, int>>();
 
+        /// <summary>
+        /// Gilt nur für neue Konfigurationen; eine gespeicherte Liste ersetzt den
+        /// Standard vollständig. Die großen Store-Clients stehen nicht darin: Sie
+        /// sind über <see cref="Constants.Launchers"/> bereits von der Zuordnung
+        /// ausgenommen. Der BsgLauncher fehlt dort und bleibt deshalb hier.
+        /// </summary>
         [JsonPropertyName("ignored_processes")]
-        public List<string> IgnoredProcesses { get; set; } = new List<string> { "BsgLauncher.exe", "Steam.exe", "GalaxyClient.exe", "EpicGamesLauncher.exe", "Origin.exe", "UbisoftConnect.exe" };
+        public List<string> IgnoredProcesses { get; set; } = new List<string> { "BsgLauncher.exe" };
 
         [JsonPropertyName("image_overrides")]
         public Dictionary<string, string> ImageOverrides { get; set; } = new Dictionary<string, string>();
