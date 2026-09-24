@@ -154,6 +154,51 @@ namespace GameLauncher.Tests
             }
         }
 
+        /// <summary>
+        /// Auch ohne Spielsitzung dürfen Tage außerhalb der 14 Tage nicht in der
+        /// Konfiguration bleiben: Das Laden beim Start räumt sie auf.
+        /// </summary>
+        [Fact]
+        public void LoadingAConfig_RemovesExpiredDaysWithoutPlaying()
+        {
+            var tempRoot = Path.Combine(Path.GetTempPath(), "GameLauncherTests", Guid.NewGuid().ToString("N"));
+            var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+            string oldDay = DateTime.Today.AddDays(-PlayTimeHistory.RetainedDays).ToString("yyyy-MM-dd");
+            string recentDay = DateTime.Today.AddDays(-(PlayTimeHistory.RetainedDays - 1)).ToString("yyyy-MM-dd");
+
+            try
+            {
+                Directory.CreateDirectory(tempRoot);
+                File.WriteAllText(configPath, $$"""
+                    {
+                      "play_time_by_day": {
+                        "steam:old": { "{{oldDay}}": 600 },
+                        "steam:recent": { "{{oldDay}}": 600, "{{recentDay}}": 300 }
+                      }
+                    }
+                    """);
+
+                using var configService = new ConfigService(configPath);
+                var history = configService.Config.PlayTimeByDay;
+
+                Assert.False(history.ContainsKey("steam:old"));
+                Assert.Equal(new[] { recentDay }, history["steam:recent"].Keys);
+            }
+            finally
+            {
+                try
+                {
+                    if (Directory.Exists(tempRoot))
+                    {
+                        Directory.Delete(tempRoot, recursive: true);
+                    }
+                }
+                catch
+                {
+                }
+            }
+        }
+
         [Fact]
         public void LoadingAConfigWithoutHistory_StartsEmpty()
         {
