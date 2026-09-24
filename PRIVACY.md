@@ -14,7 +14,7 @@ Der Game Launcher arbeitet grundsätzlich lokal auf deinem Rechner. Er benötigt
 - **Autostart:** Aktivierst du „Mit Windows starten“, trägt die Anwendung sich unter deinem Benutzerkonto in den Windows-Autostart ein (`HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`). Beim Deaktivieren wird der Eintrag wieder entfernt.
 
 ## 2. Spielzeiterfassung
-Die Erfassung der Spielzeit erfolgt rein lokal. Dazu prüft die Anwendung in regelmäßigen Abständen die Namen und Programmpfade der laufenden Prozesse und gleicht sie mit deiner Bibliothek ab. Gespeichert werden nur die Spielzeit je Spiel und der Zeitpunkt der letzten Sitzung. Prozesse, die du unter „Ignorierte Programme“ einträgst, werden dabei übergangen. Diese Daten verlassen niemals deinen PC.
+Die Erfassung der Spielzeit erfolgt rein lokal. Dazu prüft die Anwendung in regelmäßigen Abständen die Namen und Programmpfade der laufenden Prozesse und gleicht sie mit deiner Bibliothek ab. Gespeichert werden nur die Spielzeit je Spiel, die Spielzeit je Spiel und Tag für die letzten 14 Tage (für den Verlauf in der Detailansicht; ältere Tage werden automatisch gelöscht) und der Zeitpunkt der letzten Sitzung. Prozesse, die du unter „Ignorierte Programme“ einträgst, werden dabei übergangen. Diese Daten verlassen niemals deinen PC.
 
 ## 3. Externe Verbindungen & Dienste
 Um bestimmte Funktionen bereitzustellen, kommuniziert die Anwendung mit den Servern von Drittanbietern. Bei jeder dieser Verbindungen wird technisch bedingt deine IP-Adresse an den jeweiligen Anbieter übertragen.
@@ -47,4 +47,4 @@ Dieses Projekt wird über GitHub bereitgestellt. Installationsdateien und Quellc
 
 
 ---
-*Stand: 23. September 2026*
+*Stand: 24. September 2026*
