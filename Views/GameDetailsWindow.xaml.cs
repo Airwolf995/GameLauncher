@@ -11,7 +11,12 @@ namespace GameLauncher
 {
     public partial class GameDetailsWindow : Window
     {
-        private const double MaxPlayTimeBarHeight = 50;
+        private const double MaxPlayTimeBarHeight = 60;
+
+        /// <summary>
+        /// Jeder wievielte Tag, von heute rückwärts gezählt, unter der Achse beschriftet wird.
+        /// </summary>
+        private const int PlayTimeLabelEveryNthDay = 3;
 
         /// <summary>
         /// Mindesthöhe eines Tages mit Spielzeit, damit wenige Minuten neben
@@ -212,11 +217,17 @@ namespace GameLauncher
             DateTime firstDay = today.AddDays(-(daily.Length - 1));
 
             RecentPlayTimeBars.ItemsSource = daily
-                .Select((seconds, index) => new PlayTimeBar(
-                    seconds > 0 ? Math.Max(MinPlayTimeBarHeight, MaxPlayTimeBarHeight * seconds / maxSeconds) : 0,
-                    seconds > 0
-                        ? _localization.Format("Details.DayPlayTime", firstDay.AddDays(index), Game.FormatDuration(seconds))
-                        : _localization.Format("Details.DayNotPlayed", firstDay.AddDays(index))))
+                .Select((seconds, index) =>
+                {
+                    DateTime day = firstDay.AddDays(index);
+                    bool labeled = (daily.Length - 1 - index) % PlayTimeLabelEveryNthDay == 0;
+                    return new PlayTimeBar(
+                        seconds > 0 ? Math.Max(MinPlayTimeBarHeight, MaxPlayTimeBarHeight * seconds / maxSeconds) : 0,
+                        seconds > 0
+                            ? _localization.Format("Details.DayPlayTime", day, Game.FormatDuration(seconds))
+                            : _localization.Format("Details.DayNotPlayed", day),
+                        labeled ? _localization.Format("Details.ChartDayLabel", day) : "");
+                })
                 .ToList();
 
             int lastSevenDays = daily.Skip(daily.Length - 7).Sum();
@@ -226,6 +237,6 @@ namespace GameLauncher
                 : _localization.Get("Details.NoRecentPlayTime");
         }
 
-        public sealed record PlayTimeBar(double Height, string ToolTip);
+        public sealed record PlayTimeBar(double Height, string ToolTip, string Label);
     }
 }

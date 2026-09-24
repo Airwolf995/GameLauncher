@@ -125,20 +125,42 @@
                         <!-- Spielzeit der letzten 14 Tage -->
                         <StackPanel x:Name="RecentPlayTimePanel" Margin="0,0,0,20">
                             <TextBlock Text="{loc:Loc Key=Details.RecentPlayTime}" Foreground="#666666" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
-                            <ItemsControl x:Name="RecentPlayTimeBars" Height="50">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <UniformGrid Rows="1"/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="#22FFFFFF" CornerRadius="2" Margin="2,0" ToolTip="{Binding ToolTip}">
-                                            <Border Background="{DynamicResource AccentColor}" CornerRadius="2" VerticalAlignment="Bottom" Height="{Binding Height}"/>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="60"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Hilfslinien: oben der stärkste Tag, darunter Mitte und Grundlinie -->
+                                <Border Height="1" Background="#1AFFFFFF" VerticalAlignment="Top"/>
+                                <Border Height="1" Background="#1AFFFFFF" VerticalAlignment="Center"/>
+                                <Border Height="1" Background="#33FFFFFF" VerticalAlignment="Bottom"/>
+
+                                <ItemsControl x:Name="RecentPlayTimeBars" Grid.RowSpan="2">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Rows="1"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="60"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                <!-- Transparente Fläche über die ganze Spalte, damit der Tooltip auch an leeren Tagen erscheint -->
+                                                <Border Background="Transparent" ToolTip="{Binding ToolTip}">
+                                                    <Border Background="{DynamicResource AccentColor}" CornerRadius="3,3,0,0" Margin="7,0"
+                                                            VerticalAlignment="Bottom" Height="{Binding Height}"/>
+                                                </Border>
+                                                <TextBlock Grid.Row="1" Text="{Binding Label}" Foreground="#888888" FontSize="10"
+                                                           HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
                             <TextBlock x:Name="RecentPlayTimeSummaryText" Foreground="#CCCCCC" FontSize="12" Margin="0,8,0,0"/>
                         </StackPanel>
 
