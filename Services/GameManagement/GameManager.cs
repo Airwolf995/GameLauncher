@@ -410,6 +410,7 @@ namespace GameLauncher.Services.GameManagement
                 config.Favorites.Remove(game.Id);
                 config.LastPlayed.Remove(game.Id);
                 config.PlayTime.Remove(game.Id);
+                config.PlayTimeByDay.Remove(game.Id);
                 config.HiddenGames.Remove(game.Id);
                 config.GameTags.Remove(game.Id);
                 config.ImageOverrides.Remove(game.Id);
@@ -483,6 +484,15 @@ namespace GameLauncher.Services.GameManagement
 
         public void UpdatePlaySessions(IEnumerable<PlaySessionUpdate> updates, bool persistConfig = true) =>
             _stateService.UpdatePlaySessions(updates, persistConfig);
+
+        /// <summary>
+        /// Spielzeit eines Spiels je Tag der letzten 14 Tage, vom ältesten bis heute.
+        /// </summary>
+        public int[] GetDailyPlayTime(string gameId, DateTime today) =>
+            _configService.ReadConfig(config =>
+                PlayTimeHistory.GetDailySeconds(
+                    config.PlayTimeByDay.TryGetValue(gameId, out var days) ? days : null,
+                    today));
 
         public void NotifyGamesUpdated() => _stateService.RaiseGamesUpdated();
 

@@ -525,7 +525,7 @@ namespace GameLauncher.Services
                 game.PlayTime += TickIntervalSeconds;
                 game.LastPlayed = now;
                 updatedGameNames.Add(game.Name);
-                sessionUpdates.Add(new PlaySessionUpdate(gameId, game.Name, game.PlayTime, now));
+                sessionUpdates.Add(new PlaySessionUpdate(gameId, game.Name, game.PlayTime, now, TickIntervalSeconds));
             }
 
             return sessionUpdates;

@@ -122,6 +122,7 @@ namespace GameLauncher.Services
                 config.Favorites ??= new HashSet<string>();
                 config.LastPlayed ??= new Dictionary<string, DateTime>();
                 config.PlayTime ??= new Dictionary<string, PlayTimeEntry>();
+                config.PlayTimeByDay ??= new Dictionary<string, Dictionary<string, int>>();
                 config.IgnoredProcesses ??= new List<string>();
                 config.UISettings ??= new UISettings();
                 config.HiddenGames ??= new HashSet<string>();
