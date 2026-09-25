@@ -120,6 +120,11 @@ namespace GameLauncher.Services
                     }
                 }
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // Ein Abbruch (Sprachwechsel, Beenden) ist kein Fehler; die Aufrufer erwarten ihn.
+                throw;
+            }
             catch (Exception ex)
             {
                 Logger.Error($"Error fetching metadata for {game.Name}", ex);
