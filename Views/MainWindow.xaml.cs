@@ -125,6 +125,14 @@ namespace GameLauncher
         /// </summary>
         private void OnSessionEnding(object? sender, SessionEndingCancelEventArgs e)
         {
+            SaveConfigNow();
+        }
+
+        /// <summary>
+        /// Speichert sofort, für Beenden-Wege, die OnClosing umgehen.
+        /// </summary>
+        internal void SaveConfigNow()
+        {
             _gameManager.SaveConfigImmediate(_gameManager.GetConfig());
         }
 
