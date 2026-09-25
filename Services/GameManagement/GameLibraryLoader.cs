@@ -87,8 +87,10 @@ namespace GameLauncher.Services.GameManagement
         {
             try
             {
-                var games = await createScanner()
-                    .ScanAsync(cancellationToken)
+                // Auch das Erzeugen im Hintergrund: Die Konstruktoren erkennen
+                // ohne eingetragene Pfade die Bibliotheken selbst, und der
+                // Aufrufer ist beim Start der Oberflächen-Thread.
+                var games = await Task.Run(() => createScanner().ScanAsync(cancellationToken))
                     .WaitAsync(ScanTimeout, cancellationToken);
                 return new LibraryScanResult(games, []);
             }

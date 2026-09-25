@@ -42,6 +42,34 @@ public sealed class GameLibraryLoaderTests
         Assert.Empty(result.FailedPlatforms);
     }
 
+    /// <summary>
+    /// Die Scanner-Konstruktoren erkennen ohne eingetragene Pfade selbst die
+    /// Bibliotheken; beim Xbox-Scanner dauerte das gemessen 570-750 ms. Beim
+    /// Start ist der Aufrufer der Oberflächen-Thread, er darf darauf nicht warten.
+    /// </summary>
+    [Fact]
+    public async Task ScanPlatformAsync_ErzeugtDenScannerNichtAufDemAufrufendenThread()
+    {
+        using var scannerCreationReleased = new ManualResetEventSlim();
+        bool scannerCreated = false;
+
+        Task<LibraryScanResult> scanTask = GameLibraryLoader.ScanPlatformAsync(
+            "Testplattform",
+            () =>
+            {
+                scannerCreationReleased.Wait(TimeSpan.FromSeconds(5));
+                Volatile.Write(ref scannerCreated, true);
+                return new TestScanner([]);
+            },
+            CancellationToken.None);
+
+        bool returnedBeforeScannerCreated = !Volatile.Read(ref scannerCreated);
+        scannerCreationReleased.Set();
+        await scanTask;
+
+        Assert.True(returnedBeforeScannerCreated);
+    }
+
     private sealed class TestScanner(List<Game> games) : IPlatformScanner
     {
         public string PlatformName => "Testplattform";
