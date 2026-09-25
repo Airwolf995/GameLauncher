@@ -349,7 +349,6 @@
                     <ContextMenu>
                         <MenuItem Header="{loc:Loc Key=Main.Context.Play}" Click="Play_Click"/>
                         <MenuItem Header="{loc:Loc Key=Main.Context.ChangeImage}" Click="ChangeImage_Click"/>
-                        <Separator/>
                         <MenuItem Header="{loc:Loc Key=Main.Context.ToggleFavorite}" Click="Favorite_Click"/>
                         <MenuItem Click="Hide_Click">
                             <MenuItem.Style>
