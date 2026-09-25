@@ -113,8 +113,19 @@ namespace GameLauncher
                 _updateCoordinator,
                 _localization);
             _localization.LanguageChanged += OnLanguageChanged;
+            Application.Current.SessionEnding += OnSessionEnding;
 
             ApplySavedTheme();
+        }
+
+        /// <summary>
+        /// Beim Abmelden oder Herunterfahren schließt WPF das Fenster, ohne
+        /// e.Cancel zu beachten. Der zweite OnClosing-Durchlauf, in dem sonst
+        /// gespeichert wird, findet dann nicht mehr statt.
+        /// </summary>
+        private void OnSessionEnding(object? sender, SessionEndingCancelEventArgs e)
+        {
+            _gameManager.SaveConfigImmediate(_gameManager.GetConfig());
         }
 
         internal void InitializeRuntimeServices()
@@ -202,6 +213,7 @@ namespace GameLauncher
                 _viewModel?.Dispose();
                 _gameManager?.Dispose();
                 _localization.LanguageChanged -= OnLanguageChanged;
+                Application.Current.SessionEnding -= OnSessionEnding;
                 base.OnClosing(e);
             }
         }
