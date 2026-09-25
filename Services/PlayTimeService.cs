@@ -43,7 +43,6 @@ namespace GameLauncher.Services
         private TaskCompletionSource<bool> _tickCompleted = CreateCompletedTickSource();
         private bool _isRunning;
         private bool _disposed;
-        private HashSet<string> _cachedIgnoredProcesses = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Zuletzt erkannte Spiele. Dient dazu, nur die Wechsel zu protokollieren
@@ -118,9 +117,6 @@ namespace GameLauncher.Services
                 var gamesSnapshot = CaptureGamesSnapshotOnUiThread();
                 _matchIndex.Rebuild(gamesSnapshot);
                 _lastIndexedGameCount = gamesSnapshot.Count;
-                _cachedIgnoredProcesses = new HashSet<string>(
-                    _gameManager.GetIgnoredProcessesSnapshot(),
-                    StringComparer.OrdinalIgnoreCase);
                 _indexDirty = false;
                 _isRunning = true;
                 _timer.Start();
@@ -238,11 +234,15 @@ namespace GameLauncher.Services
                     _matchIndex.Rebuild(gamesSnapshot);
                     indexedGameCount = gamesSnapshot.Count;
                     Volatile.Write(ref _lastIndexedGameCount, indexedGameCount);
-                    _cachedIgnoredProcesses = new HashSet<string>(
-                        _gameManager.GetIgnoredProcessesSnapshot(),
-                        StringComparer.OrdinalIgnoreCase);
                     _indexDirty = false;
                 }
+
+                // Jeden Durchlauf neu lesen: Das Speichern der Einstellungen
+                // meldet sich nicht beim Dienst, eine zwischengespeicherte Liste
+                // zählte einen gerade ignorierten Prozess weiter.
+                var ignoredProcesses = new HashSet<string>(
+                    _gameManager.GetIgnoredProcessesSnapshot(),
+                    StringComparer.OrdinalIgnoreCase);
 
                 var processes = Process.GetProcesses();
                 var runningGameIds = new HashSet<string>(StringComparer.Ordinal);
@@ -268,8 +268,8 @@ namespace GameLauncher.Services
 
                         // 1. Ignorierte und Windows-Systemprozesse direkt überspringen
                         if (WindowsSystemProcesses.Contains(processName) || 
-                            _cachedIgnoredProcesses.Contains(processName) || 
-                            _cachedIgnoredProcesses.Contains(processName + ".exe"))
+                            ignoredProcesses.Contains(processName) ||
+                            ignoredProcesses.Contains(processName + ".exe"))
                         {
                             continue;
                         }
