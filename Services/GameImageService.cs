@@ -34,14 +34,11 @@ namespace GameLauncher.Services
                     Directory.CreateDirectory(imagesDir);
                 }
 
-                // Clean filename
-                string safeGameName = string.Join("_", game.Name.Split(Path.GetInvalidFileNameChars()));
-                if (string.IsNullOrWhiteSpace(safeGameName))
-                {
-                    safeGameName = game.Id;
-                }
+                // Dateiname aus der Id statt aus dem Namen: Gleichnamige Spiele
+                // verschiedener Plattformen überschrieben sonst gegenseitig ihr Cover.
+                string safeId = string.Join("_", game.Id.Split(Path.GetInvalidFileNameChars()));
                 string extension = Path.GetExtension(imagePath);
-                string destFileName = $"{safeGameName}{extension}";
+                string destFileName = $"{safeId}{extension}";
                 string destPath = Path.Combine(imagesDir, destFileName);
 
                 // Invalidate bitmap cache before the file is overwritten
