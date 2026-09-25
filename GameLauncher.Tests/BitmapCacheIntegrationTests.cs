@@ -55,8 +55,8 @@ namespace GameLauncher.Tests
 
             // The service stores the image in an "images/" subfolder next to the config file
             var imagesDir = Path.Combine(tempRoot, "images");
-            // The destination filename is derived from the game name (safe chars) + extension
-            var targetPath = Path.Combine(imagesDir, "Testspiel.png");
+            // The destination filename is derived from the game id (safe chars) + extension
+            var targetPath = Path.Combine(imagesDir, "manual_test_game.png");
 
             Directory.CreateDirectory(tempRoot);
             Directory.CreateDirectory(imagesDir);

@@ -226,11 +226,41 @@ namespace GameLauncher.Tests
                 manager.SetManualGameImage(game, firstSource, notifyUI: false);
                 manager.SetManualGameImage(game, secondSource, notifyUI: false);
 
-                // Beide Male heißt das Ziel images\Bildtest.png; das zweite Bild darf
+                // Beide Male heißt das Ziel images\manual_bild.png; das zweite Bild darf
                 // nicht als "altes, nicht mehr verwendetes" Bild gelöscht werden.
                 Assert.True(File.Exists(game.ImageUrl));
                 Assert.Equal("Zweites Bild", File.ReadAllText(game.ImageUrl));
                 Assert.Equal(game.ImageUrl, manager.Config.ImageOverrides[game.Id]);
+            }
+            finally
+            {
+                CleanupTempRoot(tempRoot);
+            }
+        }
+
+        [Fact]
+        public void SetManualGameImage_GleichnamigeSpieleBehaltenIhrEigenesBild()
+        {
+            var tempRoot = CreateTempRoot();
+            var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+            var steamSource = Path.Combine(tempRoot, "quelle", "steam.png");
+            var gogSource = Path.Combine(tempRoot, "quelle", "gog.png");
+
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(steamSource)!);
+                File.WriteAllText(steamSource, "Steam-Bild");
+                File.WriteAllText(gogSource, "GOG-Bild");
+
+                using var manager = new GameManager(configPath);
+                var steamGame = new Game { Id = "steam_1091500", Name = "Cyberpunk 2077" };
+                var gogGame = new Game { Id = "gog_1423049311", Name = "Cyberpunk 2077" };
+
+                manager.SetManualGameImage(steamGame, steamSource, notifyUI: false);
+                manager.SetManualGameImage(gogGame, gogSource, notifyUI: false);
+
+                Assert.Equal("Steam-Bild", File.ReadAllText(steamGame.ImageUrl));
+                Assert.Equal("GOG-Bild", File.ReadAllText(gogGame.ImageUrl));
             }
             finally
             {
