@@ -143,7 +143,7 @@ namespace GameLauncher.ViewModels
             StatusText = _localization.Get("Main.StatusLoadingGames");
             try
             {
-                var games = await _gameManager.LoadAllGamesAsync(loadSteamMetadataInBackground, _cts.Token);
+                var games = await _gameManager.LoadAllGamesAsync(_cts.Token);
                 if (includeDeferredStartupGames)
                 {
                     var deferredGames = await _gameManager.LoadDeferredStartupGamesAsync(_cts.Token);
@@ -168,6 +168,13 @@ namespace GameLauncher.ViewModels
 
                     PopulateFilterOptions();
                 }).RunOnUI();
+
+                if (loadSteamMetadataInBackground)
+                {
+                    // Derselbe Weg wie beim Sprachwechsel: Ein weiterer Wechsel bricht
+                    // den Abruf ab, sodass keine Texte unter der falschen Sprache landen.
+                    _ = RefreshSteamMetadataForCurrentLanguageAsync();
+                }
 
                 await RefreshGamesViewAsync();
             }

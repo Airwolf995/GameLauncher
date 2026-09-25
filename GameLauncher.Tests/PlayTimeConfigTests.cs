@@ -47,7 +47,7 @@ namespace GameLauncher.Tests
                     """);
 
                 using var manager = new GameManager(configPath);
-                var games = await manager.LoadAllGamesAsync(loadSteamMetadataInBackground: false);
+                var games = await manager.LoadAllGamesAsync();
                 var game = Assert.Single(games, g => g.Id == "manual_test");
 
                 Assert.Equal(120, game.PlayTime);
@@ -81,7 +81,7 @@ namespace GameLauncher.Tests
 
                 manager.UpdateConfig(config => config.ManualGames[0].Genres.Add("RPG"));
 
-                var loadedGames = await manager.LoadAllGamesAsync(loadSteamMetadataInBackground: false);
+                var loadedGames = await manager.LoadAllGamesAsync();
                 var loadedRuntimeGame = Assert.Single(loadedGames, game => game.Id == persistedGame.Id);
 
                 Assert.NotSame(persistedGame, loadedRuntimeGame);
@@ -136,7 +136,7 @@ namespace GameLauncher.Tests
                     """);
 
                 using var manager = new GameManager(configPath);
-                var games = await manager.LoadAllGamesAsync(loadSteamMetadataInBackground: false);
+                var games = await manager.LoadAllGamesAsync();
                 var game = Assert.Single(games, g => g.Id == "manual_legacy");
 
                 Assert.Equal(987, game.PlayTime);
