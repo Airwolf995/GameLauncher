@@ -85,6 +85,7 @@ namespace GameLauncher.Services
         public void UpdateLastPlayed(string gameId, DateTime lastPlayed)
         {
             _configService.UpdateConfig(config => config.LastPlayed[gameId] = lastPlayed);
+            _configService.SaveConfig();
         }
 
         /// <summary>
