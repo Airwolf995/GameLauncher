@@ -153,14 +153,25 @@ namespace GameLauncher.Tests
                 usageReader,
                 new TestTemperatureReader());
 
-            Task<HardwareStatsSnapshot> readTask = Task.Run(service.ReadSnapshot);
+            // Eigene Threads statt Thread-Pool: Andere, parallel laufende
+            // Testklassen blockieren Pool-Threads, dann starten Lesen und
+            // Freigeben mitunter nicht innerhalb der zwei Sekunden unten.
+            Task<HardwareStatsSnapshot> readTask = Task.Factory.StartNew(
+                service.ReadSnapshot,
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
             Assert.True(readStarted.Wait(TimeSpan.FromSeconds(2)));
 
-            Task disposeTask = Task.Run(() =>
-            {
-                disposeStarted.Set();
-                service.Dispose();
-            });
+            Task disposeTask = Task.Factory.StartNew(
+                () =>
+                {
+                    disposeStarted.Set();
+                    service.Dispose();
+                },
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
             Assert.True(disposeStarted.Wait(TimeSpan.FromSeconds(2)));
             await Task.Delay(100);
             Assert.Equal(0, usageReader.DisposeCalls);
