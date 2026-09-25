@@ -91,7 +91,12 @@ namespace GameLauncher
                     if (_updateService.InstallUpdate())
                     {
                         // Der Installer ersetzt die laufende Anwendung und
-                        // startet sie anschliessend neu.
+                        // startet sie anschliessend neu. Environment.Exit
+                        // überspringt OnClosing und App.OnExit, deshalb hier
+                        // selbst speichern und das Protokoll schreiben.
+                        (Application.Current.MainWindow as MainWindow)?.SaveConfigNow();
+                        Models.Logger.Log("Installer gestartet, Anwendung wird beendet.");
+                        Models.Logger.Shutdown();
                         Environment.Exit(0);
                     }
                     else
