@@ -82,12 +82,19 @@ namespace GameLauncher.Models
 
         public static void Error(string message, Exception? ex = null)
         {
-            string fullMessage = $"ERROR: {message}";
-            if (ex != null)
-            {
-                fullMessage += $" - Exception: {ex.Message}";
-            }
-            Log(fullMessage);
+            Log(FormatError(message, ex));
+        }
+
+        /// <summary>
+        /// Mit vollständiger Ausnahme samt Stacktrace und inneren Ausnahmen;
+        /// ex.Message allein reicht bei Abstürzen nicht zur Ursachensuche.
+        /// Getrennt von Error, damit sich das Format ohne Protokolldatei prüfen lässt.
+        /// </summary>
+        internal static string FormatError(string message, Exception? ex)
+        {
+            return ex == null
+                ? $"ERROR: {message}"
+                : $"ERROR: {message} - Exception: {ex}";
         }
 
         public static void Warning(string message)
