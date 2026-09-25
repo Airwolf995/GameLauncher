@@ -91,7 +91,12 @@ namespace GameLauncher.Services.GameManagement
                 (config.IgnoredProcesses ?? new List<string>()).ToList());
         }
 
-        public async Task<List<Game>> LoadAllGamesAsync(bool loadSteamMetadataInBackground = true, System.Threading.CancellationToken ct = default)
+        /// <summary>
+        /// Lädt die Bibliothek und übernimmt vorhandene Steam-Metadaten aus dem Cache.
+        /// Fehlende Metadaten lädt <see cref="RefreshSteamMetadataAsync"/> nach; der
+        /// Aufrufer startet es mit einem Token, das ein Sprachwechsel abbricht.
+        /// </summary>
+        public async Task<List<Game>> LoadAllGamesAsync(System.Threading.CancellationToken ct = default)
         {
             var config = _configService.ReadConfig(currentConfig => new GameConfig
             {
@@ -123,29 +128,6 @@ namespace GameLauncher.Services.GameManagement
                 Logger.Log($"Steam-Metadaten aus lokalem Cache übernommen: {cachedMetadataCount} Spiel(e).");
             }
 
-            // Steam-Metadata throttled laden (max. 3 gleichzeitige Requests)
-            var gamesNeedingMetadata = games
-                .Where(g => g.Platform == "Steam" && _steamMetadataCache.NeedsRefresh(g, currentLanguage))
-                .ToList();
-
-            if (loadSteamMetadataInBackground && gamesNeedingMetadata.Count > 0)
-            {
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await RefreshSteamMetadataBatchAsync(gamesNeedingMetadata, currentLanguage, ct);
-                    }
-                    catch (OperationCanceledException) when (ct.IsCancellationRequested)
-                    {
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error("Background metadata fetch failed", ex);
-                    }
-                });
-            }
-                 
             return games;
         }
 

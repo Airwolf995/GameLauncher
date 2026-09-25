@@ -21,8 +21,16 @@ public sealed class GameDisplayPlayTimeTests
         Assert.Equal("1 Std. 2 Min.", game.DisplayPlayTime);
     }
 
+    [Theory]
+    [InlineData(1050, "17 Min. 30 Sek.")]
+    [InlineData(45, "45 Sek.")]
+    public void FormatDuration_NenntKurzeDauernMitSekunden(int seconds, string expected)
+    {
+        Assert.Equal(expected, Game.FormatDuration(seconds));
+    }
+
     [Fact]
-    public void DisplayPlayTime_MeldetKurzeMessungBeiErfasstenSpielen()
+    public void DisplayPlayTime_NenntOhneErfassteSpielzeitNurDenStart()
     {
         var game = new Game
         {
@@ -33,7 +41,7 @@ public sealed class GameDisplayPlayTimeTests
             LastPlayed = DateTime.Now
         };
 
-        Assert.Equal("Gespielt (< 30 Sek.)", game.DisplayPlayTime);
+        Assert.Equal("Gestartet (keine Spielzeit erfasst)", game.DisplayPlayTime);
     }
 
     /// <summary>
@@ -56,7 +64,7 @@ public sealed class GameDisplayPlayTimeTests
     }
 
     [Fact]
-    public void DisplayPlayTime_MeldetKurzeMessungBeiManuellenSpielenMitProgrammpfad()
+    public void DisplayPlayTime_NenntOhneErfassteSpielzeitNurDenStartBeiManuellenSpielenMitProgrammpfad()
     {
         var game = new Game
         {
@@ -68,7 +76,7 @@ public sealed class GameDisplayPlayTimeTests
             LastPlayed = DateTime.Now
         };
 
-        Assert.Equal("Gespielt (< 30 Sek.)", game.DisplayPlayTime);
+        Assert.Equal("Gestartet (keine Spielzeit erfasst)", game.DisplayPlayTime);
     }
 
     [Fact]

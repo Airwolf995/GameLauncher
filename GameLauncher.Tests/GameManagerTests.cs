@@ -120,6 +120,33 @@ namespace GameLauncher.Tests
             }
         }
 
+        /// <summary>
+        /// Der Zeitpunkt des Spielstarts muss auf der Platte landen, auch wenn danach
+        /// nichts anderes mehr gespeichert wird.
+        /// </summary>
+        [Fact]
+        public void UpdateLastPlayed_BleibtNachNeustartErhalten()
+        {
+            var tempRoot = CreateTempRoot();
+            var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+            var lastPlayed = new DateTime(2026, 9, 26, 1, 33, 9);
+
+            try
+            {
+                using (var manager = new GameManager(configPath))
+                {
+                    manager.UpdateLastPlayed("manual_start", lastPlayed);
+                }
+
+                using var reloaded = new GameManager(configPath);
+                Assert.Equal(lastPlayed, reloaded.Config.LastPlayed["manual_start"]);
+            }
+            finally
+            {
+                CleanupTempRoot(tempRoot);
+            }
+        }
+
         private static string CreateTempRoot() =>
             Path.Combine(Path.GetTempPath(), "GameLauncherTests", Guid.NewGuid().ToString("N"));
 
