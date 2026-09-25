@@ -241,17 +241,12 @@ namespace GameLauncher.Models
 
             if (_lastPlayed != null)
             {
-                // Die Angabe "unter 30 Sekunden" beschreibt eine Messung, die kürzer
-                // war als ein Erfassungsintervall. Ohne Zeiterfassung wäre sie eine
-                // Behauptung über etwas, das nie gemessen wurde.
-                if (!SupportsPlayTimeTracking)
-                {
-                    return localization.Get("Details.StartedOnly");
-                }
-
-                return localization.CurrentLanguage == AppLanguage.German
-                    ? "Gespielt (< 30 Sek.)"
-                    : "Played (< 30 sec)";
+                // Ohne Spielzeit ist nur der Start belegt. Ob die Sitzung kürzer als ein
+                // Erfassungsintervall war oder das Spiel nie einem Prozess zugeordnet
+                // wurde, lässt sich nicht unterscheiden; eine Dauer wird daher nicht genannt.
+                return localization.Get(SupportsPlayTimeTracking
+                    ? "Details.StartedNoPlayTime"
+                    : "Details.StartedOnly");
             }
 
             return localization.Get("Details.NeverPlayed");
@@ -262,17 +257,17 @@ namespace GameLauncher.Models
         /// </summary>
         public static string FormatDuration(int totalSeconds)
         {
-            bool german = LocalizationService.Instance.CurrentLanguage == AppLanguage.German;
+            var localization = LocalizationService.Instance;
             int totalMinutes = totalSeconds / 60;
             int hours = totalMinutes / 60;
             int minutes = totalMinutes % 60;
             int seconds = totalSeconds % 60;
 
             if (hours > 0)
-                return german ? $"{hours} Std. {minutes} Min." : $"{hours} hr {minutes} min";
+                return localization.Format("Details.DurationHoursMinutes", hours, minutes);
             if (minutes > 0)
-                return german ? $"{minutes} Min. {seconds} Sek." : $"{minutes} min {seconds} sec";
-            return german ? $"{seconds} Sek." : $"{seconds} sec";
+                return localization.Format("Details.DurationMinutesSeconds", minutes, seconds);
+            return localization.Format("Details.DurationSeconds", seconds);
         }
 
         public void RefreshLocalizedProperties()
