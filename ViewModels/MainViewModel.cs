@@ -320,7 +320,7 @@ namespace GameLauncher.ViewModels
 
         private async Task RefreshGamesViewAsync()
         {
-            using var refreshCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+            var refreshCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
             var previousRefreshCts = Interlocked.Exchange(ref _gamesViewRefreshCts, refreshCts);
             previousRefreshCts?.Cancel();
             previousRefreshCts?.Dispose();
@@ -378,9 +378,13 @@ namespace GameLauncher.ViewModels
             }
             finally
             {
-                // Nur austragen, wenn inzwischen kein neuerer Durchlauf sein Token eingetragen hat.
-                // Entsorgt wird das eigene Token über using.
-                Interlocked.CompareExchange(ref _gamesViewRefreshCts, null, refreshCts);
+                // Entsorgt wird das Token von dem, der es zuletzt hält: Hat ein neuerer
+                // Durchlauf es bereits übernommen, bricht er es ab und entsorgt es selbst.
+                // Ein vorzeitiges Entsorgen hier ließe dessen Cancel() scheitern.
+                if (Interlocked.CompareExchange(ref _gamesViewRefreshCts, null, refreshCts) == refreshCts)
+                {
+                    refreshCts.Dispose();
+                }
             }
         }
 
