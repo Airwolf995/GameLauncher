@@ -184,7 +184,7 @@ namespace GameLauncher.Services
                 }
 
                 string? json = savesCurrentConfig
-                    ?TrySerializeCurrentConfig()
+                    ? TrySerializeCurrentConfig()
                     : TrySerializeConfig(config);
                 if (json == null || !TryWriteSerializedConfig(json))
                 {
