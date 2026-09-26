@@ -28,7 +28,6 @@ namespace GameLauncher
         private GameManager _manager = null!;
         private readonly LocalizationService _localization = LocalizationService.Instance;
 
-        public bool GameWasModified { get; private set; } = false;
         public event Action<Game>? LaunchGameRequested;
 
         public GameDetailsWindow(Game game, GameManager manager)
@@ -92,7 +91,6 @@ namespace GameLauncher
             if (!string.IsNullOrEmpty(selectedTag) && selectedTag != _localization.Get("Details.AddTag"))
             {
                 _manager.AddTag(_game, selectedTag);
-                GameWasModified = true;
                 
                 // Refresh UI
                 TagsItemsControl.ItemsSource = null;
@@ -106,7 +104,6 @@ namespace GameLauncher
             if (sender is Button btn && btn.Tag is string tagName)
             {
                 _manager.RemoveTag(_game, tagName);
-                GameWasModified = true;
                 
                 // Refresh UI
                 TagsItemsControl.ItemsSource = null;
@@ -121,7 +118,6 @@ namespace GameLauncher
         {
             _manager.ToggleFavorite(_game);
             UpdateFavoriteUI();
-            GameWasModified = true;
         }
 
         private void UpdateFavoriteUI()
