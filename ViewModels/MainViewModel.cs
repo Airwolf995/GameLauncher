@@ -220,11 +220,7 @@ namespace GameLauncher.ViewModels
 
         private void OnGamesUpdated(object? sender, EventArgs e)
         {
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                PopulateFilterOptions();
-            });
-
+            PopulateFilterOptions();
             _ = RefreshGamesViewAsync();
         }
 

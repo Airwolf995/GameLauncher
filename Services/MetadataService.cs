@@ -112,8 +112,6 @@ namespace GameLauncher.Services
                                 game.Genres = localizedGenres;
                             }
 
-                            game.RefreshMetadataProperties();
-
                             Logger.Log($"Fetched metadata for {game.Name}");
                             return true;
                         }

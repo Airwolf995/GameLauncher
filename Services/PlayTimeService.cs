@@ -124,21 +124,6 @@ namespace GameLauncher.Services
             }
         }
 
-        public void Stop()
-        {
-            lock (_lifecycleSync)
-            {
-                if (_disposed)
-                {
-                    return;
-                }
-
-                _isRunning = false;
-                _timer.Stop();
-                Logger.Log("PlayTimeService stopped.");
-            }
-        }
-
         public Task StopAsync()
         {
             lock (_lifecycleSync)

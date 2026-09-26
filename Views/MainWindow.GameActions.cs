@@ -17,7 +17,7 @@ namespace GameLauncher
     {
         private async void AddGame_Click(object sender, RoutedEventArgs e)
         {
-            string apiKey = _gameManager.GetConfig().UISettings.SteamGridDbApiKey;
+            string apiKey = _gameManager.Config.UISettings.SteamGridDbApiKey;
             var dialog = new AddGameWindow(apiKey) { Owner = this };
             if (dialog.ShowDialog() == true)
             {
@@ -157,7 +157,7 @@ namespace GameLauncher
         {
             if (sender is MenuItem item && item.DataContext is Game game)
             {
-                string apiKey = _gameManager.GetConfig().UISettings.SteamGridDbApiKey;
+                string apiKey = _gameManager.Config.UISettings.SteamGridDbApiKey;
                 var dialog = new AddGameWindow(apiKey, game) { Owner = this };
                 if (dialog.ShowDialog() != true)
                 {
@@ -213,7 +213,7 @@ namespace GameLauncher
                 ShowStatus(_localization.Format("Main.StatusLaunching", game.Name));
 
                 // Handle launcher behavior on game start
-                var settings = _gameManager?.GetConfig()?.UISettings;
+                var settings = _gameManager?.Config?.UISettings;
                 if (settings != null)
                 {
                     if (settings.CloseOnGameStart)

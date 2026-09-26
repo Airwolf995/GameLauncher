@@ -145,7 +145,6 @@ namespace GameLauncher.Services
             game.Developer = entry.Developer ?? "";
             game.Publisher = entry.Publisher ?? "";
             game.Genres = entry.Genres != null ? new List<string>(entry.Genres) : [];
-            game.RefreshMetadataProperties();
         }
 
         private Dictionary<string, SteamMetadataCacheEntry> LoadEntries()

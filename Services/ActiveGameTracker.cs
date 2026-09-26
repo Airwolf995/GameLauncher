@@ -7,7 +7,6 @@ namespace GameLauncher.Services
     public sealed class ActiveGameTracker
     {
         private readonly Dictionary<string, DateTime> _firstSeenRunningAt = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, DateTime> _lastSeenRunningAt = new(StringComparer.Ordinal);
 
         public string? UpdateAndSelectActiveGameId(IEnumerable<string> runningGameIds, DateTime now)
         {
@@ -16,18 +15,12 @@ namespace GameLauncher.Services
 
             foreach (var gameId in runningSet)
             {
-                if (!_firstSeenRunningAt.ContainsKey(gameId))
-                {
-                    _firstSeenRunningAt[gameId] = now;
-                }
-
-                _lastSeenRunningAt[gameId] = now;
+                _firstSeenRunningAt.TryAdd(gameId, now);
             }
 
-            var stoppedGameIds = _lastSeenRunningAt.Keys.Where(id => !runningSet.Contains(id)).ToArray();
+            var stoppedGameIds = _firstSeenRunningAt.Keys.Where(id => !runningSet.Contains(id)).ToArray();
             foreach (var gameId in stoppedGameIds)
             {
-                _lastSeenRunningAt.Remove(gameId);
                 _firstSeenRunningAt.Remove(gameId);
             }
 

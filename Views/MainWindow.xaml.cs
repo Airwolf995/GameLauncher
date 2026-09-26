@@ -65,7 +65,7 @@ namespace GameLauncher
             try 
             {
                 _gameManager = new GameManager();
-                _localization.ApplyLanguageCode(_gameManager.GetConfig().UISettings.LanguageCode);
+                _localization.ApplyLanguageCode(_gameManager.Config.UISettings.LanguageCode);
                 _viewModel = new MainViewModel(_gameManager);
                 DataContext = _viewModel;
 
@@ -133,7 +133,7 @@ namespace GameLauncher
         /// </summary>
         internal void SaveConfigNow()
         {
-            _gameManager.SaveConfigImmediate(_gameManager.GetConfig());
+            _gameManager.SaveConfigImmediate(_gameManager.Config);
         }
 
         internal void InitializeRuntimeServices()
@@ -177,7 +177,7 @@ namespace GameLauncher
         protected override void OnClosing(CancelEventArgs e)
         {
             var gameManager = _gameManager;
-            var config = gameManager?.GetConfig();
+            var config = gameManager?.Config;
 
             if (config != null && _shutdownCoordinator.ShouldMinimizeToTray(config.UISettings))
             {
@@ -241,7 +241,7 @@ namespace GameLauncher
 
         private void ApplySavedTheme()
         {
-            string savedTheme = _gameManager.GetConfig().Theme;
+            string savedTheme = _gameManager.Config.Theme;
             if (string.IsNullOrEmpty(savedTheme))
             {
                 return;
