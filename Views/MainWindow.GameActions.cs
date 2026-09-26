@@ -136,18 +136,20 @@ namespace GameLauncher
                      _gameManager.UnhideGame(game, notifyUI: false);
                      ShowStatus(_localization.Get("Main.StatusGameShown"));
                  }
+                 else if (ModernMessageWindow.Show(
+                     _localization.Format("Main.HideConfirmBody", game.Name),
+                     _localization.Get("Main.HideConfirmTitle"),
+                     ModernMessageWindow.ModernMessageButton.YesNo,
+                     this) == MessageBoxResult.Yes)
+                 {
+                     _gameManager.HideGame(game, notifyUI: false);
+                     ShowStatus(_localization.Get("Main.StatusGameHidden"));
+                 }
                  else
                  {
-                     if (ModernMessageWindow.Show(
-                         _localization.Format("Main.HideConfirmBody", game.Name),
-                         _localization.Get("Main.HideConfirmTitle"),
-                         ModernMessageWindow.ModernMessageButton.YesNo,
-                         this) == MessageBoxResult.Yes)
-                     {
-                         _gameManager.HideGame(game, notifyUI: false);
-                         ShowStatus(_localization.Get("Main.StatusGameHidden"));
-                     }
+                     return;
                  }
+
                  await _viewModel.RebuildLibraryViewAsync();
                  RefreshList(instant: true);
             }
@@ -250,11 +252,6 @@ namespace GameLauncher
             details.LaunchGameRequested += LaunchGame;
             Logger.Log($"Opening details for: {game.Name}");
             details.ShowDialog();
-
-            if (details.GameWasModified)
-            {
-                RefreshList(instant: true);
-            }
         }
 
         private static bool TryGetGameFromSender(object sender, out Game? game)
