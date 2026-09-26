@@ -132,5 +132,12 @@ namespace GameLauncher.Models
 
         [JsonPropertyName("language")]
         public string LanguageCode { get; set; } = "en";
+
+        /// <summary>
+        /// Flache Kopie genügt, weil alle Felder unveränderliche Werte sind
+        /// (string, bool, double). Neue Einstellungen werden so automatisch
+        /// mitkopiert, ohne eine Feldliste pflegen zu müssen.
+        /// </summary>
+        public UISettings Clone() => (UISettings)MemberwiseClone();
     }
 }

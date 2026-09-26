@@ -235,7 +235,7 @@ namespace GameLauncher.ViewModels
                 _onThemeChanged(colorCode);
             }
 
-            _onSettingsChanged(CloneUiSettings(config.UISettings));
+            _onSettingsChanged(config.UISettings.Clone());
         }
 
         public void Dispose()
@@ -524,30 +524,5 @@ namespace GameLauncher.ViewModels
         }
 
         private static string NormalizeHotkeyKey(string key) => string.IsNullOrWhiteSpace(key) ? "G" : key;
-
-        private static UISettings CloneUiSettings(UISettings settings) =>
-            new()
-            {
-                CardSizeString = settings.CardSizeString,
-                ViewModeString = settings.ViewModeString,
-                LibrarySortModeString = settings.LibrarySortModeString,
-                LibraryFilter = settings.LibraryFilter,
-                AnimationsEnabled = settings.AnimationsEnabled,
-                FontScale = settings.FontScale,
-                BackgroundImage = settings.BackgroundImage,
-                AutostartEnabled = settings.AutostartEnabled,
-                AutoCheckUpdates = settings.AutoCheckUpdates,
-                EncryptedSteamGridDbApiKey = settings.EncryptedSteamGridDbApiKey,
-                LanguageCode = settings.LanguageCode,
-                MinimizeToTray = settings.MinimizeToTray,
-                MinimizeOnGameStart = settings.MinimizeOnGameStart,
-                CloseOnGameStart = settings.CloseOnGameStart,
-                OverlayHotkeyCtrl = settings.OverlayHotkeyCtrl,
-                OverlayHotkeyAlt = settings.OverlayHotkeyAlt,
-                OverlayHotkeyShift = settings.OverlayHotkeyShift,
-                OverlayHotkeyWin = settings.OverlayHotkeyWin,
-                OverlayHotkeyKey = settings.OverlayHotkeyKey,
-                FirstStart = settings.FirstStart
-            };
     }
 }
