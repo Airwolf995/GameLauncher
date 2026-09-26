@@ -183,8 +183,8 @@ namespace GameLauncher.Services
                     _saveTimer.Stop();
                 }
 
-                string? json = ReferenceEquals(config, _config)
-                    ? TrySerializeCurrentConfig()
+                string? json = savesCurrentConfig
+                    ?TrySerializeCurrentConfig()
                     : TrySerializeConfig(config);
                 if (json == null || !TryWriteSerializedConfig(json))
                 {

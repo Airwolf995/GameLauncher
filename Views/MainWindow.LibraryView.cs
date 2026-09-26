@@ -143,7 +143,7 @@ namespace GameLauncher
 
         private void ApplySavedUiSettings()
         {
-            ApplyUiSettings(_gameManager.GetConfig().UISettings, registerHotkey: true, writeLog: true);
+            ApplyUiSettings(_gameManager.Config.UISettings, registerHotkey: true, writeLog: true);
         }
 
         private void ApplyUiSettingsPreview(UISettings uiSettings)

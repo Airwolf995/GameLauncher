@@ -44,7 +44,7 @@ namespace GameLauncher.Services.Scanners
 
         private readonly List<string> _libraryPaths;
 
-        public string PlatformName => "Steam";
+        public string PlatformName => Constants.Platforms.Steam;
 
         public SteamScanner(List<string> libraryPaths)
         {
@@ -217,7 +217,7 @@ namespace GameLauncher.Services.Scanners
                                 {
                                     Id = $"steam:{appid}",
                                     Name = name,
-                                    Platform = "Steam",
+                                    Platform = Constants.Platforms.Steam,
                                     Source = "Steam Library",
                                     Path = $"steam://rungameid/{appid}",
                                     LaunchType = "uri",

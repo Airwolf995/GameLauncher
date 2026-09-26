@@ -60,11 +60,6 @@ namespace GameLauncher.Services.GameManagement
             _imageService = new GameImageService(_configService);
         }
 
-        public GameConfig GetConfig()
-        {
-            return _configService.Config;
-        }
-
         public void SaveConfig()
         {
             _configService.SaveConfig();

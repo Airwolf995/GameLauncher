@@ -27,7 +27,7 @@ namespace GameLauncher
         {
             InitializeComponent();
             _gameManager = gameManager;
-            _localization.ApplyLanguageCode(_gameManager.GetConfig().UISettings.LanguageCode);
+            _localization.ApplyLanguageCode(_gameManager.Config.UISettings.LanguageCode);
             InitializeSelections();
 
             SourceInitialized += (s, e) => Services.DarkModeHelper.EnableDarkTitleBar(this);
@@ -226,7 +226,7 @@ namespace GameLauncher
 
         private void InitializeSelections()
         {
-            var config = _gameManager.GetConfig();
+            var config = _gameManager.Config;
             SetSelectedLanguage(string.Equals(config.UISettings.LanguageCode, "de", StringComparison.OrdinalIgnoreCase) ? "de" : "en");
             SelectComboBoxItemByTag(ThemeBox, Constants.UI.NormalizeThemeKey(config.Theme));
             SelectComboBoxItemByTag(CardSizeBox, config.UISettings.CardSizeString);

@@ -276,15 +276,5 @@ namespace GameLauncher.Models
             OnPropertyChanged(nameof(DisplayPlayTime));
             OnPropertyChanged(nameof(LocalizedDescription));
         }
-
-        public void RefreshMetadataProperties()
-        {
-            OnPropertyChanged(nameof(Description));
-            OnPropertyChanged(nameof(LocalizedDescription));
-            OnPropertyChanged(nameof(ReleaseDate));
-            OnPropertyChanged(nameof(Developer));
-            OnPropertyChanged(nameof(Publisher));
-            OnPropertyChanged(nameof(Genres));
-        }
     }
 }

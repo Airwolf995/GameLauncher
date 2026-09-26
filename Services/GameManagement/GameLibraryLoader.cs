@@ -21,7 +21,7 @@ namespace GameLauncher.Services.GameManagement
         {
             Logger.Log("Starting scanning games parallel...");
 
-            var steamTask = ScanPlatformAsync("Steam", () => new SteamScanner(config.SteamLibraryPaths), cancellationToken);
+            var steamTask = ScanPlatformAsync(Constants.Platforms.Steam, () => new SteamScanner(config.SteamLibraryPaths), cancellationToken);
             var gogTask = ScanPlatformAsync("GOG", () => new GogScanner(), cancellationToken);
             var epicTask = ScanPlatformAsync("Epic", () => new EpicScanner(config.EpicLibraryPaths), cancellationToken);
             var eaTask = ScanPlatformAsync("EA", () => new EaScanner(), cancellationToken);
