@@ -24,7 +24,7 @@ namespace GameLauncher.Services.Scanners
 
         private readonly List<string> _libraryPaths;
 
-        public string PlatformName => "Xbox";
+        public string PlatformName => Constants.Platforms.Xbox;
 
         public XboxScanner(List<string>? libraryPaths = null)
         {
@@ -191,7 +191,7 @@ namespace GameLauncher.Services.Scanners
                 Name = candidate.Metadata.DisplayName,
                 Path = $"shell:AppsFolder\\{package.AppUserModelId}",
                 Args = "",
-                Platform = "Xbox",
+                Platform = Constants.Platforms.Xbox,
                 LaunchType = "uri",
                 ImageUrl = candidate.LogoPath ?? "",
                 InstallDirectory = candidate.GameDirectory

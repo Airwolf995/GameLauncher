@@ -12,7 +12,7 @@ namespace GameLauncher.Services.Scanners
     /// </summary>
     public class GogScanner : IPlatformScanner
     {
-        public string PlatformName => "GOG";
+        public string PlatformName => Constants.Platforms.GOG;
 
         private const string GamesRegistryPath = @"SOFTWARE\GOG.com\Games";
 
@@ -74,7 +74,7 @@ namespace GameLauncher.Services.Scanners
                     Name = gameName,
                     Path = exePath,
                     Args = "",
-                    Platform = "GOG",
+                    Platform = Constants.Platforms.GOG,
                     LaunchType = "exe",
                     ImageUrl = IconExtractor.GetIconFromExe(exePath, $"gog_{subKeyName}"),
                     InstallDirectory = workingDir ?? Path.GetDirectoryName(exePath) ?? ""

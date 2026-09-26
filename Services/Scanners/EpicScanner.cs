@@ -16,7 +16,7 @@ namespace GameLauncher.Services.Scanners
     {
         private readonly List<string> _libraryPaths;
 
-        public string PlatformName => "Epic Games";
+        public string PlatformName => Constants.Platforms.Epic;
 
         public EpicScanner(List<string> libraryPaths)
         {
@@ -188,7 +188,7 @@ namespace GameLauncher.Services.Scanners
                                     {
                                         Id = $"epic:{appName}",
                                         Name = displayName,
-                                        Platform = "Epic Games",
+                                        Platform = Constants.Platforms.Epic,
                                         Source = "Epic Library",
                                         Path = $"com.epicgames.launcher://apps/{appName}?action=launch&silent=true",
                                         LaunchType = "uri",
