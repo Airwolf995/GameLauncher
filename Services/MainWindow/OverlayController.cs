@@ -41,7 +41,7 @@ namespace GameLauncher.Services.MainWindow
             }
         }
 
-        public void Stop()
+        public void Dispose()
         {
             if (_hotkeyService != null)
             {
@@ -60,11 +60,6 @@ namespace GameLauncher.Services.MainWindow
             _hardwareMonitorService?.Dispose();
             _hardwareMonitorService = null;
             _playTimeService = null;
-        }
-
-        public void Dispose()
-        {
-            Stop();
         }
 
         private void OnHotkeyPressed()
