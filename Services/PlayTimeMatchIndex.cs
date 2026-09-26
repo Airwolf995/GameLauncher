@@ -45,14 +45,7 @@ namespace GameLauncher.Services
                 if (string.IsNullOrWhiteSpace(exeName) && game.LaunchType == "exe" &&
                     !startsViaLauncher && !string.IsNullOrWhiteSpace(game.Path))
                 {
-                    try
-                    {
-                        exeName = Path.GetFileName(game.Path);
-                    }
-                    catch
-                    {
-                        // Ignoriere Fehler bei der Pfad-Analyse
-                    }
+                    exeName = Path.GetFileName(game.Path);
                 }
 
                 if (!string.IsNullOrWhiteSpace(exeName))
@@ -126,18 +119,14 @@ namespace GameLauncher.Services
             return false;
         }
 
-        public bool TryMatchProcess(string processName, string processPath, out string gameId)
+        /// <summary>
+        /// Ordnet einen Prozess über seinen Programmpfad dem Spiel zu, in dessen
+        /// Installationsverzeichnis er liegt. Bei verschachtelten Verzeichnissen
+        /// gewinnt das längste, weil die Einträge danach sortiert sind.
+        /// </summary>
+        public bool TryMatchProcessByPath(string processPath, out string gameId)
         {
             gameId = string.Empty;
-
-            var normalizedProcessName = NormalizeExecutableName(processName);
-            if (!string.IsNullOrWhiteSpace(normalizedProcessName) &&
-                _gamesByExecutableName.TryGetValue(normalizedProcessName, out var executableMatches) &&
-                executableMatches.Count == 1)
-            {
-                gameId = executableMatches[0].Id;
-                return true;
-            }
 
             foreach (var entry in _installPathEntries)
             {
@@ -164,14 +153,7 @@ namespace GameLauncher.Services
                 return string.Empty;
             }
 
-            try
-            {
-                return path.Replace('/', '\\').Trim().TrimEnd('\\');
-            }
-            catch
-            {
-                return path;
-            }
+            return path.Replace('/', '\\').Trim().TrimEnd('\\');
         }
 
         private static string NormalizeExecutableName(string executableName)
@@ -181,17 +163,10 @@ namespace GameLauncher.Services
                 return string.Empty;
             }
 
-            try
-            {
-                string fileName = Path.GetFileName(executableName.Trim());
-                return fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-                    ? fileName[..^4]
-                    : fileName;
-            }
-            catch
-            {
-                return executableName.Trim();
-            }
+            string fileName = Path.GetFileName(executableName.Trim());
+            return fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                ? fileName[..^4]
+                : fileName;
         }
 
         private sealed record InstallPathIndexEntry(string ExactPath, string PrefixWithSlash, Game Game);

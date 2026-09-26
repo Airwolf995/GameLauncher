@@ -8,7 +8,7 @@ namespace GameLauncher.Tests
     public class PlayTimeMatchIndexTests
     {
         [Fact]
-        public void TryMatchProcess_UsesExecutableNameLookup()
+        public void TryMatchProcessByName_FindetSpielUeberHinterlegtenProgrammnamen()
         {
             var index = new PlayTimeMatchIndex();
             var games = new List<Game>
@@ -19,14 +19,14 @@ namespace GameLauncher.Tests
 
             index.Rebuild(games);
 
-            var matched = index.TryMatchProcess("doom.exe", @"C:\Games\Doom\doom.exe", out var gameId);
+            var matched = index.TryMatchProcessByName("doom.exe", out var gameId);
 
             Assert.True(matched);
             Assert.Equal("g1", gameId);
         }
 
         [Fact]
-        public void TryMatchProcess_UsesInstallDirectoryPrefix()
+        public void TryMatchProcessByPath_UsesInstallDirectoryPrefix()
         {
             var index = new PlayTimeMatchIndex();
             var games = new List<Game>
@@ -36,14 +36,14 @@ namespace GameLauncher.Tests
 
             index.Rebuild(games);
 
-            var matched = index.TryMatchProcess("mygame.exe", @"C:\Games\MyGame\bin\mygame.exe", out var gameId);
+            var matched = index.TryMatchProcessByPath(@"C:\Games\MyGame\bin\mygame.exe", out var gameId);
 
             Assert.True(matched);
             Assert.Equal("g1", gameId);
         }
 
         [Fact]
-        public void TryMatchProcess_DisambiguatesDuplicateExecutableNamesByPath()
+        public void TryMatchProcessByPath_DisambiguatesDuplicateExecutableNames()
         {
             var index = new PlayTimeMatchIndex();
             var games = new List<Game>
@@ -55,7 +55,7 @@ namespace GameLauncher.Tests
             index.Rebuild(games);
 
             Assert.False(index.TryMatchProcessByName("game", out _));
-            Assert.True(index.TryMatchProcess("game", @"C:\Games\Two\game.exe", out var gameId));
+            Assert.True(index.TryMatchProcessByPath(@"C:\Games\Two\game.exe", out var gameId));
             Assert.Equal("g2", gameId);
         }
 
@@ -75,7 +75,7 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
-        public void TryMatchProcess_OrdnetManuellemSpielMitProgrammpfadZu()
+        public void TryMatchProcessByName_OrdnetManuellemSpielMitProgrammnamenZu()
         {
             var index = new PlayTimeMatchIndex();
             var games = new List<Game>
@@ -92,7 +92,7 @@ namespace GameLauncher.Tests
 
             index.Rebuild(games);
 
-            var matched = index.TryMatchProcess("manual.exe", @"C:\Manual\manual.exe", out var gameId);
+            var matched = index.TryMatchProcessByName("manual.exe", out var gameId);
 
             Assert.True(matched);
             Assert.Equal("manual1", gameId);
@@ -104,7 +104,7 @@ namespace GameLauncher.Tests
         /// Installationsverzeichnis.
         /// </summary>
         [Fact]
-        public void TryMatchProcess_OrdnetManuellemSpielUeberDasVerzeichnisZu()
+        public void TryMatchProcessByPath_OrdnetManuellemSpielUeberDasVerzeichnisZu()
         {
             var index = new PlayTimeMatchIndex();
             var games = new List<Game>
@@ -122,14 +122,14 @@ namespace GameLauncher.Tests
 
             index.Rebuild(games);
 
-            var matched = index.TryMatchProcess("spiel", @"C:\Spiele\Beispiel\spiel.exe", out var gameId);
+            var matched = index.TryMatchProcessByPath(@"C:\Spiele\Beispiel\spiel.exe", out var gameId);
 
             Assert.True(matched);
             Assert.Equal("manual2", gameId);
         }
 
         [Fact]
-        public void TryMatchProcess_UebergehtManuellesSpielOhneZuordenbarenProzess()
+        public void Rebuild_UebergehtManuellesSpielOhneZuordenbarenProzess()
         {
             var index = new PlayTimeMatchIndex();
             var games = new List<Game>
@@ -147,9 +147,8 @@ namespace GameLauncher.Tests
 
             index.Rebuild(games);
 
-            var matched = index.TryMatchProcess("wow", @"C:\Spiele\WoW\wow.exe", out _);
-
-            Assert.False(matched);
+            Assert.False(index.TryMatchProcessByName("wow", out _));
+            Assert.False(index.TryMatchProcessByPath(@"C:\Spiele\WoW\wow.exe", out _));
         }
 
         /// <summary>
@@ -158,7 +157,7 @@ namespace GameLauncher.Tests
         /// jeder Prozess des dauerhaft laufenden Launchers auf das Spiel.
         /// </summary>
         [Fact]
-        public void TryMatchProcess_BeobachtetDenOrdnerEinesLaunchersNicht()
+        public void Rebuild_BeobachtetDenOrdnerEinesLaunchersNicht()
         {
             var index = new PlayTimeMatchIndex();
             var games = new List<Game>
@@ -177,10 +176,12 @@ namespace GameLauncher.Tests
 
             index.Rebuild(games);
 
-            Assert.False(index.TryMatchProcess(
-                "Battle.net", @"C:\Program Files (x86)\Battle.net\Battle.net.exe", out _));
-            Assert.False(index.TryMatchProcess(
-                "Agent", @"C:\Program Files (x86)\Battle.net\Agent\Agent.exe", out _));
+            Assert.False(index.TryMatchProcessByName("Battle.net", out _));
+            Assert.False(index.TryMatchProcessByName("Agent", out _));
+            Assert.False(index.TryMatchProcessByPath(
+                @"C:\Program Files (x86)\Battle.net\Battle.net.exe", out _));
+            Assert.False(index.TryMatchProcessByPath(
+                @"C:\Program Files (x86)\Battle.net\Agent\Agent.exe", out _));
         }
 
         /// <summary>
@@ -188,7 +189,7 @@ namespace GameLauncher.Tests
         /// erfassen - genau das sagt auch <see cref="Game.SupportsPlayTimeTracking"/> zu.
         /// </summary>
         [Fact]
-        public void TryMatchProcess_ErfasstLauncherEintragUeberHinterlegtenProzessnamen()
+        public void TryMatchProcessByName_ErfasstLauncherEintragUeberHinterlegtenProzessnamen()
         {
             var index = new PlayTimeMatchIndex();
             var games = new List<Game>
@@ -207,7 +208,7 @@ namespace GameLauncher.Tests
 
             index.Rebuild(games);
 
-            Assert.True(index.TryMatchProcess("Diablo IV", @"D:\Diablo IV\Diablo IV.exe", out var gameId));
+            Assert.True(index.TryMatchProcessByName("Diablo IV", out var gameId));
             Assert.Equal("manual_launcher", gameId);
         }
 
@@ -216,7 +217,7 @@ namespace GameLauncher.Tests
         /// einem eigenen Ordner. Erfasst wird das Spiel dort, nicht der Client.
         /// </summary>
         [Fact]
-        public void TryMatchProcess_ErfasstGescanntesLauncherSpielUeberDenSpielordner()
+        public void TryMatchProcessByPath_ErfasstGescanntesLauncherSpielUeberDenSpielordner()
         {
             var index = new PlayTimeMatchIndex();
             var games = new List<Game>
@@ -235,12 +236,42 @@ namespace GameLauncher.Tests
 
             index.Rebuild(games);
 
-            Assert.True(index.TryMatchProcess(
-                "BlackOpsColdWar", @"D:\Battle.net\Call of Duty Black Ops Cold War\BlackOpsColdWar.exe", out var gameId));
+            Assert.True(index.TryMatchProcessByPath(
+                @"D:\Battle.net\Call of Duty Black Ops Cold War\BlackOpsColdWar.exe", out var gameId));
             Assert.Equal("bnet_zeus", gameId);
-            Assert.False(index.TryMatchProcess(
-                "Battle.net", @"C:\Program Files (x86)\Battle.net\Battle.net.exe", out _));
+            Assert.False(index.TryMatchProcessByPath(
+                @"C:\Program Files (x86)\Battle.net\Battle.net.exe", out _));
             Assert.False(index.TryMatchProcessByName("Battle.net", out _));
+        }
+
+        /// <summary>
+        /// Der Programmpfad eines manuellen Eintrags ist Benutzereingabe. Auch
+        /// ungültige Zeichen dürfen den Aufbau des Index nicht abbrechen, sonst
+        /// fiele die Spielzeiterfassung für alle Spiele aus.
+        /// </summary>
+        [Fact]
+        public void Rebuild_ToleriertUngueltigeZeichenImProgrammpfad()
+        {
+            var index = new PlayTimeMatchIndex();
+            var games = new List<Game>
+            {
+                new()
+                {
+                    Id = "kaputt",
+                    Name = "Kaputter Pfad",
+                    Path = "C:\\Spiele\\<ungültig>|\"\0\\spiel.exe",
+                    LaunchType = "exe",
+                    IsManual = true
+                },
+                new() { Id = "g1", Name = "Game 1", ExecutableName = "game.exe", IsManual = false }
+            };
+
+            index.Rebuild(games);
+
+            Assert.True(index.TryMatchProcessByName("game", out var gameId));
+            Assert.Equal("g1", gameId);
+            Assert.True(index.TryMatchProcessByName("spiel", out gameId));
+            Assert.Equal("kaputt", gameId);
         }
     }
 }
