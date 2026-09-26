@@ -22,11 +22,11 @@ namespace GameLauncher.Services.GameManagement
             Logger.Log("Starting scanning games parallel...");
 
             var steamTask = ScanPlatformAsync(Constants.Platforms.Steam, () => new SteamScanner(config.SteamLibraryPaths), cancellationToken);
-            var gogTask = ScanPlatformAsync("GOG", () => new GogScanner(), cancellationToken);
-            var epicTask = ScanPlatformAsync("Epic", () => new EpicScanner(config.EpicLibraryPaths), cancellationToken);
-            var eaTask = ScanPlatformAsync("EA", () => new EaScanner(), cancellationToken);
-            var xboxTask = ScanPlatformAsync("Xbox", () => new XboxScanner(config.XboxLibraryPaths), cancellationToken);
-            var battleNetTask = ScanPlatformAsync("Battle.net", () => new BattleNetScanner(), cancellationToken);
+            var gogTask = ScanPlatformAsync(Constants.Platforms.GOG, () => new GogScanner(), cancellationToken);
+            var epicTask = ScanPlatformAsync(Constants.Platforms.Epic, () => new EpicScanner(config.EpicLibraryPaths), cancellationToken);
+            var eaTask = ScanPlatformAsync(Constants.Platforms.EAApp, () => new EaScanner(), cancellationToken);
+            var xboxTask = ScanPlatformAsync(Constants.Platforms.Xbox, () => new XboxScanner(config.XboxLibraryPaths), cancellationToken);
+            var battleNetTask = ScanPlatformAsync(Constants.Platforms.BattleNet, () => new BattleNetScanner(), cancellationToken);
 
             await Task.WhenAll(steamTask, gogTask, epicTask, eaTask, xboxTask, battleNetTask);
 
