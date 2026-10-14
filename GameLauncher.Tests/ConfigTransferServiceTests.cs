@@ -283,6 +283,170 @@ public sealed class ConfigTransferServiceTests
         });
     }
 
+    [Theory]
+    [InlineData("""{"favorites":42,"theme":"Blue","ui_settings":{}}""")]
+    [InlineData("""{"favorites":[],"theme":"Blue","ui_settings":{"overlay_hotkey_ctrl":{}}}""")]
+    [InlineData("""{"favorites":[],"theme":"Blue","last_played":{"steam:1":"kein Datum"}}""")]
+    [InlineData("""{"favorites":[],"theme":"Blue","manual_games":[null]}""")]
+    [InlineData("""{"favorites":[],"theme":"Blue","play_time":{"steam:1":-1}}""")]
+    [InlineData("""{"favorites":[],"theme":"Blue","play_time":{"steam:1":{"seconds":"falsch"}}}""")]
+    [InlineData("""{"favorites":[],"theme":"Blue","manual_games":[{"id":null}]}""")]
+    [InlineData("""{"favorites":[],"theme":"Blue","manual_games":[{"name":"Spiel ohne ID"}]}""")]
+    [InlineData("""{"favorites":[],"theme":"Blue","game_tags":{"steam:1":null}}""")]
+    public void Import_LehntDefekteDatenAbOhneBestandOderSpeichernZuVerändern(string json)
+    {
+        RunInTempDirectory(directory =>
+        {
+            string configPath = Path.Combine(directory, "config.json");
+            using var service = new ConfigService(configPath);
+            string original = File.ReadAllText(configPath);
+            string source = Path.Combine(directory, "defekt.json");
+            File.WriteAllText(source, json);
+
+            Assert.Equal(ConfigTransferResult.NotAConfigFile, new ConfigTransferService(service).Import(source));
+            Assert.Equal(original, File.ReadAllText(configPath));
+            Assert.Empty(Directory.GetFiles(directory, "*.vor-import-*.bak"));
+            service.UpdateConfig(config => config.Favorites.Add("steam:weiter"));
+            service.SaveConfigImmediate(service.Config);
+            Assert.Contains("steam:weiter", File.ReadAllText(configPath));
+        });
+    }
+
+    [Fact]
+    public void Import_SichertAuchNochNichtGespeicherteÄnderungen()
+    {
+        RunInTempDirectory(directory =>
+        {
+            using var service = new ConfigService(Path.Combine(directory, "config.json"));
+            service.UpdateConfig(config => config.Favorites.Add("steam:ungespeichert"));
+            service.SaveConfig();
+            string source = Path.Combine(directory, "sicherung.json");
+            File.WriteAllText(source, """{"favorites":[],"theme":"Blue","ui_settings":{}}""");
+
+            Assert.Equal(ConfigTransferResult.Success, new ConfigTransferService(service).Import(source));
+            string backup = Assert.Single(Directory.GetFiles(directory, "*.vor-import-*.bak"));
+            Assert.Contains("steam:ungespeichert", File.ReadAllText(backup));
+            service.FlushPendingSave();
+            Assert.Equal(File.ReadAllText(source), File.ReadAllText(service.ConfigPath));
+        });
+    }
+
+    [Fact]
+    public void Import_SchreibfehlerLässtBestandUndWeiteresSpeichernIntakt()
+    {
+        RunInTempDirectory(directory =>
+        {
+            using var service = new ConfigService(Path.Combine(directory, "config.json"));
+            string original = File.ReadAllText(service.ConfigPath);
+            string source = Path.Combine(directory, "sicherung.json");
+            File.WriteAllText(source, """{"favorites":[],"theme":"Blue","ui_settings":{}}""");
+            using (var blockedFile = new FileStream(service.ConfigPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                Assert.Equal(ConfigTransferResult.WriteFailed, new ConfigTransferService(service).Import(source));
+                Assert.Equal(original, File.ReadAllText(service.ConfigPath));
+            }
+
+            service.UpdateConfig(config => config.Favorites.Add("steam:weiter"));
+            service.SaveConfigImmediate(service.Config);
+            Assert.Contains("steam:weiter", File.ReadAllText(service.ConfigPath));
+        });
+    }
+
+    [Fact]
+    public void Import_AkzeptiertÄltereSpielzeitUndOptionaleNullFelder()
+    {
+        RunInTempDirectory(directory =>
+        {
+            string path = Path.Combine(directory, "config.json");
+            using (var service = new ConfigService(path))
+            {
+                string source = Path.Combine(directory, "alt.json");
+                File.WriteAllText(source, """{"favorites":null,"play_time":{"steam:1":120},"ui_settings":null}""");
+                Assert.Equal(ConfigTransferResult.Success, new ConfigTransferService(service).Import(source));
+            }
+            using var restarted = new ConfigService(path);
+            Assert.Equal(120, restarted.Config.PlayTime["steam:1"].Seconds);
+            Assert.Empty(restarted.Config.Favorites);
+        });
+    }
+
+    [Fact]
+    public void Import_VerwendetDenGeprüftenInhaltAuchWennDieQuelleDanachWechselt()
+    {
+        RunInTempDirectory(directory =>
+        {
+            string source = Path.Combine(directory, "sicherung.json");
+            string imported = """{"favorites":["steam:neu"],"theme":"Blue","ui_settings":{}}""";
+            File.WriteAllText(source, imported);
+            bool replaceSource = false;
+            using var service = new ConfigService(Path.Combine(directory, "config.json"), config =>
+            {
+                if (replaceSource)
+                {
+                    File.WriteAllText(source, "defekte neue Quelle");
+                }
+                return JsonSerializer.Serialize(config);
+            });
+            replaceSource = true;
+
+            Assert.Equal(ConfigTransferResult.Success, new ConfigTransferService(service).Import(source));
+            Assert.Equal(imported, File.ReadAllText(service.ConfigPath));
+        });
+    }
+
+    [Fact]
+    public async Task Import_WirdNichtDurchEinenBereitsLaufendenSpeichervorgangÜberschrieben()
+    {
+        string directory = Directory.CreateTempSubdirectory("GameLauncherConfigTransfer_").FullName;
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        int block = 0;
+        DateTime now = DateTime.UtcNow;
+        try
+        {
+            using var service = new ConfigService(Path.Combine(directory, "config.json"), config =>
+            {
+                if (Interlocked.Exchange(ref block, 0) == 1)
+                {
+                    started.Set();
+                    if (!release.Wait(TimeSpan.FromSeconds(5)))
+                        throw new TimeoutException("Testserialisierung wurde nicht freigegeben.");
+                }
+                return JsonSerializer.Serialize(config);
+            }, TimeSpan.FromHours(1).TotalMilliseconds, () => now);
+            service.UpdateConfig(config => config.Favorites.Add("steam:alt"));
+            service.SaveConfig();
+            now = now.AddHours(1);
+            block = 1;
+            Task flush = Task.Run(service.FlushPendingSave);
+            try
+            {
+                Assert.True(started.Wait(TimeSpan.FromSeconds(2)));
+                string source = Path.Combine(directory, "sicherung.json");
+                string imported = """{"favorites":["steam:neu"],"theme":"Blue","ui_settings":{}}""";
+                File.WriteAllText(source, imported);
+                Task<ConfigTransferResult> import = Task.Run(() => new ConfigTransferService(service).Import(source));
+                release.Set();
+                await Task.WhenAll(flush, import).WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.Equal(ConfigTransferResult.Success, await import);
+                service.SaveConfigImmediate(service.Config);
+                service.Dispose();
+                Assert.Equal(imported, File.ReadAllText(service.ConfigPath));
+                Assert.Contains("steam:alt", File.ReadAllText(Assert.Single(Directory.GetFiles(directory, "*.vor-import-*.bak"))));
+            }
+            finally
+            {
+                release.Set();
+                await flush.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+        }
+        finally
+        {
+            release.Set();
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private static void RunInTempDirectory(Action<string> test)
     {
         string directory = Directory.CreateTempSubdirectory("GameLauncherConfigTransfer_").FullName;

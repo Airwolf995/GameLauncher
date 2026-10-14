@@ -59,7 +59,7 @@ namespace GameLauncher.Services.Serialization
             writer.WriteEndObject();
         }
 
-        private static bool TryReadEntry(
+        internal static bool TryReadEntry(
             JsonElement element,
             JsonSerializerOptions options,
             out PlayTimeEntry entry)
