@@ -313,7 +313,7 @@ namespace GameLauncher.Services.Localization
             ["Update.DownloadingProgress"] = "Downloading... {0}%",
             ["Update.Installing"] = "Starting installation...",
             ["Update.DownloadError"] = "Error while downloading the update.",
-            ["Update.ChecksumError"] = "The downloaded update does not match the file published on GitHub and was discarded. Please try again later.",
+            ["Update.ChecksumError"] = "The update could not be verified: its SHA-256 checksum is missing, invalid or does not match the downloaded file. It will not be installed. Please try again later.",
             ["Update.GenericError"] = "Error during update."
         };
 
@@ -626,7 +626,7 @@ namespace GameLauncher.Services.Localization
             ["Update.DownloadingProgress"] = "Download läuft... {0}%",
             ["Update.Installing"] = "Installation wird gestartet...",
             ["Update.DownloadError"] = "Fehler beim Herunterladen des Updates.",
-            ["Update.ChecksumError"] = "Das heruntergeladene Update stimmt nicht mit der auf GitHub veröffentlichten Datei überein und wurde verworfen. Bitte versuche es später erneut.",
+            ["Update.ChecksumError"] = "Das Update konnte nicht geprüft werden: Die SHA-256-Prüfsumme fehlt, ist ungültig oder stimmt nicht mit der heruntergeladenen Datei überein. Es wird nicht installiert. Bitte versuche es später erneut.",
             ["Update.GenericError"] = "Fehler beim Update."
         };
 

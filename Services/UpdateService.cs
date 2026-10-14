@@ -15,12 +15,19 @@ namespace GameLauncher.Services
     {
         private readonly string _githubRepo; // Format: "username/repo"
         private readonly HttpClient _httpClient;
-        private static readonly string UpdaterExe = Path.Combine(Path.GetTempPath(), "GameLauncher_Setup.exe");
+        private readonly string _updaterExe;
 
         public UpdateService(string githubRepo)
+            : this(githubRepo, new HttpClient(), Path.Combine(Path.GetTempPath(), "GameLauncher_Setup.exe"))
+        {
+        }
+
+        // Netzwerk und Dateipfad sind für isolierte Downloadtests austauschbar.
+        internal UpdateService(string githubRepo, HttpClient httpClient, string updaterExe)
         {
             _githubRepo = githubRepo;
-            _httpClient = new HttpClient();
+            _httpClient = httpClient;
+            _updaterExe = updaterExe;
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "GameLauncher");
         }
 
@@ -124,9 +131,28 @@ namespace GameLauncher.Services
             string value = digest.GetString() ?? "";
             const string prefix = "sha256:";
 
-            return value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            string hash = value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
                 ? value.Substring(prefix.Length)
                 : "";
+            return IsValidSha256(hash) ? hash : "";
+        }
+
+        private static bool IsValidSha256(string hash)
+        {
+            if (hash == null || hash.Length != 64)
+            {
+                return false;
+            }
+
+            foreach (char character in hash)
+            {
+                if (!char.IsAsciiHexDigit(character))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         internal static bool IsTrustedDownloadUrl(string downloadUrl)
@@ -154,9 +180,15 @@ namespace GameLauncher.Services
             try
             {
                 // Delete old installer if exists
-                if (File.Exists(UpdaterExe))
+                if (File.Exists(_updaterExe))
                 {
-                    File.Delete(UpdaterExe);
+                    File.Delete(_updaterExe);
+                }
+
+                if (!IsValidSha256(expectedSha256))
+                {
+                    Logger.Error("Update abgelehnt: gültige SHA-256-Prüfsumme fehlt.");
+                    return UpdateDownloadResult.ChecksumMismatch;
                 }
 
                 using var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
@@ -166,7 +198,7 @@ namespace GameLauncher.Services
                 var bytesRead = 0L;
 
                 using var contentStream = await response.Content.ReadAsStreamAsync(ct);
-                using var fileStream = new FileStream(UpdaterExe, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+                using var fileStream = new FileStream(_updaterExe, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
 
                 var buffer = new byte[8192];
                 int read;
@@ -208,17 +240,9 @@ namespace GameLauncher.Services
             }
         }
 
-        private static async Task<bool> VerifyDownloadedInstallerAsync(string expectedSha256, CancellationToken ct)
+        private async Task<bool> VerifyDownloadedInstallerAsync(string expectedSha256, CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(expectedSha256))
-            {
-                // Aeltere Releases melden keinen Hash; dann bleibt es beim
-                // bisherigen Verhalten.
-                Logger.Log("Update download: no checksum published, skipping verification");
-                return true;
-            }
-
-            using var stream = new FileStream(UpdaterExe, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, true);
+            using var stream = new FileStream(_updaterExe, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, true);
             byte[] hash = await SHA256.HashDataAsync(stream, ct);
             string actual = Convert.ToHexString(hash);
 
@@ -231,13 +255,13 @@ namespace GameLauncher.Services
             return true;
         }
 
-        private static void TryDeleteDownloadedInstaller()
+        private void TryDeleteDownloadedInstaller()
         {
             try
             {
-                if (File.Exists(UpdaterExe))
+                if (File.Exists(_updaterExe))
                 {
-                    File.Delete(UpdaterExe);
+                    File.Delete(_updaterExe);
                 }
             }
             catch (Exception ex)
@@ -256,16 +280,16 @@ namespace GameLauncher.Services
         {
             try
             {
-                if (!File.Exists(UpdaterExe))
+                if (!File.Exists(_updaterExe))
                 {
-                    Logger.Error($"Update installation failed: the downloaded installer is missing at {UpdaterExe}");
+                    Logger.Error($"Update installation failed: the downloaded installer is missing at {_updaterExe}");
                     return false;
                 }
 
                 // Start installer with silent flag and auto-close option
                 var psi = new ProcessStartInfo
                 {
-                    FileName = UpdaterExe,
+                    FileName = _updaterExe,
                     Arguments = "/SILENT /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS",
                     UseShellExecute = true
                 };
@@ -293,7 +317,7 @@ namespace GameLauncher.Services
         /// <summary>Abbruch, Netzwerk- oder Dateifehler, unvollstaendige Datei.</summary>
         Failed,
 
-        /// <summary>Die Datei kam vollstaendig an, passt aber nicht zur veroeffentlichten Pruefsumme.</summary>
+        /// <summary>Die Prüfsumme fehlt, ist ungültig oder stimmt nicht mit der Datei überein.</summary>
         ChecksumMismatch
     }
 

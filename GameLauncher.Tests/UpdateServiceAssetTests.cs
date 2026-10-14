@@ -18,6 +18,9 @@ namespace GameLauncher.Tests
         [InlineData("{\"digest\": null}")]
         [InlineData("{\"digest\": \"\"}")]
         [InlineData("{\"digest\": \"md5:25a8bc7a\"}")]
+        [InlineData("""{"digest":"sha256:"}""")]
+        [InlineData("""{"digest":"sha256:25a8bc7a"}""")]
+        [InlineData("""{"digest":"sha256:g123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}""")]
         public void ReadAssetSha256_ReturnsEmptyWhenDigestIsMissingOrUnsupported(string json)
         {
             Assert.Equal("", UpdateService.ReadAssetSha256(ParseAsset(json)));
