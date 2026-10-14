@@ -396,24 +396,51 @@ namespace GameLauncher.Services
         }
 
         /// <summary>
-        /// Hält jedes weitere Schreiben der Konfigurationsdatei an.
-        ///
-        /// Gedacht für den Import: danach steht eine fremde Konfiguration in der
-        /// Datei, während die laufende Anwendung noch die alte im Speicher hält.
-        /// Ohne diese Bremse würde der nächste Speichervorgang - eine geänderte
-        /// Einstellung, ein Tick der Spielzeiterfassung oder das Beenden - die
-        /// gerade eingespielte Datei wieder überschreiben.
+        /// Sichert den aktuellen Speicherstand und ersetzt die Datei durch die
+        /// bereits geprüfte Sicherung. Austausch und Schreibstopp verwenden
+        /// dieselbe Sperre wie alle regulären Speichervorgänge.
         /// </summary>
-        internal void SuspendSaving()
+        internal bool TryImportConfig(string json)
         {
             lock (_saveSync)
             {
+                if (_disposed || !_canOverwriteConfig)
+                {
+                    return false;
+                }
+
+                string? currentJson = TrySerializeCurrentConfig();
+                if (currentJson == null)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmssfff");
+                    string backupPath = $"{_configPath}.vor-import-{timestamp}.bak";
+                    using var backup = new StreamWriter(new FileStream(
+                        backupPath, FileMode.CreateNew, FileAccess.Write, FileShare.None));
+                    backup.Write(currentJson);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Aktuelle Konfiguration konnte vor dem Import nicht gesichert werden", ex);
+                    return false;
+                }
+
+                // Denselben geprüften Inhalt schreiben, statt die Quelldatei erneut
+                // zu lesen. Der vorhandene atomare Schreibweg setzt auch das Datum.
+                if (!TryWriteSerializedConfig(json))
+                {
+                    return false;
+                }
+
                 _saveTimer.Stop();
                 _pendingSave = false;
                 _canOverwriteConfig = false;
+                return true;
             }
-
-            Logger.Log("Weiteres Speichern der Konfiguration wurde angehalten.");
         }
 
         private bool TryBackupInvalidConfig()

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using GameLauncher.Models;
 
@@ -142,36 +143,19 @@ namespace GameLauncher.Services.Settings
                 return ConfigTransferResult.NotAConfigFile;
             }
 
-            if (!TryBackupCurrentConfig())
+            if (!_configService.TryImportConfig(json))
             {
                 return ConfigTransferResult.WriteFailed;
             }
 
-            try
-            {
-                File.Copy(sourcePath, _configService.ConfigPath, overwrite: true);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Gesicherte Konfiguration konnte nicht eingespielt werden", ex);
-                return ConfigTransferResult.WriteFailed;
-            }
-
-            // Das Anhalten kommt unmittelbar nach dem Kopieren und vor allem
-            // anderen: bis dahin koennte ein noch ausstehender, verzoegerter
-            // Speichervorgang die gerade eingespielte Datei mit dem alten Stand
-            // aus dem Speicher ueberschreiben. Das Zeitfenster ist winzig, aber
-            // es kostet nichts, es gar nicht erst zu vergroessern.
-            _configService.SuspendSaving();
-            StampImportTime();
-            Logger.Log($"Konfiguration wurde eingespielt: {sourcePath}. Sie wird mit dem naechsten Start wirksam.");
+            Logger.Log($"Konfiguration wurde eingespielt: {sourcePath}. Sie wird mit dem nächsten Start wirksam.");
             return ConfigTransferResult.Success;
         }
 
         /// <summary>
-        /// Prueft, ob der Inhalt eine Konfiguration dieser Anwendung ist. Geprueft
-        /// wird die Struktur, nicht der Inhalt: eine Konfiguration darf durchaus
-        /// leere Listen enthalten, aber nicht saemtliche Felder vermissen lassen.
+        /// Prüft, ob der Inhalt eine Konfiguration dieser Anwendung ist. Geprüft
+        /// werden die bekannten Felder und ihre Deserialisierbarkeit. Leere Listen
+        /// und fehlende optionale Felder bleiben für ältere Sicherungen zulässig.
         /// </summary>
         internal static bool IsConfigFile(string json)
         {
@@ -194,6 +178,29 @@ namespace GameLauncher.Services.Settings
                     if (document.RootElement.TryGetProperty(propertyName, out _) &&
                         ++matches >= RequiredConfigPropertyMatches)
                     {
+                        // Das Modell prüft auch die Typen und verschachtelten Felder.
+                        // Der Spielzeit-Konverter toleriert beim normalen Laden defekte
+                        // Einträge; beim Import dürfen diese nicht unbemerkt entfallen.
+                        var config = document.RootElement.Deserialize<GameConfig>();
+                        if (config == null || config.ManualGames?.Exists(game => game == null || string.IsNullOrWhiteSpace(game.Id)) == true ||
+                            config.GameTags?.Values.Any(tags => tags == null) == true)
+                        {
+                            return false;
+                        }
+
+                        if (document.RootElement.TryGetProperty("play_time", out var playTime) &&
+                            playTime.ValueKind == JsonValueKind.Object)
+                        {
+                            foreach (var entry in playTime.EnumerateObject())
+                            {
+                                if (!Serialization.PlayTimeDictionaryJsonConverter.TryReadEntry(
+                                    entry.Value, JsonSerializerOptions.Default, out _))
+                                {
+                                    return false;
+                                }
+                            }
+                        }
+
                         return true;
                     }
                 }
@@ -202,58 +209,6 @@ namespace GameLauncher.Services.Settings
             }
             catch (JsonException)
             {
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Setzt das Aenderungsdatum der eingespielten Konfiguration auf jetzt.
-        ///
-        /// File.Copy uebernimmt das Datum der Quelle: die Konfiguration truege
-        /// sonst den Zeitpunkt, zu dem die Sicherung entstand, und saehe im
-        /// Ordner aelter aus, als der Import war - als haette er nie
-        /// stattgefunden.
-        ///
-        /// Ein Fehlschlag darf den Import nicht scheitern lassen. Die Datei ist
-        /// an dieser Stelle bereits ersetzt; ein gemeldeter Fehlschlag wuerde
-        /// das Anhalten des Speicherns verhindern, und die Anwendung
-        /// ueberschriebe die eingespielte Datei wieder mit ihrem alten Stand.
-        /// Ein falsches Datum ist demgegenueber belanglos.
-        /// </summary>
-        private void StampImportTime()
-        {
-            try
-            {
-                File.SetLastWriteTime(_configService.ConfigPath, DateTime.Now);
-            }
-            catch (Exception ex)
-            {
-                Logger.Log($"Aenderungsdatum der eingespielten Konfiguration konnte nicht gesetzt werden: {ex.GetType().Name}");
-            }
-        }
-
-        /// <summary>
-        /// Sichert den bisherigen Stand neben der Konfigurationsdatei. Gibt es
-        /// noch keine Datei, ist nichts zu sichern.
-        /// </summary>
-        private bool TryBackupCurrentConfig()
-        {
-            try
-            {
-                if (!File.Exists(_configService.ConfigPath))
-                {
-                    return true;
-                }
-
-                string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
-                string backupPath = $"{_configService.ConfigPath}.vor-import-{timestamp}.bak";
-                File.Copy(_configService.ConfigPath, backupPath, overwrite: false);
-                Logger.Log($"Bisherige Konfiguration wurde vor dem Import gesichert: {backupPath}");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Bisherige Konfiguration konnte vor dem Import nicht gesichert werden; Import abgebrochen", ex);
                 return false;
             }
         }
