@@ -109,6 +109,8 @@ namespace GameLauncher.Tests
         [Fact]
         public void UpdatePlaySessions_PersistsDailyPlayTimeAcrossRestart()
         {
+            // Der echte Ladevorgang bereinigt relativ zum aktuellen Kalendertag.
+            var today = DateTime.Today.AddHours(20);
             var tempRoot = Path.Combine(Path.GetTempPath(), "GameLauncherTests", Guid.NewGuid().ToString("N"));
             var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
 
@@ -119,18 +121,18 @@ namespace GameLauncher.Tests
                 {
                     manager.UpdatePlaySessions(new[]
                     {
-                        new PlaySessionUpdate("steam:123", "Portal 2", 600, Today.AddDays(-20), 10),
+                        new PlaySessionUpdate("steam:123", "Portal 2", 600, today.AddDays(-20), 10),
                     });
                     manager.UpdatePlaySessions(new[]
                     {
-                        new PlaySessionUpdate("steam:123", "Portal 2", 610, Today.AddDays(-1), 10),
-                        new PlaySessionUpdate("steam:123", "Portal 2", 620, Today, 10),
+                        new PlaySessionUpdate("steam:123", "Portal 2", 610, today.AddDays(-1), 10),
+                        new PlaySessionUpdate("steam:123", "Portal 2", 620, today, 10),
                     });
                 }
 
                 using (var reloaded = new GameManager(configPath))
                 {
-                    var daily = reloaded.GetDailyPlayTime("steam:123", Today);
+                    var daily = reloaded.GetDailyPlayTime("steam:123", today);
 
                     Assert.Equal(10, daily[^2]);
                     Assert.Equal(10, daily[^1]);
