@@ -396,6 +396,29 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
+        public void ApplyManualGameInput_LoestUmgebungsvariableVorPfadnormalisierungAuf()
+        {
+            string variableName = $"GAMELAUNCHER_TEST_PATH_{Guid.NewGuid():N}";
+            string root = Path.Combine(Path.GetTempPath(), "GameLauncher-Pfadtest");
+            Environment.SetEnvironmentVariable(variableName, root);
+            try
+            {
+                var game = new Game();
+                GameManager.ApplyManualGameInput(
+                    game, "Spiel", $"%{variableName}%\\Ordner\\..\\Spiel\\spiel.exe", "-console");
+
+                Assert.Equal(Path.Combine(root, "Spiel", "spiel.exe"), game.Path);
+                Assert.Equal(Path.Combine(root, "Spiel"), game.InstallDirectory);
+                Assert.Equal("exe", game.LaunchType);
+                Assert.Equal("-console", game.Args);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(variableName, null);
+            }
+        }
+
+        [Fact]
         public void ApplyManualGameInput_NormalisiertProgrammpfad()
         {
             var game = new Game();
