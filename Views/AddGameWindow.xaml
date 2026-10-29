@@ -5,7 +5,7 @@
         Title="{loc:Loc Key=AddGame.Title}" Icon="pack://application:,,,/Resources/Images/game.ico" SizeToContent="Height" Width="480"
         Background="#1E1E1E" Foreground="White"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
-        AllowDrop="True" DragOver="Window_DragOver" Drop="Window_Drop">
+        AllowDrop="True" PreviewDragOver="Window_DragOver" PreviewDrop="Window_Drop">
     
     <Window.Resources>
         <!-- Modern TextBox -->
@@ -103,7 +103,7 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="25">
+    <Grid Margin="25" Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- Header -->
             <RowDefinition Height="Auto"/> <!-- Name -->
