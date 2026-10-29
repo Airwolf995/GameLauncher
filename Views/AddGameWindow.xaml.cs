@@ -20,7 +20,14 @@ namespace GameLauncher
 
         private Services.MetadataService _metadataService;
         private string _pendingCoverUrl = "";
+        private bool _isClosed;
         private readonly LocalizationService _localization = LocalizationService.Instance;
+
+        protected override void OnClosed(System.EventArgs e)
+        {
+            _isClosed = true;
+            base.OnClosed(e);
+        }
 
         public AddGameWindow(string apiKey = "")
         {
@@ -153,6 +160,14 @@ namespace GameLauncher
                 try
                 {
                     string? localPath = await _metadataService.DownloadImageAsync(_pendingCoverUrl, GameName);
+                    // Abbrechen und das Schließen über die Titelleiste bleiben
+                    // während des Downloads möglich. Der geschlossene Dialog
+                    // darf anschließend weder verändert noch bestätigt werden.
+                    if (_isClosed)
+                    {
+                        return;
+                    }
+
                     if (localPath != null)
                     {
                         GameCoverPath = localPath;
@@ -160,6 +175,11 @@ namespace GameLauncher
                 }
                 catch (System.Exception ex)
                 {
+                    if (_isClosed)
+                    {
+                        return;
+                    }
+
                     ModernMessageWindow.Show(_localization.Format("AddGame.CoverDownloadError", ex.Message), _localization.Get("Common.Warning"), ModernMessageWindow.ModernMessageButton.OK, this);
                 }
             }
