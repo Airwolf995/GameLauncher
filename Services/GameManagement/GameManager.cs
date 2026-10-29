@@ -337,8 +337,9 @@ namespace GameLauncher.Services.GameManagement
             }
             else
             {
-                // Normalize Path (remove double backslashes, fix separators)
-                try { path = Path.GetFullPath(path); } catch { /* Keep original if invalid */ }
+                // Variablen zuerst auflösen, damit etwa %LOCALAPPDATA% nicht
+                // als relativer Ordner unter dem Arbeitsverzeichnis landet.
+                try { path = Path.GetFullPath(Environment.ExpandEnvironmentVariables(path)); } catch { /* Ungültige Eingabe beibehalten */ }
             }
 
             game.Name = name;
