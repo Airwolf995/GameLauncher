@@ -416,14 +416,20 @@ namespace GameLauncher.Services
             string counterName,
             string instanceName)
         {
+            PerformanceCounter? counter = null;
             try
             {
-                var counter = new PerformanceCounter(categoryName, counterName, instanceName, readOnly: true);
+                counter = new PerformanceCounter(categoryName, counterName, instanceName, readOnly: true);
                 counter.NextValue();
                 target.Add(counter);
+                counter = null;
             }
             catch
             {
+            }
+            finally
+            {
+                counter?.Dispose();
             }
         }
 
