@@ -25,7 +25,6 @@ namespace GameLauncher
             _playTimeService = playTimeService;
             _localization.LanguageChanged += OnLanguageChanged;
 
-            // Position at top-right by default
             Left = SystemParameters.PrimaryScreenWidth - Width - 20;
             Top = 20;
 
@@ -66,20 +65,16 @@ namespace GameLauncher
             {
                 HardwareStatsSnapshot stats = await _hardwareMonitor.ReadSnapshotAsync();
 
-                // CPU
                 string cpuTempStr = (stats.CpuTemp.HasValue && stats.CpuTemp.Value > 0) ? $"{Math.Round(stats.CpuTemp.Value)}°C" : "--°C";
                 string cpuLoadStr = stats.CpuUsage.HasValue ? $"{Math.Round(stats.CpuUsage.Value)}%" : "--%";
                 CpuText.Text = $"{cpuTempStr} | {cpuLoadStr}";
 
-                // GPU
                 string gpuTempStr = (stats.GpuTemp.HasValue && stats.GpuTemp.Value > 0) ? $"{Math.Round(stats.GpuTemp.Value)}°C" : "--°C";
                 string gpuLoadStr = stats.GpuUsage.HasValue ? $"{Math.Round(stats.GpuUsage.Value)}%" : "--%";
                 GpuText.Text = $"{gpuTempStr} | {gpuLoadStr}";
 
-                // RAM
                 RamText.Text = FormatMemory(stats.RamUsedGb, stats.RamTotalGb, stats.RamLoad);
 
-                // VRAM
                 VramText.Text = FormatMemory(stats.VramUsedGb, stats.VramTotalGb, stats.VramLoad);
             }
             catch (Exception ex)
@@ -186,6 +181,11 @@ namespace GameLauncher
 
         protected override void OnClosed(EventArgs e)
         {
+            _clockTimer.Stop();
+            _hardwareTimer.Stop();
+            _clockTimer.Tick -= UpdateClockAndGame;
+            _hardwareTimer.Tick -= UpdateHardwareStats;
+            IsVisibleChanged -= OnVisibilityChanged;
             _localization.LanguageChanged -= OnLanguageChanged;
             base.OnClosed(e);
         }

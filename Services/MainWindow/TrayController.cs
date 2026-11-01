@@ -77,12 +77,14 @@ namespace GameLauncher.Services.MainWindow
 
             try
             {
+                using var icon = _notifyIcon.Icon;
+                using var contextMenu = _notifyIcon.ContextMenuStrip;
                 _notifyIcon.Visible = false;
                 _notifyIcon.Dispose();
-                _localization.LanguageChanged -= OnLanguageChanged;
             }
             finally
             {
+                _localization.LanguageChanged -= OnLanguageChanged;
                 _notifyIcon = null;
                 _openItem = null;
                 _exitItem = null;
@@ -121,7 +123,7 @@ namespace GameLauncher.Services.MainWindow
                 // Fallback below.
             }
 
-            return SystemIcons.Application;
+            return (Icon)SystemIcons.Application.Clone();
         }
     }
 }
