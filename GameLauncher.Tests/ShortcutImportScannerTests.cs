@@ -155,4 +155,35 @@ public sealed class ShortcutImportScannerTests
 
         Assert.False(ShortcutImportScanner.IsAlreadyKnown(candidate, existing));
     }
+
+    [Theory]
+    [InlineData("/command=runGame /gameId=1648559910", true)]
+    [InlineData("  /command=runGame /gameId=1648559910  ", true)]
+    [InlineData("/command=runGame /gameId=1957528513", false)]
+    public void IsAlreadyKnown_UnterscheidetSpieleDesselbenClients(string arguments, bool expected)
+    {
+        const string client = @"C:\Program Files (x86)\GOG Galaxy\GalaxyClient.exe";
+        var candidate = new ShortcutGameCandidate("Anderer Verknüpfungsname", client, arguments, "", true);
+        var existing = new[]
+        {
+            new Game
+            {
+                Id = "manual_1", Name = "Frostpunk", Path = client,
+                Args = "/command=runGame /gameId=1648559910", IsManual = true,
+                InstallDirectory = @"C:\Program Files (x86)\GOG Galaxy"
+            }
+        };
+
+        Assert.Equal(expected, ShortcutImportScanner.IsAlreadyKnown(candidate, existing));
+    }
+
+    [Fact]
+    public void IsAlreadyKnown_ErkenntDasselbeSpielprogrammMitAnderenOptionen()
+    {
+        const string executable = @"D:\Games\Spiel\spiel.exe";
+        var candidate = new ShortcutGameCandidate("Spiel DX12", executable, "-dx12", "", true);
+        var existing = new[] { new Game { Name = "Spiel", Path = executable, Args = "-dx11" } };
+
+        Assert.True(ShortcutImportScanner.IsAlreadyKnown(candidate, existing));
+    }
 }
