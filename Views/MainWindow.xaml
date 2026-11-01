@@ -29,12 +29,17 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
-                        <Border Background="{TemplateBinding Background}" 
+                        <Border x:Name="SearchBorder" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}" 
                                 BorderThickness="{TemplateBinding BorderThickness}" 
                                 CornerRadius="5">
                             <ScrollViewer x:Name="PART_ContentHost"/>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="SearchBorder" Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -60,16 +65,10 @@
                       VerticalAlignment="Center"
                       Data="M 0 0 L 4 4 L 8 0 Z"/>
             </Grid>
-            <ControlTemplate.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter TargetName="Border" Property="Background" Value="#EEE" />
-                    <Setter TargetName="Border" Property="BorderBrush" Value="#AAA" />
-                    <Setter Property="Foreground" Value="#888"/>
-                </Trigger>
-            </ControlTemplate.Triggers>
         </ControlTemplate>
 
         <Style TargetType="ComboBox">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisualStyle}"/>
             <Setter Property="Padding" Value="6,4"/>
             <Setter Property="Background" Value="#252526"/>
             <Setter Property="Foreground" Value="White"/>
@@ -78,7 +77,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ComboBox">
-                        <Grid>
+                        <Grid x:Name="ComboRoot">
                             <ToggleButton Name="ToggleButton" 
                                           Template="{StaticResource ComboBoxToggleButton}" 
                                           Grid.Column="2" 
@@ -95,17 +94,7 @@
                                               Margin="6,3,23,3"
                                               VerticalAlignment="Center"
                                               HorizontalAlignment="Left" />
-                            <TextBox x:Name="PART_EditableTextBox"
-                                     Style="{x:Null}" 
-                                     Template="{x:Null}" 
-                                     HorizontalAlignment="Left" 
-                                     VerticalAlignment="Center" 
-                                     Margin="6,3,23,3"
-                                     Focusable="True" 
-                                     Background="Transparent"
-                                     Visibility="Hidden"
-                                     IsReadOnly="{TemplateBinding IsReadOnly}"/>
-                            <Popup Name="Popup"
+                            <Popup Name="PART_Popup"
                                    Placement="Bottom"
                                    IsOpen="{TemplateBinding IsDropDownOpen}"
                                    AllowsTransparency="True" 
@@ -128,34 +117,18 @@
                                 </Grid>
                             </Popup>
                         </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ComboRoot" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
         <!-- ComboBoxItem Style -->
-        <Style x:Key="MainComboBoxItemStyle" TargetType="ComboBoxItem">
-            <Setter Property="Background" Value="#252526"/>
-            <Setter Property="BorderBrush" Value="#252526"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type ComboBoxItem}">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="0" Padding="5">
-                            <ContentPresenter />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#3E3E42"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentColor}"/>
-                                <Setter Property="Foreground" Value="{DynamicResource AccentForeground}"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+        <Style x:Key="MainComboBoxItemStyle" TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsSeparator}" Value="True">
                     <Setter Property="IsEnabled" Value="False"/>
@@ -165,7 +138,6 @@
         </Style>
 
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-        <!-- REMOVED local AccentColor to use Global Resource -->
         
         <!-- Dynamic Card Size Resources -->
         <system:Double x:Key="GameCardWidth">420</system:Double>
@@ -178,15 +150,13 @@
         <!-- Hover Animation Brush -->
         <SolidColorBrush x:Key="HoverBackgroundBrush" Color="#0FFFFFFF"/>
         
-        <!-- Animation Control -->
-        <system:Boolean x:Key="AnimationsEnabled">True</system:Boolean>
 
         <Style x:Key="GameListItemContainerStyle" TargetType="ListBoxItem">
             <Setter Property="ClipToBounds" Value="False"/>
             <Setter Property="Padding" Value="5"/>
             <Setter Property="Margin" Value="{DynamicResource CardMargin}"/>
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Focusable" Value="True"/>
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -202,6 +172,9 @@
                                 <Setter TargetName="Container" Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
                                 <Setter TargetName="Container" Property="Background" Value="#1AFFFFFF"/>
                                 <Setter TargetName="Container" Property="BorderThickness" Value="2"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="Container" Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Panel.ZIndex" Value="100"/>
@@ -232,6 +205,7 @@
                 </Setter.Value>
             </Setter>
             <EventSetter Event="MouseLeftButtonUp" Handler="GameCard_Click"/>
+            <EventSetter Event="KeyDown" Handler="GameTile_KeyDown"/>
         </Style>
 
         <Style x:Key="GameRowItemContainerStyle" TargetType="ListBoxItem">
@@ -259,12 +233,12 @@
             <Border Width="{DynamicResource GameCardWidth}"
                     Height="{DynamicResource GameCardHeight}"
                     Margin="{DynamicResource CardMargin}"
-                    Background="#2D2D30"
                     CornerRadius="8"
-                    BorderBrush="#3E3E42"
                     BorderThickness="1"
                     Padding="{DynamicResource CardPadding}"
                     RenderTransformOrigin="0.5,0.5"
+                    Focusable="True"
+                    KeyDown="GameTile_KeyDown"
                     MouseLeftButtonUp="GameTile_Click">
                 <Border.RenderTransform>
                     <TranslateTransform X="0" Y="0"/>
@@ -272,7 +246,12 @@
                 <Border.Style>
                     <Style TargetType="Border">
                         <Setter Property="Panel.ZIndex" Value="0"/>
+                        <Setter Property="Background" Value="#2D2D30"/>
+                        <Setter Property="BorderBrush" Value="#3E3E42"/>
                         <Style.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
+                            </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background" Value="#3A3A40"/>
                                 <Setter Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
@@ -371,6 +350,7 @@
 
         <DataTemplate x:Key="GameCardRowTemplate">
             <ItemsControl ItemsSource="{Binding Games}"
+                          Focusable="False"
                           ItemTemplate="{StaticResource GameCardTemplate}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -523,10 +503,8 @@
             </Grid>
         </Border>
 
-        <!-- Main Content -->
-        <!-- Main Content (ListBox for Navigation) -->
-        <!-- Main Content (ListBox for Navigation) -->
         <ListBox x:Name="GameListControl" Grid.Row="1" Margin="0,10,0,10" Background="Transparent" BorderThickness="0" ClipToBounds="False"
+                 IsTabStop="False" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Continue"
                  ItemsSource="{Binding CardRows}"
                  ItemTemplate="{StaticResource GameCardRowTemplate}"
                  ItemContainerStyle="{StaticResource GameRowItemContainerStyle}"

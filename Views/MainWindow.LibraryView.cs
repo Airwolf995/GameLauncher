@@ -43,7 +43,7 @@ namespace GameLauncher
                 return;
             }
 
-            if (comboBox.Template.FindName("Popup", comboBox) is not Popup popup || popup.Child is not DependencyObject popupChild)
+            if (comboBox.Template.FindName("PART_Popup", comboBox) is not Popup popup || popup.Child is not DependencyObject popupChild)
             {
                 return;
             }
@@ -71,7 +71,6 @@ namespace GameLauncher
 
         private void RefreshList(bool instant = true)
         {
-            // Re-animate items when list is refreshed/filtered
             Dispatcher.BeginInvoke(new Action(() => {
                 AnimateItemsStaggered(instant);
             }), System.Windows.Threading.DispatcherPriority.Background);
@@ -268,7 +267,6 @@ namespace GameLauncher
 
         private void ApplyAnimations(bool enabled, bool writeLog = true)
         {
-            // Toggle the dependency property so XAML triggers can react
             this.AreAnimationsEnabled = enabled;
             if (writeLog)
             {
