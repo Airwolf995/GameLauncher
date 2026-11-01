@@ -11,30 +11,6 @@
     <Window.Resources>
         <conv:ProgramIconConverter x:Key="ProgramIcon"/>
 
-        <!-- Modern Base Button Template -->
-        <Style x:Key="ModernWindowButton" TargetType="Button">
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="15,6"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="5"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
 
         <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernWindowButton}">
             <Setter Property="Background" Value="{DynamicResource AccentColor}"/>

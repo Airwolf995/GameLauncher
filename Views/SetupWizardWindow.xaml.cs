@@ -65,7 +65,6 @@ namespace GameLauncher
 
         private async Task UpdateStepVisibilityAsync()
         {
-            // Toggle Content
             Step1.Visibility = _currentStep == 1 ? Visibility.Visible : Visibility.Collapsed;
             Step2.Visibility = _currentStep == 2 ? Visibility.Visible : Visibility.Collapsed;
             Step3.Visibility = _currentStep == 3 ? Visibility.Visible : Visibility.Collapsed;
@@ -77,14 +76,12 @@ namespace GameLauncher
                 await DetectLibraryPathsAsync();
             }
 
-            // Update Indicators
             UpdateIndicator(Step1Indicator, _currentStep == 1);
             UpdateIndicator(Step2Indicator, _currentStep == 2);
             UpdateIndicator(Step3Indicator, _currentStep == 3);
             UpdateIndicator(Step4Indicator, _currentStep == 4);
             UpdateIndicator(Step5Indicator, _currentStep == 5);
 
-            // Navigation buttons
             BtnBack.Visibility = _currentStep > 1 ? Visibility.Visible : Visibility.Hidden;
             BtnNext.Visibility = _currentStep < TotalSteps ? Visibility.Visible : Visibility.Collapsed;
             BtnFinish.Visibility = _currentStep == TotalSteps ? Visibility.Visible : Visibility.Collapsed;
@@ -94,7 +91,7 @@ namespace GameLauncher
         {
             if (isActive)
             {
-                indicator.Foreground = new SolidColorBrush(Color.FromRgb(0, 122, 204));
+                indicator.SetResourceReference(TextBlock.ForegroundProperty, "AccentColor");
                 indicator.FontWeight = FontWeights.SemiBold;
             }
             else
@@ -121,7 +118,6 @@ namespace GameLauncher
                 }
             });
 
-            // Theme
             if (ThemeBox.SelectedItem is ComboBoxItem themeItem)
             {
                 _gameManager.SetTheme(Constants.UI.NormalizeThemeKey(themeItem.Tag?.ToString() ?? "Blue"));
@@ -141,7 +137,6 @@ namespace GameLauncher
         {
             if (ThemeBox.SelectedItem is ComboBoxItem item)
             {
-                // Tag enthält bereits den HEX-Code (z.B. "#007ACC")
                 string colorCode = Constants.UI.GetColorCodeForTheme(item.Tag?.ToString() ?? "Blue");
 
                 // Über den Dienst, damit auch die Schriftfarbe auf Akzentflächen
@@ -267,9 +262,16 @@ namespace GameLauncher
 
         private static void ApplyLanguageButtonState(Button button, bool isSelected)
         {
-            button.Background = isSelected
-                ? (Brush)Application.Current.Resources["AccentColor"]
-                : new SolidColorBrush(Color.FromRgb(51, 51, 51));
+            if (isSelected)
+            {
+                button.SetResourceReference(Control.BackgroundProperty, "AccentColor");
+                button.SetResourceReference(Control.ForegroundProperty, "AccentForeground");
+            }
+            else
+            {
+                button.Background = new SolidColorBrush(Color.FromRgb(51, 51, 51));
+                button.Foreground = Brushes.White;
+            }
             button.FontWeight = isSelected ? FontWeights.Bold : FontWeights.SemiBold;
         }
     }

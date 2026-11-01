@@ -88,6 +88,17 @@ namespace GameLauncher
             e.Handled = true;
         }
 
+        private void GameTile_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key is not (Key.Enter or Key.Space) || !TryGetGameFromSender(sender, out Game? game))
+            {
+                return;
+            }
+
+            e.Handled = true;
+            OpenGameDetails(game!);
+        }
+
         private void Play_Click(object sender, RoutedEventArgs e)
         {
             if (sender is MenuItem item && item.DataContext is Game game)

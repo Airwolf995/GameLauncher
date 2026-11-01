@@ -9,7 +9,6 @@ namespace GameLauncher.Services
 {
     /// <summary>
     /// Service for applying UI settings like themes, font scaling, and background images.
-    /// Extracted from MainWindow to reduce code complexity.
     /// </summary>
     public class UISettingsService
     {
@@ -34,14 +33,12 @@ namespace GameLauncher.Services
         }
 
         /// <summary>
-        /// Wählt Schwarz oder Weiß als Schriftfarbe auf einer Akzentfläche. Ohne das
-        /// bliebe die fest verdrahtete weiße Schrift auf hellen Akzenten - etwa dem
-        /// weißen Design - unlesbar. Die Helligkeit folgt der Standardgewichtung nach
-        /// ITU-R BT.601; die Schwelle liegt bei 60 Prozent.
+        /// Behält weiße Schrift für die farbigen Themes bei und verwendet
+        /// auf sehr hellen Akzentflächen wie dem weißen Theme dunkle Schrift.
         /// </summary>
-        private static Color GetReadableForeground(Color accent)
+        internal static Color GetReadableForeground(Color accent)
         {
-            var brightness = (0.299 * accent.R + 0.587 * accent.G + 0.114 * accent.B) / 255.0;
+            double brightness = (0.299 * accent.R + 0.587 * accent.G + 0.114 * accent.B) / 255.0;
             return brightness > 0.6 ? Color.FromRgb(0x1E, 0x1E, 0x1E) : Colors.White;
         }
 

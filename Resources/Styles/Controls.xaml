@@ -13,15 +13,14 @@
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ScrollBar}">
                     <Grid x:Name="Bg" Background="Transparent" SnapsToDevicePixels="true">
-                        <!-- Track Background -->
-                        <Border Background="#161616" CornerRadius="5" Margin="2,0,2,0"/>
+                        <Border x:Name="TrackBackground" Background="#161616" CornerRadius="5" Margin="2,0,2,0"/>
                         
-                        <Track x:Name="PART_Track" IsDirectionReversed="true" IsEnabled="{TemplateBinding IsEnabled}">
+                        <Track x:Name="PART_Track" Orientation="{TemplateBinding Orientation}" IsDirectionReversed="true" IsEnabled="{TemplateBinding IsEnabled}">
                             <Track.DecreaseRepeatButton>
-                                <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}" Opacity="0" Focusable="false"/>
+                                <RepeatButton x:Name="DecreaseButton" Command="{x:Static ScrollBar.PageUpCommand}" Opacity="0" Focusable="false"/>
                             </Track.DecreaseRepeatButton>
                             <Track.IncreaseRepeatButton>
-                                <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}" Opacity="0" Focusable="false"/>
+                                <RepeatButton x:Name="IncreaseButton" Command="{x:Static ScrollBar.PageDownCommand}" Opacity="0" Focusable="false"/>
                             </Track.IncreaseRepeatButton>
                             <Track.Thumb>
                                 <Thumb>
@@ -32,12 +31,14 @@
                                             <Setter Property="Template">
                                                 <Setter.Value>
                                                     <ControlTemplate TargetType="{x:Type Thumb}">
-                                                        <!-- Rounded Thumb -->
                                                         <Border x:Name="rectangle" 
                                                                 Background="#444444" 
                                                                 CornerRadius="4" 
                                                                 Margin="2,0,2,0"/>
                                                         <ControlTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding Orientation, RelativeSource={RelativeSource AncestorType=ScrollBar}}" Value="Horizontal">
+                                                                <Setter TargetName="rectangle" Property="Margin" Value="0,2,0,2"/>
+                                                            </DataTrigger>
                                                             <Trigger Property="IsMouseOver" Value="true">
                                                                 <Setter TargetName="rectangle" Property="Background" Value="#666666"/>
                                                             </Trigger>
@@ -56,20 +57,23 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="Orientation" Value="Horizontal">
-                            <Setter Property="Width" Value="Auto"/>
-                            <Setter Property="MinWidth" Value="0"/>
-                            <Setter Property="Height" Value="10"/>
-                            <Setter Property="MinHeight" Value="10"/>
-                            <Setter TargetName="Bg" Property="LayoutTransform">
-                                <Setter.Value>
-                                    <RotateTransform Angle="-90"/>
-                                </Setter.Value>
-                            </Setter>
+                            <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+                            <Setter TargetName="TrackBackground" Property="Margin" Value="0,2,0,2"/>
+                            <Setter TargetName="DecreaseButton" Property="Command" Value="{x:Static ScrollBar.PageLeftCommand}"/>
+                            <Setter TargetName="IncreaseButton" Property="Command" Value="{x:Static ScrollBar.PageRightCommand}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto"/>
+                <Setter Property="MinWidth" Value="0"/>
+                <Setter Property="Height" Value="10"/>
+                <Setter Property="MinHeight" Value="10"/>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <Style TargetType="ToolTip">
@@ -79,7 +83,6 @@
         <Setter Property="Padding" Value="5"/>
     </Style>
 
-    <!-- Global Modern TextBox Style -->
     <Style TargetType="TextBox">
         <Setter Property="Padding" Value="8"/>
         <Setter Property="controls:ScrollAssist.BubbleScroll" Value="True"/>
@@ -100,8 +103,11 @@
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="border" Property="BorderBrush" Value="#555555"/>
                         </Trigger>
-                        <Trigger Property="IsFocused" Value="True">
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
                             <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="border" Property="Opacity" Value="0.5"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -109,7 +115,6 @@
         </Setter>
     </Style>
 
-    <!-- Global Modern ComboBox Style -->
     <ControlTemplate x:Key="ComboBoxToggleButton" TargetType="ToggleButton">
         <Grid>
             <Grid.ColumnDefinitions>
@@ -122,6 +127,7 @@
     </ControlTemplate>
     
     <Style TargetType="ComboBox">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisualStyle}"/>
         <Setter Property="Padding" Value="10,6"/>
         <Setter Property="Background" Value="#252526"/>
         <Setter Property="Foreground" Value="White"/>
@@ -129,10 +135,10 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ComboBox">
-                    <Grid>
+                    <Grid x:Name="ComboRoot">
                         <ToggleButton Name="ToggleButton" Template="{StaticResource ComboBoxToggleButton}" Grid.Column="2" Focusable="false" IsChecked="{Binding Path=IsDropDownOpen,Mode=TwoWay,RelativeSource={RelativeSource TemplatedParent}}" ClickMode="Press" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"/>
                         <ContentPresenter Name="ContentSite" IsHitTestVisible="False" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" Margin="10,3,23,3" VerticalAlignment="Center" HorizontalAlignment="Left" />
-                        <Popup Name="Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+                        <Popup Name="PART_Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
                             <Grid Name="DropDown" SnapsToDevicePixels="True" MinWidth="{TemplateBinding ActualWidth}" MaxHeight="{TemplateBinding MaxDropDownHeight}">
                                 <Border x:Name="DropDownBorder" Background="#252526" BorderThickness="1" BorderBrush="#3E3E42"/>
                                 <ScrollViewer Margin="4,6,4,6" SnapsToDevicePixels="True">
@@ -141,6 +147,11 @@
                             </Grid>
                         </Popup>
                     </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="ComboRoot" Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -154,16 +165,19 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ComboBoxItem">
-                    <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderThickness="0" Padding="5">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderThickness="0" Padding="{TemplateBinding Padding}">
                         <ContentPresenter />
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
+                        <Trigger Property="IsHighlighted" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="#3E3E42"/>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentColor}"/>
                             <Setter Property="Foreground" Value="{DynamicResource AccentForeground}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.5"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -171,8 +185,8 @@
         </Setter>
     </Style>
     
-    <!-- Modern Toggle Switch (CheckBox) Fixed -->
     <Style TargetType="{x:Type CheckBox}">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisualStyle}"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Foreground" Value="White"/>
         <Setter Property="Background" Value="Transparent"/>
@@ -180,19 +194,47 @@
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type CheckBox}">
                     <Grid x:Name="RootGrid" Background="Transparent" SnapsToDevicePixels="True">
+                        <!-- WPF setzt den Startzustand ohne Übergang; spätere Wechsel
+                             animieren denselben Transform vom aktuellen Wert aus. -->
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CheckStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition GeneratedDuration="0:0:0.15"/>
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Unchecked">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Ellipse"
+                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         To="0" Duration="0"/>
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Checked">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Ellipse"
+                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         To="18" Duration="0"/>
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Indeterminate">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Ellipse"
+                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         To="0" Duration="0"/>
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         
-                        <!-- Track -->
                             <Border x:Name="Border" 
                                     Width="40" Height="22" 
                                     Background="#333333" 
                                     CornerRadius="11" 
                                     BorderBrush="#555555"
                                     BorderThickness="1">
-                                <!-- Thumb -->
                                 <Ellipse x:Name="Ellipse" 
                                         Width="16" Height="16" 
                                         Fill="#AAAAAA"
@@ -217,41 +259,6 @@
                             <Setter TargetName="Border" Property="Background" Value="{DynamicResource AccentColor}"/>
                             <Setter TargetName="Border" Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
                             <Setter TargetName="Ellipse" Property="Fill" Value="{DynamicResource AccentForeground}"/>
-                            <Setter TargetName="Ellipse" Property="RenderTransform">
-                                <Setter.Value>
-                                    <TranslateTransform X="18"/>
-                                </Setter.Value>
-                            </Setter>
-                            <Trigger.EnterActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="Ellipse"
-                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                         To="18"
-                                                         Duration="0:0:0.15"/>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </Trigger.EnterActions>
-                        </Trigger>
-                        <Trigger Property="IsChecked" Value="False">
-                            <Setter TargetName="Border" Property="Background" Value="#333333"/>
-                            <Setter TargetName="Border" Property="BorderBrush" Value="#555555"/>
-                            <Setter TargetName="Ellipse" Property="Fill" Value="#AAAAAA"/>
-                            <Setter TargetName="Ellipse" Property="RenderTransform">
-                                <Setter.Value>
-                                    <TranslateTransform X="0"/>
-                                </Setter.Value>
-                            </Setter>
-                            <Trigger.EnterActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="Ellipse"
-                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                         To="0"
-                                                         Duration="0:0:0.15"/>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </Trigger.EnterActions>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="RootGrid" Property="Opacity" Value="0.5"/>
@@ -262,7 +269,6 @@
         </Setter>
     </Style>
 
-    <!-- Global Dark ContextMenu / MenuItem Style -->
     <Style TargetType="{x:Type ContextMenu}">
         <Setter Property="Background" Value="#252526"/>
         <Setter Property="Foreground" Value="#CCCCCC"/>
@@ -326,6 +332,10 @@
                             <Setter TargetName="submenuArrow" Property="Visibility" Value="Visible"/>
                         </Trigger>
                         <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="#3E3E42"/>
+                            <Setter Property="Foreground" Value="White"/>
+                        </Trigger>
+                        <Trigger Property="IsSubmenuOpen" Value="True">
                             <Setter TargetName="border" Property="Background" Value="#3E3E42"/>
                             <Setter Property="Foreground" Value="White"/>
                         </Trigger>
