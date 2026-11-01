@@ -9,7 +9,7 @@ namespace GameLauncher.Services.Scanners
 {
     /// <summary>
     /// Durchsucht Startmenü und Desktop nach Spielverknüpfungen. Plattformen ohne
-    /// eigenen Scanner (Battle.net, Rockstar, Riot, Amazon Games, itch.io und
+    /// eigenen Scanner (Rockstar, Riot, Amazon Games, itch.io und
     /// weitere) legen dort Verknüpfungen an; sie sind damit erreichbar, ohne für
     /// jeden Anbieter einen eigenen Scanner zu pflegen.
     /// </summary>
@@ -189,6 +189,7 @@ namespace GameLauncher.Services.Scanners
         {
             foreach (var game in existingGames)
             {
+                bool startsViaLauncher = Constants.Launchers.IsLauncherExecutable(game.Path);
                 if (!string.IsNullOrWhiteSpace(game.Name) &&
                     string.Equals(game.Name.Trim(), candidate.Name.Trim(), StringComparison.OrdinalIgnoreCase))
                 {
@@ -196,12 +197,16 @@ namespace GameLauncher.Services.Scanners
                 }
 
                 if (!string.IsNullOrWhiteSpace(game.Path) &&
-                    string.Equals(game.Path, candidate.TargetPath, StringComparison.OrdinalIgnoreCase))
+                    string.Equals(game.Path, candidate.TargetPath, StringComparison.OrdinalIgnoreCase) &&
+                    (!startsViaLauncher || string.Equals(game.Args.Trim(), candidate.Arguments.Trim(), StringComparison.OrdinalIgnoreCase)))
                 {
                     return true;
                 }
 
-                if (IsInsideDirectory(candidate.TargetPath, game.InstallDirectory))
+                // Bei manuellen Client-Einträgen ist dies der Client-Ordner,
+                // nicht das Installationsverzeichnis des gestarteten Spiels.
+                if (!(game.IsManual && startsViaLauncher) &&
+                    IsInsideDirectory(candidate.TargetPath, game.InstallDirectory))
                 {
                     return true;
                 }
