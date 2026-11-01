@@ -11,6 +11,9 @@ $nugetConfigPath = ".\NuGet.Local.config"
 
 Write-Host "Stelle Release-Abhaengigkeiten wieder her..."
 dotnet restore $projectPath -r $Runtime --configfile $nugetConfigPath
+if ($LASTEXITCODE -ne 0) {
+    throw "Release-Abhängigkeiten konnten nicht wiederhergestellt werden (Exitcode $LASTEXITCODE)."
+}
 
 # "dotnet publish" schreibt nur hinzu und raeumt nie auf. Ohne dieses Leeren
 # waere der Ordner die Summe aller bisherigen Durchlaeufe: Dateien entfallener
@@ -26,6 +29,9 @@ dotnet publish $projectPath `
     --self-contained false `
     --no-restore `
     -o $PublishDir
+if ($LASTEXITCODE -ne 0) {
+    throw "Release-Publish fehlgeschlagen (Exitcode $LASTEXITCODE)."
+}
 
 Copy-Item .\LICENSE (Join-Path $PublishDir "LICENSE") -Force
 Copy-Item .\COPYRIGHT.txt (Join-Path $PublishDir "COPYRIGHT.txt") -Force

@@ -44,8 +44,11 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Registry]
 ; Autostart via HKCU Run key (cleaner than Startup folder shortcut)
+; Frühere Installer nutzten den Anzeigenamen; die Einstellungen verwenden GameLauncher.
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
-ValueType: string; ValueName: "{#MyAppName}"; ValueData: """{app}\{#MyAppExeName}"""; \
+ValueType: none; ValueName: "{#MyAppName}"; Flags: deletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
+ValueType: string; ValueName: "GameLauncher"; ValueData: """{app}\{#MyAppExeName}"""; \
 Tasks: autostart; Flags: uninsdeletevalue
 
 [Run]
