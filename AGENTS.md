@@ -38,7 +38,7 @@ dotnet build .\GameLauncher.csproj -c Release
 - Hardware‑Monitoring: `Services/HardwareMonitorService.cs`
 - Spielzeit: `Services/PlayTimeService.cs`, Tagesverlauf: `Services/PlayTimeHistory.cs`
 - Fenster-/UI-Orchestrierung: `Services/MainWindow/`
-- Virtualisierte Bibliotheksansicht: `Controls/VirtualizingWrapPanel.cs`
+- Virtualisierte Bibliotheksansicht: `Services/LibraryViewSnapshotBuilder.cs` (Kartenzeilen), `Core/RealizedItemRange.cs` (realisierter Bereich des WPF-`VirtualizingStackPanel`)
 - Einstellungen & Pfadpflege: `ViewModels/SettingsViewModel.cs`
 
 ## Orientierungsstruktur
