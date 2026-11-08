@@ -26,13 +26,15 @@ public sealed class ShortcutResolverTests : IDisposable
     public void TryResolve_LiefertZielEinerGueltigenVerknuepfung()
     {
         string target = CreateProgram("Spiel.exe");
-        string shortcut = CreateShortcut("Spiel.lnk", target, "-fullscreen");
+        string workingDirectory = Directory.CreateDirectory(Path.Combine(_workingDirectory, "Daten")).FullName;
+        string shortcut = CreateShortcut("Spiel.lnk", target, "-fullscreen", workingDirectory);
 
         var resolved = ShortcutResolver.TryResolve(shortcut);
 
         Assert.NotNull(resolved);
         Assert.Equal(target, resolved!.TargetPath, ignoreCase: true);
         Assert.Equal("-fullscreen", resolved.Arguments);
+        Assert.Equal(workingDirectory, resolved.WorkingDirectory, ignoreCase: true);
     }
 
     [Fact]
@@ -59,7 +61,7 @@ public sealed class ShortcutResolverTests : IDisposable
     /// Weg, der ohne eine zweite Kopie der COM-Deklarationen auskommt. Ist er
     /// abgeschaltet, schlägt der Test hier sichtbar fehl statt still zu bestehen.
     /// </summary>
-    private string CreateShortcut(string fileName, string targetPath, string arguments)
+    private string CreateShortcut(string fileName, string targetPath, string arguments, string workingDirectory = "")
     {
         string shortcutPath = Path.Combine(_workingDirectory, fileName);
 
@@ -70,6 +72,7 @@ public sealed class ShortcutResolverTests : IDisposable
         dynamic shortcut = shell.CreateShortcut(shortcutPath);
         shortcut.TargetPath = targetPath;
         shortcut.Arguments = arguments;
+        shortcut.WorkingDirectory = workingDirectory;
         shortcut.Save();
         Marshal.FinalReleaseComObject(shortcut);
         Marshal.FinalReleaseComObject(shell);

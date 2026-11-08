@@ -22,7 +22,7 @@ namespace GameLauncher
             if (dialog.ShowDialog() == true)
             {
                 // Add game in manager but don't trigger the global event (that would cause a full reload/re-animation)
-                var newGame = _gameManager.AddManualGame(dialog.GameName, dialog.GamePath, dialog.GameArgs, dialog.GameCoverPath, notifyUI: false);
+                var newGame = _gameManager.AddManualGame(dialog.GameName, dialog.GamePath, dialog.GameArgs, dialog.GameCoverPath, notifyUI: false, workingDirectory: dialog.GameWorkingDirectory);
                 
                 // Add to our main collection instantly via ViewModel
                 _viewModel.Games.Add(newGame);
@@ -54,7 +54,8 @@ namespace GameLauncher
                     candidate.Name,
                     candidate.TargetPath,
                     candidate.Arguments,
-                    notifyUI: false))
+                    notifyUI: false,
+                    workingDirectory: candidate.WorkingDirectory))
                 .ToList());
 
             foreach (var game in addedGames)
@@ -184,7 +185,7 @@ namespace GameLauncher
                     _gameManager.SetDownloadedGameImage(game, dialog.GameCoverPath);
                 }
 
-                _gameManager.UpdateManualGame(game, dialog.GameName, dialog.GamePath, dialog.GameArgs);
+                _gameManager.UpdateManualGame(game, dialog.GameName, dialog.GamePath, dialog.GameArgs, dialog.GameWorkingDirectory);
                 ShowStatus(_localization.Get("Main.StatusGameUpdated"));
             }
         }

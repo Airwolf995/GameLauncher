@@ -232,6 +232,11 @@ namespace GameLauncher.Services
 
                 return UpdateDownloadResult.Succeeded;
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                TryDeleteDownloadedInstaller();
+                return UpdateDownloadResult.Failed;
+            }
             catch (Exception ex)
             {
                 Logger.Error("Update download failed", ex);

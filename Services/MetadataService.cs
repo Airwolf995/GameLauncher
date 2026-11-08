@@ -14,7 +14,8 @@ namespace GameLauncher.Services
 {
     public class MetadataService
     {
-        private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        private static readonly HttpClient DefaultHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        private readonly HttpClient _httpClient;
         private const int MaxSteamGridDbCovers = 12;
         private const int MaxSteamStoreCovers = 6;
 
@@ -27,16 +28,25 @@ namespace GameLauncher.Services
         private readonly string _apiKey;
 
         public MetadataService(string apiKey = "")
+            : this(DefaultHttpClient, apiKey)
         {
+        }
+
+        internal MetadataService(HttpClient httpClient, string apiKey = "")
+        {
+            _httpClient = httpClient;
             _apiKey = apiKey;
         }
 
-        public async Task<bool> FetchSteamMetadataAsync(Game game, CancellationToken ct = default)
+        public Task<bool> FetchSteamMetadataAsync(Game game, CancellationToken ct = default) =>
+            FetchSteamMetadataAsync(game, LocalizationService.Instance.CurrentLanguage, ct);
+
+        internal async Task<bool> FetchSteamMetadataAsync(Game game, AppLanguage language, CancellationToken ct = default)
         {
             if (string.IsNullOrEmpty(game.Id) || !game.Id.StartsWith("steam:")) return false;
 
             string appId = game.Id.Replace("steam:", "");
-            string url = BuildSteamAppDetailsUrl(appId, LocalizationService.Instance.CurrentLanguage);
+            string url = BuildSteamAppDetailsUrl(appId, language);
 
             try
             {
@@ -49,6 +59,9 @@ namespace GameLauncher.Services
                         {
                             var data = appElement.GetProperty("data");
 
+                            // HTTP kann schon abgeschlossen sein, während die Fortsetzung
+                            // noch auf den UI-Thread wartet und ein Sprachwechsel abbricht.
+                            ct.ThrowIfCancellationRequested();
                             // Description
                             if (data.TryGetProperty("short_description", out var desc))
                             {
@@ -200,7 +213,7 @@ namespace GameLauncher.Services
         /// CDN den Dialog sonst bis zum Zeitlimit des HttpClient aufhalten. Ein
         /// Zeitablauf zählt wie ein Netzfehler, das Bild bleibt also erhalten.
         /// </summary>
-        private static async Task<bool> IsCoverAvailableAsync(string url, CancellationToken ct)
+        private async Task<bool> IsCoverAvailableAsync(string url, CancellationToken ct)
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(CoverAvailabilityTimeout);

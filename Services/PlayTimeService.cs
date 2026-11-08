@@ -237,10 +237,21 @@ namespace GameLauncher.Services
 
         private void RebuildMatchIndex()
         {
-            var gamesSnapshot = CaptureGamesSnapshotOnUiThread();
-            _matchIndex.Rebuild(gamesSnapshot);
-            Volatile.Write(ref _lastIndexedGameCount, gamesSnapshot.Count);
+            // Vor dem Snapshot quittieren: Änderungen während des Aufbaus
+            // müssen den nächsten Durchlauf weiterhin als veraltet markieren.
             _indexDirty = false;
+            try
+            {
+                var gamesSnapshot = CaptureGamesSnapshotOnUiThread();
+                _matchIndex.Rebuild(gamesSnapshot);
+                Volatile.Write(ref _lastIndexedGameCount, gamesSnapshot.Count);
+            }
+            catch
+            {
+                // Wie bisher bleibt ein fehlgeschlagener Aufbau wiederholbar.
+                _indexDirty = true;
+                throw;
+            }
         }
 
         /// <summary>
