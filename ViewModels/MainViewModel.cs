@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Threading;
 using GameLauncher.Core;
 using GameLauncher.Models;
 using GameLauncher.Services;
@@ -27,7 +28,10 @@ namespace GameLauncher.ViewModels
         private string _selectedFilter = Constants.Filters.All;
         private string _preferredFilter = Constants.Filters.All;
         private GameSortMode _selectedSort = GameSortMode.Name;
-        private Timer? _filterDebounce;
+        private readonly Dispatcher _dispatcher;
+        private readonly DispatcherTimer _filterDebounce;
+        private readonly Func<List<Game>, string, string, GameSortMode, int, LibraryViewSnapshot> _buildSnapshot;
+        private bool _disposed;
         private CancellationTokenSource? _metadataRefreshCts;
         private CancellationTokenSource? _gamesViewRefreshCts;
         private readonly CancellationTokenSource _cts = new();
@@ -39,8 +43,22 @@ namespace GameLauncher.ViewModels
         private int _cardColumns = 1;
 
         public MainViewModel(GameManager gameManager)
+            : this(gameManager, LibraryViewSnapshotBuilder.Create)
+        {
+        }
+
+        // Steuerbarer Hintergrundaufbau für Tests konkurrierender Aktualisierungen.
+        internal MainViewModel(GameManager gameManager,
+            Func<List<Game>, string, string, GameSortMode, int, LibraryViewSnapshot> buildSnapshot)
         {
             _gameManager = gameManager ?? throw new ArgumentNullException(nameof(gameManager));
+            _buildSnapshot = buildSnapshot;
+            _dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+            _filterDebounce = new DispatcherTimer(DispatcherPriority.Background, _dispatcher)
+            {
+                Interval = TimeSpan.FromMilliseconds(150)
+            };
+            _filterDebounce.Tick += OnFilterDebounce;
             _localization = LocalizationService.Instance;
             _games = [];
 
@@ -88,15 +106,21 @@ namespace GameLauncher.ViewModels
                     return;
                 }
 
-                _filterDebounce?.Dispose();
-                _filterDebounce = new Timer(_ =>
-                {
-                    _ = RefreshGamesViewAsync();
-                }, null, 150, Timeout.Infinite);
+                if (_disposed) return;
+                // Auch während der Wartezeit darf ein altes Ergebnis nicht mehr landen.
+                _gamesViewRefreshVersion++;
+                _filterDebounce.Stop();
+                _filterDebounce.Start();
             }
         }
 
         public bool IsSearchActive => !string.IsNullOrEmpty(SearchText);
+
+        private void OnFilterDebounce(object? sender, EventArgs e)
+        {
+            _filterDebounce.Stop();
+            _ = RefreshGamesViewAsync();
+        }
 
         public string SelectedFilter
         {
@@ -140,13 +164,17 @@ namespace GameLauncher.ViewModels
             bool loadSteamMetadataInBackground = true,
             bool includeDeferredStartupGames = false)
         {
+            if (_disposed) return;
+            var token = _cts.Token;
             StatusText = _localization.Get("Main.StatusLoadingGames");
             try
             {
-                var games = await _gameManager.LoadAllGamesAsync(_cts.Token);
+                var games = await _gameManager.LoadAllGamesAsync(token);
+                token.ThrowIfCancellationRequested();
                 if (includeDeferredStartupGames)
                 {
-                    var deferredGames = await _gameManager.LoadDeferredStartupGamesAsync(_cts.Token);
+                    var deferredGames = await _gameManager.LoadDeferredStartupGamesAsync(token);
+                    token.ThrowIfCancellationRequested();
                     if (deferredGames.Count > 0)
                     {
                         games = games
@@ -207,13 +235,19 @@ namespace GameLauncher.ViewModels
 
         public void Dispose()
         {
+            if (!_dispatcher.CheckAccess())
+            {
+                _dispatcher.Invoke(Dispose);
+                return;
+            }
+            if (_disposed) return;
+            _disposed = true;
+            _filterDebounce.Stop();
+            _filterDebounce.Tick -= OnFilterDebounce;
             _metadataRefreshCts?.Cancel();
-            _metadataRefreshCts?.Dispose();
             _gamesViewRefreshCts?.Cancel();
-            _gamesViewRefreshCts?.Dispose();
             _cts.Cancel();
             _cts.Dispose();
-            _filterDebounce?.Dispose();
             _gameManager.GamesUpdated -= OnGamesUpdated;
             _localization.LanguageChanged -= OnLanguageChanged;
         }
@@ -316,10 +350,19 @@ namespace GameLauncher.ViewModels
 
         private async Task RefreshGamesViewAsync()
         {
-            var refreshCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
-            var previousRefreshCts = Interlocked.Exchange(ref _gamesViewRefreshCts, refreshCts);
+            if (!_dispatcher.CheckAccess())
+            {
+                try { await _dispatcher.InvokeAsync(RefreshGamesViewAsync).Task.Unwrap(); }
+                catch (OperationCanceledException) when (_dispatcher.HasShutdownStarted) { }
+                catch (Exception ex) { Logger.Error("Bibliotheksaktualisierung konnte nicht eingeplant werden", ex); }
+                return;
+            }
+            if (_disposed) return;
+
+            using var refreshCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+            var previousRefreshCts = _gamesViewRefreshCts;
+            _gamesViewRefreshCts = refreshCts;
             previousRefreshCts?.Cancel();
-            previousRefreshCts?.Dispose();
             CancellationToken refreshToken = refreshCts.Token;
 
             var totalWatch = Stopwatch.StartNew();
@@ -333,7 +376,7 @@ namespace GameLauncher.ViewModels
             {
                 List<Game> gamesSnapshot = [];
                 var snapshotWatch = Stopwatch.StartNew();
-                await Application.Current.Dispatcher.InvokeAsync(() =>
+                await _dispatcher.InvokeAsync(() =>
                 {
                     gamesSnapshot = _games.ToList();
                 });
@@ -343,7 +386,7 @@ namespace GameLauncher.ViewModels
 
                 var filterWatch = Stopwatch.StartNew();
                 var viewSnapshot = await Task.Run(
-                    () => LibraryViewSnapshotBuilder.Create(gamesSnapshot, searchText, selectedFilter, selectedSort, cardColumns),
+                    () => _buildSnapshot(gamesSnapshot, searchText, selectedFilter, selectedSort, cardColumns),
                     refreshToken);
                 filterWatch.Stop();
 
@@ -353,10 +396,16 @@ namespace GameLauncher.ViewModels
                 }
 
                 var swapWatch = Stopwatch.StartNew();
-                await Application.Current.Dispatcher.InvokeAsync(() =>
+                await _dispatcher.InvokeAsync(() =>
                 {
+                    if (_disposed || refreshToken.IsCancellationRequested || refreshVersion != _gamesViewRefreshVersion)
+                    {
+                        return;
+                    }
                     _gamesView = new ListCollectionView(viewSnapshot.Games);
-                    ReplaceCardRows(viewSnapshot.CardRows);
+                    ReplaceCardRows(cardColumns == _cardColumns
+                        ? viewSnapshot.CardRows
+                        : LibraryViewSnapshotBuilder.BuildCardRows(viewSnapshot.Games, _cardColumns));
                     OnPropertyChanged(nameof(GamesView));
                     OnPropertyChanged(nameof(IsSearchActive));
                     UpdateStatusText();
@@ -372,14 +421,16 @@ namespace GameLauncher.ViewModels
             catch (OperationCanceledException) when (refreshToken.IsCancellationRequested || _cts.IsCancellationRequested)
             {
             }
+            catch (Exception ex)
+            {
+                Logger.Error("Bibliotheksansicht konnte nicht aktualisiert werden", ex);
+            }
             finally
             {
-                // Entsorgt wird das Token von dem, der es zuletzt hält: Hat ein neuerer
-                // Durchlauf es bereits übernommen, bricht er es ab und entsorgt es selbst.
-                // Ein vorzeitiges Entsorgen hier ließe dessen Cancel() scheitern.
-                if (Interlocked.CompareExchange(ref _gamesViewRefreshCts, null, refreshCts) == refreshCts)
+                // Jeder Durchlauf entsorgt seine Quelle selbst. Andere brechen nur ab.
+                if (ReferenceEquals(_gamesViewRefreshCts, refreshCts))
                 {
-                    refreshCts.Dispose();
+                    _gamesViewRefreshCts = null;
                 }
             }
         }
@@ -455,10 +506,19 @@ namespace GameLauncher.ViewModels
 
         private async Task RefreshSteamMetadataForCurrentLanguageAsync()
         {
+            if (!_dispatcher.CheckAccess())
+            {
+                try { await _dispatcher.InvokeAsync(RefreshSteamMetadataForCurrentLanguageAsync).Task.Unwrap(); }
+                catch (OperationCanceledException) when (_dispatcher.HasShutdownStarted) { }
+                catch (Exception ex) { Logger.Error("Steam-Metadatenaktualisierung konnte nicht eingeplant werden", ex); }
+                return;
+            }
+            if (_disposed) return;
+
+            using var refreshCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
             _metadataRefreshCts?.Cancel();
-            _metadataRefreshCts?.Dispose();
-            _metadataRefreshCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
-            var token = _metadataRefreshCts.Token;
+            _metadataRefreshCts = refreshCts;
+            var token = refreshCts.Token;
 
             try
             {
@@ -466,6 +526,17 @@ namespace GameLauncher.ViewModels
             }
             catch (OperationCanceledException)
             {
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Steam-Metadaten konnten nicht aktualisiert werden", ex);
+            }
+            finally
+            {
+                if (ReferenceEquals(_metadataRefreshCts, refreshCts))
+                {
+                    _metadataRefreshCts = null;
+                }
             }
         }
     }

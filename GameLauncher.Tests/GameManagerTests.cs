@@ -7,6 +7,40 @@ namespace GameLauncher.Tests
 {
     public class GameManagerTests
     {
+        [Theory]
+        [InlineData("", @"C:\Spiele\Spiel\bin")]
+        [InlineData(@"C:\Spiele\Spiel", @"C:\Spiele\Spiel")]
+        public void StartInfoVerwendetExplizitesArbeitsverzeichnisOderBisherigenRückfall(string workingDirectory, string expected)
+        {
+            var game = new Game { Path = @"C:\Spiele\Spiel\bin\spiel.exe", Args = "-data data", WorkingDirectory = workingDirectory };
+            var startInfo = GameManager.CreateStartInfo(game);
+            Assert.Equal(expected, startInfo.WorkingDirectory);
+            Assert.Equal(game.Path, startInfo.FileName);
+            Assert.Equal(game.Args, startInfo.Arguments);
+        }
+
+        [Fact]
+        public void ArbeitsverzeichnisBleibtNachSpeichernLadenUndBearbeitenErhalten()
+        {
+            string root = Directory.CreateTempSubdirectory("GameLauncherWorkingDirectory_").FullName;
+            string configPath = Path.Combine(root, "config.json");
+            try
+            {
+                using (var manager = new GameManager(configPath))
+                {
+                    var game = manager.AddManualGame("Spiel", Path.Combine(root, "bin", "spiel.exe"),
+                        customImage: Path.Combine(root, "cover.png"), notifyUI: false, workingDirectory: root);
+                    Assert.Equal(root, game.WorkingDirectory);
+                    manager.UpdateManualGame(game, "Neuer Titel", game.Path, "-fullscreen");
+                }
+                using var reloaded = new GameManager(configPath);
+                var runtime = GameManager.CreateManualRuntimeGame(Assert.Single(reloaded.Config.ManualGames));
+                Assert.Equal(root, runtime.WorkingDirectory);
+                Assert.Equal(root, GameManager.CreateStartInfo(runtime).WorkingDirectory);
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
         [Fact]
         public void Constructor_CreatesMissingConfigFileImmediately()
         {

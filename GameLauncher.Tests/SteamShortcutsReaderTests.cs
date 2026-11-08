@@ -246,13 +246,14 @@ public sealed class SteamShortcutsReaderTests
         {
             string program = Path.Combine(steamRoot, "MeinSpiel.exe");
             File.WriteAllBytes(program, new byte[16]);
+            string workingDirectory = Path.Combine(steamRoot, "Arbeitsverzeichnis");
 
             byte[] file = BuildFile(buffer =>
             {
                 WriteInt32(buffer, "appid", 2846102741);
                 WriteString(buffer, "AppName", "Mein Spiel");
                 WriteString(buffer, "Exe", $"\"{program}\"");
-                WriteString(buffer, "StartDir", steamRoot);
+                WriteString(buffer, "StartDir", workingDirectory);
             });
 
             foreach (string user in new[] { "11111111", "22222222" })
@@ -262,11 +263,20 @@ public sealed class SteamShortcutsReaderTests
                 File.WriteAllBytes(Path.Combine(configDirectory, "shortcuts.vdf"), file);
             }
 
-            var games = SteamShortcutsReader.ReadShortcutGames(steamRoot);
+            // Symbolausgabe bleibt vollständig im temporären Testverzeichnis.
+            string iconPath = Path.Combine(steamRoot, "icon.png");
+            var games = SteamShortcutsReader.ReadShortcutGames(steamRoot, (path, id) =>
+            {
+                Assert.Equal(program, path);
+                File.WriteAllBytes(iconPath, [1, 2, 3]);
+                return iconPath;
+            });
 
             var game = Assert.Single(games);
             Assert.Equal("steamshortcut_2846102741", game.Id);
             Assert.Equal("Mein Spiel", game.Name);
+            Assert.Equal(workingDirectory, game.WorkingDirectory);
+            Assert.Equal(iconPath, game.ImageUrl);
         }
         finally
         {

@@ -30,7 +30,8 @@ namespace GameLauncher.Services.Scanners
         /// Liest die Verknüpfungen aller Steam-Benutzerprofile unterhalb des
         /// angegebenen Steam-Ordners.
         /// </summary>
-        public static List<Game> ReadShortcutGames(string steamRootDirectory)
+        public static List<Game> ReadShortcutGames(string steamRootDirectory,
+            Func<string, string, string>? extractIcon = null)
         {
             var games = new List<Game>();
             string userDataDirectory = Path.Combine(steamRootDirectory, "userdata");
@@ -55,7 +56,7 @@ namespace GameLauncher.Services.Scanners
 
                 foreach (var shortcut in ReadFile(shortcutsPath))
                 {
-                    var game = TryCreateGame(shortcut);
+                    var game = TryCreateGame(shortcut, extractIcon ?? IconExtractor.GetIconFromExe);
                     if (game != null && seenIds.Add(game.Id))
                     {
                         games.Add(game);
@@ -91,7 +92,7 @@ namespace GameLauncher.Services.Scanners
             }
         }
 
-        private static Game? TryCreateGame(SteamShortcut shortcut)
+        private static Game? TryCreateGame(SteamShortcut shortcut, Func<string, string, string> extractIcon)
         {
             if (string.IsNullOrWhiteSpace(shortcut.Name) || string.IsNullOrWhiteSpace(shortcut.ExecutablePath))
             {
@@ -124,7 +125,8 @@ namespace GameLauncher.Services.Scanners
                 Args = shortcut.LaunchOptions,
                 LaunchType = "exe",
                 IsManual = false,
-                ImageUrl = IconExtractor.GetIconFromExe(shortcut.ExecutablePath, id),
+                ImageUrl = extractIcon(shortcut.ExecutablePath, id),
+                WorkingDirectory = shortcut.StartDirectory,
                 InstallDirectory = string.IsNullOrWhiteSpace(shortcut.StartDirectory)
                     ? Path.GetDirectoryName(shortcut.ExecutablePath) ?? ""
                     : shortcut.StartDirectory

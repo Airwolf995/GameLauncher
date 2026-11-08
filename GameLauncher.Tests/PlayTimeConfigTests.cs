@@ -10,7 +10,7 @@ namespace GameLauncher.Tests
     public class PlayTimeConfigTests
     {
         [Fact]
-        public async Task LoadAllGamesAsync_LoadsCurrentPlayTimeFormat()
+        public async Task GespeicherterZustand_LädtAktuellesSpielzeitformat()
         {
             var tempRoot = CreateTempRoot();
             var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
@@ -47,10 +47,13 @@ namespace GameLauncher.Tests
                     """);
 
                 using var manager = new GameManager(configPath);
-                var games = await manager.LoadAllGamesAsync();
+                var games = manager.ReadConfig(config => config.ManualGames.Select(GameManager.CreateManualRuntimeGame).ToList());
+                manager.ApplyStoredState(games);
                 var game = Assert.Single(games, g => g.Id == "manual_test");
 
                 Assert.Equal(120, game.PlayTime);
+                Assert.Equal("", game.WorkingDirectory);
+                Assert.Equal(@"C:\Test", GameManager.CreateStartInfo(game).WorkingDirectory);
             }
             finally
             {
@@ -59,7 +62,7 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
-        public async Task ManualGames_VerwendenUnabhängigeLaufzeitobjekte()
+        public void ManualGames_VerwendenUnabhängigeLaufzeitobjekte()
         {
             var tempRoot = CreateTempRoot();
             var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
@@ -81,7 +84,8 @@ namespace GameLauncher.Tests
 
                 manager.UpdateConfig(config => config.ManualGames[0].Genres.Add("RPG"));
 
-                var loadedGames = await manager.LoadAllGamesAsync();
+                var loadedGames = manager.ReadConfig(config => config.ManualGames.Select(GameManager.CreateManualRuntimeGame).ToList());
+                manager.ApplyStoredState(loadedGames);
                 var loadedRuntimeGame = Assert.Single(loadedGames, game => game.Id == persistedGame.Id);
 
                 Assert.NotSame(persistedGame, loadedRuntimeGame);
@@ -104,7 +108,7 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
-        public async Task LoadAllGamesAsync_MigratesNumericLegacyPlayTime()
+        public async Task GespeicherterZustand_LädtNumerischeAlteSpielzeit()
         {
             var tempRoot = CreateTempRoot();
             var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
@@ -136,7 +140,8 @@ namespace GameLauncher.Tests
                     """);
 
                 using var manager = new GameManager(configPath);
-                var games = await manager.LoadAllGamesAsync();
+                var games = manager.ReadConfig(config => config.ManualGames.Select(GameManager.CreateManualRuntimeGame).ToList());
+                manager.ApplyStoredState(games);
                 var game = Assert.Single(games, g => g.Id == "manual_legacy");
 
                 Assert.Equal(987, game.PlayTime);

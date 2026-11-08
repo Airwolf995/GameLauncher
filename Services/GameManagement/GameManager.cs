@@ -140,6 +140,7 @@ namespace GameLauncher.Services.GameManagement
 
         public async Task RefreshSteamMetadataAsync(IEnumerable<Game> games, System.Threading.CancellationToken ct = default)
         {
+            ct.ThrowIfCancellationRequested();
             var currentLanguage = Services.Localization.LocalizationService.Instance.CurrentLanguage;
             var steamGames = games
                 .Where(game => game.Platform == Constants.Platforms.Steam &&
@@ -186,8 +187,9 @@ namespace GameLauncher.Services.GameManagement
                 await semaphore.WaitAsync(cancellationToken);
                 try
                 {
-                    if (await _metadataService.FetchSteamMetadataAsync(game, cancellationToken))
+                    if (await _metadataService.FetchSteamMetadataAsync(game, language, cancellationToken))
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         _steamMetadataCache.Update(game, language);
                     }
                 }
@@ -213,25 +215,7 @@ namespace GameLauncher.Services.GameManagement
         {
             try
             {
-                ProcessStartInfo psi = new ProcessStartInfo();
-                string finalPath = Environment.ExpandEnvironmentVariables(game.Path ?? string.Empty);
-                string finalArgs = Environment.ExpandEnvironmentVariables(game.Args ?? string.Empty);
-                
-                if (game.LaunchType == "uri")
-                {
-                    psi.FileName = finalPath;
-                    psi.UseShellExecute = true;
-                    Logger.Log($"Launching URI: {game.Path}");
-                }
-                else
-                {
-                    psi.FileName = finalPath;
-                    psi.Arguments = finalArgs;
-                    psi.WorkingDirectory = Path.GetDirectoryName(finalPath);
-                    psi.UseShellExecute = true; // Often safer for games
-                    Logger.Log($"Launching EXE: {finalPath} {finalArgs}");
-                }
-
+                var psi = CreateStartInfo(game);
                 Process.Start(psi);
 
                 if (notifyUI)
@@ -246,6 +230,33 @@ namespace GameLauncher.Services.GameManagement
             }
         }
 
+        // Berechnung getrennt vom tatsächlichen Prozessstart prüfen.
+        internal static ProcessStartInfo CreateStartInfo(Game game)
+        {
+            ProcessStartInfo psi = new ProcessStartInfo();
+            string finalPath = Environment.ExpandEnvironmentVariables(game.Path ?? string.Empty);
+            string finalArgs = Environment.ExpandEnvironmentVariables(game.Args ?? string.Empty);
+
+            if (game.LaunchType == "uri")
+            {
+                psi.FileName = finalPath;
+                psi.UseShellExecute = true;
+                Logger.Log($"Launching URI: {game.Path}");
+            }
+            else
+            {
+                psi.FileName = finalPath;
+                psi.Arguments = finalArgs;
+                psi.WorkingDirectory = string.IsNullOrWhiteSpace(game.WorkingDirectory)
+                    ? Path.GetDirectoryName(finalPath)
+                    : Environment.ExpandEnvironmentVariables(game.WorkingDirectory);
+                psi.UseShellExecute = true;
+                Logger.Log($"Launching EXE: {finalPath} {finalArgs}");
+            }
+
+            return psi;
+        }
+
         /// <summary>
         /// Unterscheidet eine fehlende Datei von anderen Startfehlern. Process.Start
         /// meldet beides als Win32Exception, etwa auch eine abgelehnte
@@ -255,14 +266,15 @@ namespace GameLauncher.Services.GameManagement
         internal static bool IsMissingFileError(Exception ex) =>
             ex is System.ComponentModel.Win32Exception { NativeErrorCode: 2 or 3 };
 
-        public Game AddManualGame(string name, string path, string args = "", string customImage = "", bool notifyUI = true)
+        public Game AddManualGame(string name, string path, string args = "", string customImage = "", bool notifyUI = true, string workingDirectory = "")
         {
             string id = $"manual_{DateTime.Now.Ticks}";
             var game = new Game
             {
                 Id = id,
                 Source = "Manuell",
-                IsManual = true
+                IsManual = true,
+                WorkingDirectory = workingDirectory
             };
             ApplyManualGameInput(game, name, path, args);
 
@@ -293,7 +305,7 @@ namespace GameLauncher.Services.GameManagement
         /// bleiben. Die Änderung wird immer gemeldet: die Spielzeiterfassung
         /// sucht sonst weiter nach dem alten Pfad.
         /// </summary>
-        public void UpdateManualGame(Game game, string name, string path, string args)
+        public void UpdateManualGame(Game game, string name, string path, string args, string? workingDirectory = null)
         {
             bool wasUpdated = false;
             _configService.UpdateConfig(config =>
@@ -305,6 +317,7 @@ namespace GameLauncher.Services.GameManagement
                 }
 
                 ApplyManualGameInput(stored, name, path, args);
+                if (workingDirectory != null) stored.WorkingDirectory = workingDirectory;
                 wasUpdated = true;
             });
 
@@ -314,6 +327,7 @@ namespace GameLauncher.Services.GameManagement
             }
 
             ApplyManualGameInput(game, name, path, args);
+            if (workingDirectory != null) game.WorkingDirectory = workingDirectory;
             _configService.SaveConfig();
             Logger.Log($"Updated manual game: {game.Name} ({game.Platform})");
             _stateService.RaiseGamesUpdated();
@@ -350,7 +364,7 @@ namespace GameLauncher.Services.GameManagement
             game.InstallDirectory = Path.GetDirectoryName(Environment.ExpandEnvironmentVariables(path)) ?? "";
         }
 
-        private static Game CreateManualRuntimeGame(Game source)
+        internal static Game CreateManualRuntimeGame(Game source)
         {
             return new Game
             {
@@ -359,6 +373,7 @@ namespace GameLauncher.Services.GameManagement
                 Platform = source.Platform,
                 Path = source.Path,
                 Args = source.Args,
+                WorkingDirectory = source.WorkingDirectory,
                 InstallDirectory = source.InstallDirectory,
                 ExecutableName = source.ExecutableName,
                 Source = source.Source,
@@ -474,7 +489,7 @@ namespace GameLauncher.Services.GameManagement
 
         public void NotifyGamesUpdated() => _stateService.RaiseGamesUpdated();
 
-        private void ApplyStoredState(IEnumerable<Game> games)
+        internal void ApplyStoredState(IEnumerable<Game> games)
         {
             _configService.ReadConfig(config =>
             {

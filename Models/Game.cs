@@ -38,6 +38,9 @@ namespace GameLauncher.Models
         [JsonPropertyName("args")]
         public string Args { get; set; } = "";
 
+        [JsonPropertyName("working_directory")]
+        public string WorkingDirectory { get; set; } = "";
+
         [JsonPropertyName("install_directory")]
         public string InstallDirectory { get; set; } = ""; // Directory to monitor for playtime
 

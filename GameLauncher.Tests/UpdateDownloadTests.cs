@@ -6,6 +6,44 @@ namespace GameLauncher.Tests;
 
 public sealed class UpdateDownloadTests
 {
+    [Fact]
+    public async Task AbbruchEntferntTeilweiseGeladenenInstaller()
+    {
+        string directory = Directory.CreateTempSubdirectory("GameLauncherUpdateCancel_").FullName;
+        try
+        {
+            string path = Path.Combine(directory, "setup.exe");
+            using var cts = new CancellationTokenSource();
+            var stream = new BlockingStream();
+            using var service = new UpdateService("test/repo", new HttpClient(new BlockingHandler(new StreamContent(stream))), path);
+            var download = service.DownloadUpdateAsync("https://github.com/test/setup.exe", new string('a', 64), ct: cts.Token);
+            await stream.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            cts.Cancel();
+            Assert.Equal(UpdateDownloadResult.Failed, await download.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.False(File.Exists(path));
+            Assert.False(service.InstallUpdate());
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    private sealed class BlockingHandler(HttpContent content) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+    }
+
+    private sealed class BlockingStream() : MemoryStream("Teil des Installers"u8.ToArray())
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            if (Position < Length) return await base.ReadAsync(buffer, offset, count, cancellationToken);
+            Started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

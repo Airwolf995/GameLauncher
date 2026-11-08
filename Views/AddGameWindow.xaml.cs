@@ -16,6 +16,7 @@ namespace GameLauncher
         public string GameName => NameBox.Text;
         public string GamePath => PathBox.Text;
         public string GameArgs => ArgsBox.Text;
+        public string GameWorkingDirectory { get; private set; } = "";
         public string GameCoverPath { get; private set; } = "";
 
         private Services.MetadataService _metadataService;
@@ -32,6 +33,7 @@ namespace GameLauncher
         public AddGameWindow(string apiKey = "")
         {
             InitializeComponent();
+            PathBox.TextChanged += (_, _) => GameWorkingDirectory = "";
             _metadataService = new Services.MetadataService(apiKey);
 
             // Ohne SteamGridDB-Schlüssel bleibt die Suche nutzbar: sie greift dann
@@ -53,6 +55,7 @@ namespace GameLauncher
             HeaderText.Text = _localization.Get("EditGame.Title");
             NameBox.Text = gameToEdit.Name;
             PathBox.Text = gameToEdit.Path;
+            GameWorkingDirectory = gameToEdit.WorkingDirectory;
             ArgsBox.Text = gameToEdit.Args;
         }
 
@@ -66,6 +69,7 @@ namespace GameLauncher
             if (dialog.ShowDialog() == true)
             {
                 PathBox.Text = dialog.FileName;
+                GameWorkingDirectory = "";
                 if (string.IsNullOrWhiteSpace(NameBox.Text))
                 {
                     NameBox.Text = Path.GetFileNameWithoutExtension(dialog.FileName);
@@ -104,6 +108,7 @@ namespace GameLauncher
                 }
 
                 PathBox.Text = target.TargetPath;
+                GameWorkingDirectory = target.WorkingDirectory;
                 if (string.IsNullOrWhiteSpace(ArgsBox.Text))
                 {
                     ArgsBox.Text = target.Arguments;
@@ -112,6 +117,7 @@ namespace GameLauncher
             else
             {
                 PathBox.Text = filePath;
+                GameWorkingDirectory = "";
             }
 
             if (string.IsNullOrWhiteSpace(NameBox.Text))

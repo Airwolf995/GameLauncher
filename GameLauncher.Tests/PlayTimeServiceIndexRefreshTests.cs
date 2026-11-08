@@ -1,5 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.Collections;
 using System.Diagnostics;
 using System.IO;
 using GameLauncher.Models;
@@ -79,4 +81,49 @@ public sealed class PlayTimeServiceIndexRefreshTests : IDisposable
         LaunchType = "exe",
         ExecutableName = Process.GetCurrentProcess().ProcessName
     };
+
+    [Fact]
+    public void ÄnderungWährendDesIndexaufbausBleibtFürDenNächstenTickErhalten()
+    {
+        var games = new ChangingGames(CreateGameForCurrentProcess());
+        using var manager = new GameManager(_configPath);
+        using var service = new PlayTimeService(manager, games);
+        service.Start();
+        service.RunTick();
+        Assert.NotNull(service.ActiveGame);
+
+        // Der Snapshot enthält noch das Spiel, unmittelbar danach kommt die
+        // Änderungsmeldung. Der nächste Tick muss erneut einen Snapshot lesen.
+        games.RemoveAfterNextSnapshot();
+        service.RunTick();
+        service.RunTick();
+
+        Assert.Null(service.ActiveGame);
+    }
+
+    private sealed class ChangingGames(Game game) : IEnumerable<Game>, INotifyCollectionChanged
+    {
+        private readonly List<Game> _games = [game];
+        private bool _removeAfterSnapshot;
+        public event NotifyCollectionChangedEventHandler? CollectionChanged;
+
+        public void RemoveAfterNextSnapshot()
+        {
+            _removeAfterSnapshot = true;
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        }
+
+        public IEnumerator<Game> GetEnumerator()
+        {
+            foreach (var item in _games.ToArray()) yield return item;
+            if (_removeAfterSnapshot)
+            {
+                _removeAfterSnapshot = false;
+                _games.Clear();
+                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
 }
