@@ -83,15 +83,21 @@ namespace GameLauncher.Services.GameManagement
         internal static async Task<LibraryScanResult> ScanPlatformAsync(
             string platformName,
             Func<IPlatformScanner> createScanner,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            TimeSpan? scanTimeout = null)
         {
+            // Das Zeitlimit ist für gezielte Tests verkürzbar; im Betrieb bleibt
+            // es bei 60 Sekunden pro Plattform.
+            TimeSpan timeout = scanTimeout ?? ScanTimeout;
+            using var scanCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            CancellationToken scanToken = scanCancellation.Token;
             try
             {
                 // Auch das Erzeugen im Hintergrund: Die Konstruktoren erkennen
                 // ohne eingetragene Pfade die Bibliotheken selbst, und der
                 // Aufrufer ist beim Start der Oberflächen-Thread.
-                var games = await Task.Run(() => createScanner().ScanAsync(cancellationToken))
-                    .WaitAsync(ScanTimeout, cancellationToken);
+                var games = await Task.Run(() => createScanner().ScanAsync(scanToken), scanToken)
+                    .WaitAsync(timeout, cancellationToken);
                 return new LibraryScanResult(games, []);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -100,8 +106,11 @@ namespace GameLauncher.Services.GameManagement
             }
             catch (TimeoutException)
             {
+                // WaitAsync beendet nur das Warten. Der Scanner muss zusätzlich
+                // bei seiner nächsten Abbruchprüfung von der Überschreitung erfahren.
+                scanCancellation.Cancel();
                 Logger.Error(
-                    $"{platformName}-Scanner hat das Zeitlimit von {ScanTimeout.TotalSeconds:0} Sekunden überschritten; " +
+                    $"{platformName}-Scanner hat das Zeitlimit von {timeout.TotalSeconds:0} Sekunden überschritten; " +
                     "die Plattform wird für diesen Durchlauf übersprungen.");
                 return new LibraryScanResult([], [platformName]);
             }
