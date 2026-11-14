@@ -1,10 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
@@ -16,18 +13,17 @@ namespace GameLauncher.Services
 {
     public class PlayTimeService : IDisposable
     {
-        // Ein Spiel wird nur erfasst, wenn ein Durchlauf in seine Laufzeit fällt.
-        // Ein kürzeres Intervall erfasst daher auch kurze Sitzungen zuverlässiger
-        // und begrenzt zugleich die Ungenauigkeit am Sitzungsende.
-        private const int TickIntervalSeconds = 10;
-
-        // Im Leerlauf läuft der Scan seltener: jeder Durchlauf legt mehrere hundert
-        // Prozessobjekte an, und solange kein Spiel läuft, ist daran nichts zu holen.
-        // Sobald ein Spiel erkannt wurde, wird wieder im kurzen Takt gemessen, damit
-        // die Spielzeiterfassung unverändert genau bleibt.
+        private const int TickIntervalSeconds = 2;
         private const int IdleTickIntervalSeconds = 30;
-        private const int SummaryLogEveryNTicks = 12; // 12 * 10s = 2 Minuten
-        private const int PersistEveryNTicks = 6; // Spielzeit höchstens einmal pro Minute regulär schreiben
+        private static readonly TimeSpan LaunchDetectionTimeout = TimeSpan.FromMinutes(2);
+        private static readonly TimeSpan PersistInterval = TimeSpan.FromMinutes(1);
+        private readonly TimeProvider _timeProvider;
+        private readonly PlayTimeSessionClock _sessionClock;
+        private readonly PlayTimeProcessMonitor _processMonitor = new();
+        private readonly Dictionary<string, long> _pendingLaunches = new(StringComparer.Ordinal);
+        private long? _lastDiscovery;
+        private long _lastPersist;
+        private int _resetTiming;
         private readonly GameManager _gameManager;
         private readonly IEnumerable<Game> _games;
         private readonly INotifyCollectionChanged? _observableGames;
@@ -37,17 +33,14 @@ namespace GameLauncher.Services
         private readonly PlayTimeMatchIndex _matchIndex = new();
         private readonly ActiveGameTracker _activeGameTracker = new();
         private int _isTickRunning;
-        private int _tickCounter;
-        private int _lastIndexedGameCount;
         private volatile bool _indexDirty;
         private TaskCompletionSource<bool> _tickCompleted = CreateCompletedTickSource();
         private bool _isRunning;
         private bool _disposed;
 
         /// <summary>
-        /// Zuletzt erkannte Spiele. Dient dazu, nur die Wechsel zu protokollieren
-        /// statt jeden Durchlauf, damit im Protokoll nachvollziehbar bleibt, ob und
-        /// welchem Spiel ein laufender Prozess zugeordnet wurde.
+        /// Zuletzt erkannte Spiele. Dient zur Protokollierung der Wechsel und
+        /// dazu, während des Startfensters nur nach fehlenden Spielen zu suchen.
         /// </summary>
         private HashSet<string> _previouslyRunningGameIds = new(StringComparer.Ordinal);
 
@@ -61,10 +54,6 @@ namespace GameLauncher.Services
             "wlanext", "msedge", "chrome", "firefox", "teams", "discord"
         };
 
-#if DEBUG
-        private int _debugLogThrottle;
-#endif
-
         public Game? ActiveGame { get; private set; }
         public DateTime? SessionStartTime { get; private set; }
 
@@ -76,11 +65,14 @@ namespace GameLauncher.Services
         internal PlayTimeService(
             GameManager gameManager,
             IEnumerable<Game> games,
-            Action? tickBody)
+            Action? tickBody,
+            TimeProvider? timeProvider = null)
         {
             _gameManager = gameManager;
             _games = games;
             _tickBody = tickBody;
+            _timeProvider = timeProvider ?? TimeProvider.System;
+            _sessionClock = new PlayTimeSessionClock(_timeProvider);
 
             // Zwei verschiedene Tatsachen machen den Index veraltet, und sie werden
             // über zwei verschiedene Wege gemeldet:
@@ -114,25 +106,38 @@ namespace GameLauncher.Services
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
 
+                if (_isRunning) return;
                 RebuildMatchIndex();
+                _sessionClock.Clear();
+                _lastDiscovery = null;
+                _lastPersist = _timeProvider.GetTimestamp();
+                _pendingLaunches.Clear();
+                _previouslyRunningGameIds.Clear();
+                _timer.Interval = TickIntervalSeconds * 1000;
+                Microsoft.Win32.SystemEvents.PowerModeChanged += OnPowerModeChanged;
                 _isRunning = true;
                 _timer.Start();
                 Logger.Log($"PlayTimeService started ({TickIntervalSeconds}s interval, tracking in seconds).");
             }
         }
 
-        public Task StopAsync()
+        public async Task StopAsync()
         {
+            Task runningTick;
             lock (_lifecycleSync)
             {
-                if (!_disposed)
-                {
-                    _isRunning = false;
-                    _timer.Stop();
-                }
-
-                return _tickCompleted.Task;
+                if (_disposed) return;
+                _isRunning = false;
+                _timer.Stop();
+                Microsoft.Win32.SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+                runningTick = _tickCompleted.Task;
             }
+            await runningTick;
+            // Den Rest seit dem letzten Tick noch vor dem Speichern beim
+            // Herunterfahren buchen. Kein Prozess aus der letzten Sitzung bleibt offen.
+            RecordPlayTime(_timeProvider.GetLocalNow().DateTime, new(StringComparer.Ordinal), new());
+            _processMonitor.Dispose();
+            _gameManager.SaveConfig();
         }
 
         public void Dispose()
@@ -159,8 +164,33 @@ namespace GameLauncher.Services
                 _observableGames.CollectionChanged -= OnGamesCollectionChanged;
             }
 
+            Microsoft.Win32.SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+            _processMonitor.Dispose();
             _timer.Dispose();
             Logger.Log("PlayTimeService stopped.");
+        }
+
+        /// <summary>
+        /// Ein erfolgreicher Startauftrag bestätigt noch keinen laufenden
+        /// Spielprozess. Bis zur Erkennung kurz prüfen, ohne Wartezeit zu buchen.
+        /// </summary>
+        public void NotifyGameLaunched(Game game)
+        {
+            if (!game.SupportsPlayTimeTracking) return;
+            lock (_lifecycleSync)
+            {
+                if (_disposed || !_isRunning) return;
+                _pendingLaunches[game.Id] = _timeProvider.GetTimestamp();
+                _timer.Interval = TickIntervalSeconds * 1000;
+            }
+        }
+
+        private void OnPowerModeChanged(object sender, Microsoft.Win32.PowerModeChangedEventArgs e)
+        {
+            // Die monotone Uhr läuft je nach System auch im Standby weiter.
+            // Das erste Intervall danach darf deshalb keine Spielzeit erzeugen.
+            if (e.Mode is Microsoft.Win32.PowerModes.Suspend or Microsoft.Win32.PowerModes.Resume)
+                Interlocked.Exchange(ref _resetTiming, 1);
         }
 
         private void OnGamesUpdated(object? sender, EventArgs e)
@@ -206,7 +236,7 @@ namespace GameLauncher.Services
                     return;
                 }
 
-                var now = DateTime.Now;
+                var now = _timeProvider.GetLocalNow().DateTime;
 
                 // Neu aufbauen nur, wenn sich die Spieleliste geändert hat (ereignisbasiert).
                 if (_indexDirty)
@@ -214,11 +244,31 @@ namespace GameLauncher.Services
                     RebuildMatchIndex();
                 }
 
-                var runningGameStartedAt = FindRunningGames(now);
+                long timestamp = _timeProvider.GetTimestamp();
+                bool awaitingLaunch;
+                lock (_lifecycleSync)
+                {
+                    foreach (var id in _pendingLaunches.Keys.ToArray())
+                    {
+                        if (_timeProvider.GetElapsedTime(_pendingLaunches[id], timestamp) >= LaunchDetectionTimeout)
+                            _pendingLaunches.Remove(id);
+                    }
+                    // Den Startauftrag bis zum ursprünglichen Zeitlimit behalten:
+                    // Der erste Treffer kann nur das vorgeschaltete Startprogramm
+                    // sein. Solange sein Prozess läuft, genügt die direkte Prüfung.
+                    awaitingLaunch = _pendingLaunches.Keys.Any(id => !_previouslyRunningGameIds.Contains(id));
+                }
+                bool discover = awaitingLaunch || !_lastDiscovery.HasValue ||
+                    _timeProvider.GetElapsedTime(_lastDiscovery.Value, timestamp).TotalSeconds >= IdleTickIntervalSeconds;
+                var ignoredProcesses = new HashSet<string>(
+                    _gameManager.GetIgnoredProcessesSnapshot(), StringComparer.OrdinalIgnoreCase);
+                ignoredProcesses.UnionWith(WindowsSystemProcesses);
+                var runningGameStartedAt = _processMonitor.Poll(_matchIndex, ignoredProcesses, discover, now);
+                if (discover) _lastDiscovery = timestamp;
                 var runningGameIds = new HashSet<string>(runningGameStartedAt.Keys, StringComparer.Ordinal);
 
                 LogRunningGameChanges(runningGameIds);
-                ApplyTickInterval(runningGameIds.Count > 0);
+                ApplyTickInterval(runningGameIds.Count > 0 || awaitingLaunch);
                 RecordPlayTime(now, runningGameIds, runningGameStartedAt);
             }
             catch (Exception ex)
@@ -244,7 +294,8 @@ namespace GameLauncher.Services
             {
                 var gamesSnapshot = CaptureGamesSnapshotOnUiThread();
                 _matchIndex.Rebuild(gamesSnapshot);
-                Volatile.Write(ref _lastIndexedGameCount, gamesSnapshot.Count);
+                _processMonitor.Dispose();
+                _lastDiscovery = null;
             }
             catch
             {
@@ -252,91 +303,6 @@ namespace GameLauncher.Services
                 _indexDirty = true;
                 throw;
             }
-        }
-
-        /// <summary>
-        /// Sucht unter den laufenden Prozessen die bekannten Spiele. Liefert je
-        /// Spiel den frühesten Startzeitpunkt seiner Prozesse.
-        /// </summary>
-        private Dictionary<string, DateTime> FindRunningGames(DateTime now)
-        {
-            // Jeden Durchlauf neu lesen: Das Speichern der Einstellungen
-            // meldet sich nicht beim Dienst, eine zwischengespeicherte Liste
-            // zählte einen gerade ignorierten Prozess weiter.
-            var ignoredProcesses = new HashSet<string>(
-                _gameManager.GetIgnoredProcessesSnapshot(),
-                StringComparer.OrdinalIgnoreCase);
-
-            var processes = Process.GetProcesses();
-            var runningGameStartedAt = new Dictionary<string, DateTime>(StringComparer.Ordinal);
-
-#if DEBUG
-            if ((_debugLogThrottle++ % 20) == 0)
-            {
-                Logger.Log($"[DEBUG] PlayTimeService index scan: {Volatile.Read(ref _lastIndexedGameCount)} games, {processes.Length} processes.");
-            }
-#endif
-
-            bool unexpectedErrorLogged = false;
-            foreach (var process in processes)
-            {
-                try
-                {
-                    var processName = process.ProcessName;
-                    if (string.IsNullOrWhiteSpace(processName))
-                    {
-                        continue;
-                    }
-
-                    // 1. Ignorierte und Windows-Systemprozesse direkt überspringen
-                    if (WindowsSystemProcesses.Contains(processName) ||
-                        ignoredProcesses.Contains(processName) ||
-                        ignoredProcesses.Contains(processName + ".exe"))
-                    {
-                        continue;
-                    }
-
-                    // 2. Schnellprüfung über den Namen, ohne den Programmpfad zu lesen
-                    if (_matchIndex.TryMatchProcessByName(processName, out var matchedGameId))
-                    {
-                        AddRunningGameMatch(runningGameStartedAt, matchedGameId, TryGetProcessStartTime(process, now));
-                        continue;
-                    }
-
-                    // 3. Rückfall: Pfadprüfung für Treffer über das Installationsverzeichnis
-                    // (Steam, Epic) und für mehrdeutige Programmnamen. Der Pfad wird
-                    // ohne Ausnahmebehandlung ermittelt; ein verweigerter Zugriff
-                    // liefert schlicht keinen Pfad.
-                    var processPath = PlayTimeMatchIndex.NormalizePath(
-                        ProcessPathReader.TryGetExecutablePath(process.Id) ?? string.Empty);
-                    if (!string.IsNullOrEmpty(processPath) &&
-                        _matchIndex.TryMatchProcessByPath(processPath, out matchedGameId))
-                    {
-                        AddRunningGameMatch(runningGameStartedAt, matchedGameId, TryGetProcessStartTime(process, now));
-                    }
-                }
-                catch (InvalidOperationException)
-                {
-                    // Der Prozess wurde zwischen Auflistung und Abfrage beendet.
-                }
-                catch (Exception ex)
-                {
-                    // Alles andere deutet auf einen Fehler in der Zuordnung hin
-                    // und bliebe sonst unbemerkt. Einmal je Durchlauf genügt,
-                    // sonst füllt ein Fehler, der jeden Prozess trifft, das Protokoll.
-                    if (!unexpectedErrorLogged)
-                    {
-                        Logger.Error($"Spielerkennung für Prozess {process.Id} fehlgeschlagen", ex);
-                        unexpectedErrorLogged = true;
-                    }
-                }
-                finally
-                {
-                    try { process.Dispose(); } catch { }
-                }
-            }
-
-            return runningGameStartedAt;
         }
 
         /// <summary>
@@ -352,33 +318,27 @@ namespace GameLauncher.Services
             DateTime? activeGameStartedAt = activeGameId != null && runningGameStartedAt.TryGetValue(activeGameId, out var startedAt)
                 ? startedAt
                 : null;
-            var updatedGameNames = new List<string>();
+            var addedSeconds = _sessionClock.Update(runningGameIds, Interlocked.Exchange(ref _resetTiming, 0) != 0);
             var sessionUpdates = new List<PlaySessionUpdate>();
             bool hadTrackedSession = ActiveGame != null || SessionStartTime != null;
-            if (runningGameIds.Count > 0 || hadTrackedSession)
+            if (runningGameIds.Count > 0 || hadTrackedSession || addedSeconds.Count > 0)
             {
-                sessionUpdates = ApplyPlayTimeUpdatesOnUiThread(now, activeGameId, activeGameStartedAt, runningGameIds, updatedGameNames);
+                sessionUpdates = ApplyPlayTimeUpdatesOnUiThread(now, activeGameId, activeGameStartedAt, addedSeconds);
             }
 
-            var tickNumber = Interlocked.Increment(ref _tickCounter);
+            long timestamp = _timeProvider.GetTimestamp();
+            bool sessionEnded = addedSeconds.Keys.Any(id => !runningGameIds.Contains(id)) ||
+                (hadTrackedSession && runningGameIds.Count == 0);
+            bool persistConfig = sessionEnded || _timeProvider.GetElapsedTime(_lastPersist, timestamp) >= PersistInterval;
             if (sessionUpdates.Count > 0)
             {
-                bool persistConfig = (tickNumber % PersistEveryNTicks) == 0;
                 _gameManager.UpdatePlaySessions(sessionUpdates, persistConfig);
             }
-            else if (hadTrackedSession)
+            else if (sessionEnded)
             {
                 _gameManager.SaveConfig();
             }
-
-            if (updatedGameNames.Count > 0 && (tickNumber % SummaryLogEveryNTicks) == 0)
-            {
-#if DEBUG
-                Logger.Log($"[DEBUG] PlayTime tick summary: +{TickIntervalSeconds}s for {updatedGameNames.Count} game(s): {string.Join(", ", updatedGameNames)}.");
-#else
-                Logger.Log($"PlayTime tick summary: +{TickIntervalSeconds}s for {updatedGameNames.Count} game(s).");
-#endif
-            }
+            if (persistConfig) _lastPersist = timestamp;
         }
 
         /// <summary>
@@ -395,6 +355,9 @@ namespace GameLauncher.Services
 
             lock (_lifecycleSync)
             {
+                // Ein Startauftrag kann nach dem Snapshot dieses Ticks eintreffen.
+                // Er darf nicht wieder auf den Leerlauftakt zurückgesetzt werden.
+                if (_pendingLaunches.Count > 0) desiredIntervalMs = TickIntervalSeconds * 1000;
                 if (_disposed || Math.Abs(_timer.Interval - desiredIntervalMs) < 1d)
                 {
                     return;
@@ -402,8 +365,7 @@ namespace GameLauncher.Services
 
                 _timer.Interval = desiredIntervalMs;
                 Logger.Log(
-                    $"PlayTime-Scanintervall auf {desiredIntervalMs / 1000d:0}s gesetzt " +
-                    $"({(anyGameRunning ? "Spiel läuft" : "Leerlauf")}).");
+                    $"Spielzeit-Prüfintervall auf {desiredIntervalMs / 1000d:0}s gesetzt.");
             }
         }
 
@@ -456,51 +418,26 @@ namespace GameLauncher.Services
             return game == null ? gameId : $"{game.Name} ({gameId})";
         }
 
-        private static void AddRunningGameMatch(
-            IDictionary<string, DateTime> runningGameStartedAt,
-            string gameId,
-            DateTime startedAt)
-        {
-            if (!runningGameStartedAt.TryGetValue(gameId, out var existingStartedAt) || startedAt < existingStartedAt)
-            {
-                runningGameStartedAt[gameId] = startedAt;
-            }
-        }
-
-        private static DateTime TryGetProcessStartTime(Process process, DateTime fallback)
-        {
-            try
-            {
-                return process.StartTime;
-            }
-            catch
-            {
-                return fallback;
-            }
-        }
-
         private List<PlaySessionUpdate> ApplyPlayTimeUpdatesOnUiThread(
             DateTime now,
             string? activeGameId,
             DateTime? activeGameStartedAt,
-            HashSet<string> runningGameIds,
-            List<string> updatedGameNames)
+            IReadOnlyDictionary<string, int> addedSeconds)
         {
             var dispatcher = Application.Current?.Dispatcher;
             if (dispatcher == null || dispatcher.CheckAccess())
             {
-                return ApplyPlayTimeUpdates(now, activeGameId, activeGameStartedAt, runningGameIds, updatedGameNames);
+                return ApplyPlayTimeUpdates(now, activeGameId, activeGameStartedAt, addedSeconds);
             }
 
-            return dispatcher.Invoke(() => ApplyPlayTimeUpdates(now, activeGameId, activeGameStartedAt, runningGameIds, updatedGameNames));
+            return dispatcher.Invoke(() => ApplyPlayTimeUpdates(now, activeGameId, activeGameStartedAt, addedSeconds));
         }
 
         private List<PlaySessionUpdate> ApplyPlayTimeUpdates(
             DateTime now,
             string? activeGameId,
             DateTime? activeGameStartedAt,
-            HashSet<string> runningGameIds,
-            List<string> updatedGameNames)
+            IReadOnlyDictionary<string, int> addedSeconds)
         {
             var sessionUpdates = new List<PlaySessionUpdate>();
 
@@ -526,8 +463,8 @@ namespace GameLauncher.Services
                 }
             }
 
-            // Increment playtime for all identified running games
-            foreach (var gameId in runningGameIds)
+            // Auch das letzte Intervall eines gerade beendeten Spiels buchen.
+            foreach (var (gameId, seconds) in addedSeconds)
             {
                 var game = _matchIndex.GetGameById(gameId);
                 if (game == null)
@@ -535,10 +472,9 @@ namespace GameLauncher.Services
                     continue;
                 }
 
-                game.PlayTime += TickIntervalSeconds;
+                game.PlayTime += seconds;
                 game.LastPlayed = now;
-                updatedGameNames.Add(game.Name);
-                sessionUpdates.Add(new PlaySessionUpdate(gameId, game.Name, game.PlayTime, now, TickIntervalSeconds));
+                sessionUpdates.Add(new PlaySessionUpdate(gameId, game.Name, game.PlayTime, now, seconds));
             }
 
             return sessionUpdates;
