@@ -102,6 +102,9 @@ namespace GameLauncher.Services.GameManagement
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                // WaitAsync kann vor dem verknüpften Abbruch-Callback fortsetzen.
+                // Das Signal muss vor dem Freigeben der Quelle beim Scanner ankommen.
+                scanCancellation.Cancel();
                 throw;
             }
             catch (TimeoutException)
