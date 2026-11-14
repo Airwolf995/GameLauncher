@@ -81,6 +81,37 @@ public sealed class UpdateDownloadTests
     }
 
     [Fact]
+    public async Task GeprüfterInstallerBleibtBisZurFreigabeGegenAustauschGesperrt()
+    {
+        await RunDownloadTest(async (service, handler, path) =>
+        {
+            string hash = Convert.ToHexString(SHA256.HashData(handler.Content));
+            Assert.Equal(UpdateDownloadResult.Succeeded,
+                await service.DownloadUpdateAsync("https://github.com/test/setup.exe", hash));
+
+            Assert.Throws<IOException>(() => File.WriteAllText(path, "Ersatzinstaller"));
+            Assert.Throws<IOException>(() => File.Delete(path));
+            Assert.Throws<IOException>(() => File.Move(path, path + ".old"));
+            Assert.Equal(handler.Content, File.ReadAllBytes(path));
+
+            service.Dispose();
+            File.WriteAllText(path, "Nach Freigabe wieder beschreibbar");
+            Assert.False(service.InstallUpdate());
+        });
+    }
+
+    [Fact]
+    public async Task VorhandeneDateiOhneErfolgreichePrüfungWirdNichtGestartet()
+    {
+        await RunDownloadTest((service, handler, path) =>
+        {
+            File.WriteAllBytes(path, handler.Content);
+            Assert.False(service.InstallUpdate());
+            return Task.CompletedTask;
+        });
+    }
+
+    [Fact]
     public async Task Download_VerwirftDateiBeiAbweichenderPrüfsumme()
     {
         await RunDownloadTest(async (service, handler, path) =>
