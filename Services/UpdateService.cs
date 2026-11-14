@@ -16,9 +16,10 @@ namespace GameLauncher.Services
         private readonly string _githubRepo; // Format: "username/repo"
         private readonly HttpClient _httpClient;
         private readonly string _updaterExe;
+        private FileStream? _verifiedInstaller;
 
         public UpdateService(string githubRepo)
-            : this(githubRepo, new HttpClient(), Path.Combine(Path.GetTempPath(), "GameLauncher_Setup.exe"))
+            : this(githubRepo, new HttpClient(), Path.Combine(Path.GetTempPath(), $"GameLauncher_Setup_{Guid.NewGuid():N}.exe"))
         {
         }
 
@@ -179,6 +180,8 @@ namespace GameLauncher.Services
         {
             try
             {
+                _verifiedInstaller?.Dispose();
+                _verifiedInstaller = null;
                 // Delete old installer if exists
                 if (File.Exists(_updaterExe))
                 {
@@ -198,7 +201,7 @@ namespace GameLauncher.Services
                 var bytesRead = 0L;
 
                 using var contentStream = await response.Content.ReadAsStreamAsync(ct);
-                using var fileStream = new FileStream(_updaterExe, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+                using var fileStream = new FileStream(_updaterExe, FileMode.CreateNew, FileAccess.Write, FileShare.None, 8192, true);
 
                 var buffer = new byte[8192];
                 int read;
@@ -247,17 +250,28 @@ namespace GameLauncher.Services
 
         private async Task<bool> VerifyDownloadedInstallerAsync(string expectedSha256, CancellationToken ct)
         {
-            using var stream = new FileStream(_updaterExe, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, true);
-            byte[] hash = await SHA256.HashDataAsync(stream, ct);
-            string actual = Convert.ToHexString(hash);
-
-            if (!string.Equals(actual, expectedSha256, StringComparison.OrdinalIgnoreCase))
+            var stream = new FileStream(_updaterExe, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, true);
+            try
             {
-                Logger.Error($"Update download does not match the published checksum. Expected {expectedSha256}, got {actual}");
-                return false;
-            }
+                byte[] hash = await SHA256.HashDataAsync(stream, ct);
+                string actual = Convert.ToHexString(hash);
 
-            return true;
+                if (!string.Equals(actual, expectedSha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    Logger.Error($"Update download does not match the published checksum. Expected {expectedSha256}, got {actual}");
+                    return false;
+                }
+
+                // Den geprüften Inhalt bis einschließlich Prozessstart gegen
+                // Schreiben, Löschen und Austausch sperren. Lesen bleibt erlaubt,
+                // damit Windows den Installer ausführen kann.
+                _verifiedInstaller = stream;
+                return true;
+            }
+            finally
+            {
+                if (_verifiedInstaller != stream) stream.Dispose();
+            }
         }
 
         private void TryDeleteDownloadedInstaller()
@@ -285,9 +299,9 @@ namespace GameLauncher.Services
         {
             try
             {
-                if (!File.Exists(_updaterExe))
+                if (_verifiedInstaller == null)
                 {
-                    Logger.Error($"Update installation failed: the downloaded installer is missing at {_updaterExe}");
+                    Logger.Error("Update-Installation abgelehnt: Es liegt kein geprüfter, gesperrter Installer vor.");
                     return false;
                 }
 
@@ -311,6 +325,8 @@ namespace GameLauncher.Services
 
         public void Dispose()
         {
+            _verifiedInstaller?.Dispose();
+            _verifiedInstaller = null;
             _httpClient.Dispose();
         }
     }
