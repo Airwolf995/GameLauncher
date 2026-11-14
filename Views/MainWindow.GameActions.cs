@@ -218,6 +218,7 @@ namespace GameLauncher
             try
             {
                 _gameManager.LaunchGame(game, notifyUI: false);
+                _playTimeService.NotifyGameLaunched(game);
                 
                 // Update LastPlayed immediately on launch
                 game.LastPlayed = DateTime.Now;

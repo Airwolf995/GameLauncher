@@ -15,7 +15,7 @@ namespace GameLauncher.Tests
         [Fact]
         public void GetTickIntervalSeconds_UsesTheShortIntervalWhileAGameIsRunning()
         {
-            Assert.Equal(10, PlayTimeService.GetTickIntervalSeconds(anyGameRunning: true));
+            Assert.Equal(2, PlayTimeService.GetTickIntervalSeconds(anyGameRunning: true));
         }
 
         [Fact]
@@ -45,7 +45,7 @@ namespace GameLauncher.Tests
 
                 service.Start();
 
-                Assert.Equal(10_000d, service.CurrentTickIntervalMs);
+                Assert.Equal(2_000d, service.CurrentTickIntervalMs);
             }
             finally
             {
