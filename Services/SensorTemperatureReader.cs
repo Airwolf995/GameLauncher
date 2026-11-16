@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace GameLauncher.Services
 {
@@ -82,14 +83,7 @@ namespace GameLauncher.Services
                 }
 
                 string? firstLine = NvidiaSmiHelper.TryQueryFirstLine(_nvidiaSmiPath, "--query-gpu=temperature.gpu");
-                if (string.IsNullOrWhiteSpace(firstLine))
-                {
-                    return null;
-                }
-
-                return float.TryParse(firstLine, out float temperature) && temperature > 0 && temperature < 150
-                    ? temperature
-                    : null;
+                return ParseNvidiaTemperature(firstLine);
             }
             catch (Exception ex)
             {
@@ -100,6 +94,13 @@ namespace GameLauncher.Services
                 return null;
             }
         }
+
+        internal static float? ParseNvidiaTemperature(string? value) =>
+            // nvidia-smi liefert Dezimalpunkte, unabhängig von der UI-Sprache.
+            float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float temperature) &&
+            temperature > 0 && temperature < 150
+                ? temperature
+                : null;
 
         private void LogFailureOnce(string failureKey, string message, Exception ex)
         {
