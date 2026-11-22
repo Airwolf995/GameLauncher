@@ -116,6 +116,8 @@ namespace GameLauncher
             Application.Current.SessionEnding += OnSessionEnding;
 
             ApplySavedTheme();
+            IsInitialLoading = true;
+            ApplyUiSettings(_gameManager.Config.UISettings, registerHotkey: false, writeLog: true);
         }
 
         /// <summary>
