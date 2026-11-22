@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -237,15 +238,15 @@ namespace GameLauncher
 
         private void GameListControl_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            if (!IsLoaded || _currentViewMode != ViewMode.Cards)
+            if (!IsLoaded || !e.WidthChanged || _currentViewMode != ViewMode.Cards)
             {
                 return;
             }
 
-            UpdateCardRowsLayout();
+            UpdateCardRowsLayout(keepVisibleGame: !IsInitialLoading);
         }
 
-        private void UpdateCardRowsLayout()
+        internal void UpdateCardRowsLayout(bool keepVisibleGame = false)
         {
             if (_viewModel == null || _currentViewMode != ViewMode.Cards || GameListControl.ActualWidth <= 0)
             {
@@ -258,10 +259,57 @@ namespace GameLauncher
                 _currentCardSize,
                 _currentCardColumns);
 
+            var anchor = keepVisibleGame && layoutResult.Changed ? GetVisibleCardAnchor() : null;
             _currentCardColumns = layoutResult.Columns;
             if (_viewModel.UpdateCardColumns(layoutResult.Columns))
             {
+                if (anchor is { } visible)
+                {
+                    RestoreCardAnchor(visible.Scroll, visible.GameId, visible.RowTop, visible.RowHeight);
+                }
+
                 Logger.Log($"Kartenzeilen aktualisiert: Breite={GameListControl.ActualWidth:0.#}, Spalten={layoutResult.Columns}, Kartenbreite={layoutResult.CardWidth:0.#}, Kartengröße={_currentCardSize}.");
+            }
+        }
+
+        private (ScrollViewer Scroll, string GameId, double RowTop, double RowHeight)? GetVisibleCardAnchor()
+        {
+            var scroll = GameListControl.FindDescendant<ScrollViewer>();
+            var viewport = scroll?.FindDescendant<ScrollContentPresenter>();
+            if (scroll == null || viewport == null || scroll.VerticalOffset <= 0)
+            {
+                return null;
+            }
+
+            var range = RealizedItemRange.For(GameListControl);
+            for (int index = range.FirstIndex; index < range.LastIndexExclusive; index++)
+            {
+                if (GameListControl.ItemContainerGenerator.ContainerFromIndex(index) is not ListBoxItem item ||
+                    item.Content is not GameRow row || item.ActualHeight <= 0)
+                {
+                    continue;
+                }
+
+                double top = item.TranslatePoint(new Point(0, 0), viewport).Y;
+                if (top + item.ActualHeight > 0 && top < viewport.ActualHeight)
+                {
+                    return (scroll, row.Games[0].Id, top, item.ActualHeight);
+                }
+            }
+
+            return null;
+        }
+
+        private void RestoreCardAnchor(ScrollViewer scroll, string gameId, double rowTop, double rowHeight)
+        {
+            for (int index = 0; index < _viewModel.CardRows.Count; index++)
+            {
+                if (_viewModel.CardRows[index].Games.Any(game => game.Id == gameId))
+                {
+                    // Bei gleicher Kartengröße haben alle Zeilen dieselbe Höhe.
+                    scroll.ScrollToVerticalOffset(Math.Max(0, index * rowHeight - rowTop));
+                    return;
+                }
             }
         }
 

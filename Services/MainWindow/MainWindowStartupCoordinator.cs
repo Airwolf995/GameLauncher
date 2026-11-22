@@ -39,8 +39,8 @@ namespace GameLauncher.Services.MainWindow
 
                 var settings = _gameManager.Config.UISettings;
                 window.ApplyUiSettings(settings, registerHotkey: false, writeLog: true);
+                window.UpdateCardRowsLayout();
 
-                window.IsInitialLoading = true;
                 await _viewModel.LoadGamesAsync(loadSteamMetadataInBackground: false);
 
                 window.InitializeRuntimeServices();
