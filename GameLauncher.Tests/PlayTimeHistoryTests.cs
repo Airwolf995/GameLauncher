@@ -25,21 +25,18 @@ namespace GameLauncher.Tests
             Assert.Equal(20, PlayTimeHistory.GetDailySeconds(history["steam:1"], Today).Last());
         }
 
-        /// <summary>
-        /// Eine Sitzung über Mitternacht zählt je Schritt zu dem Tag, an dem er lag.
-        /// </summary>
-        [Fact]
-        public void Add_SplitsASessionAcrossMidnight()
+        [Theory]
+        [InlineData(0, 2, 0)]
+        [InlineData(1, 1, 1)]
+        [InlineData(2, 0, 2)]
+        public void Add_TeiltEinzelnesIntervallAnMitternachtAuf(int secondsAfterMidnight, int yesterday, int today)
         {
             var history = NewHistory();
-            var beforeMidnight = new DateTime(2026, 9, 23, 23, 59, 55, DateTimeKind.Local);
-
-            PlayTimeHistory.Add(history, "steam:1", beforeMidnight, 10);
-            PlayTimeHistory.Add(history, "steam:1", beforeMidnight.AddSeconds(10), 10);
+            PlayTimeHistory.Add(history, "steam:1", Today.Date.AddSeconds(secondsAfterMidnight), 2);
 
             var daily = PlayTimeHistory.GetDailySeconds(history["steam:1"], Today);
-            Assert.Equal(10, daily[^2]);
-            Assert.Equal(10, daily[^1]);
+            Assert.Equal(yesterday, daily[^2]);
+            Assert.Equal(today, daily[^1]);
         }
 
         [Fact]

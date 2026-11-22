@@ -10,8 +10,8 @@ namespace GameLauncher.Services
     ///
     /// Gezählt wird pro Erfassungsschritt statt pro Sitzung: So braucht es keine
     /// Erkennung, wann eine Sitzung endet, ein Absturz lässt keine halb offene
-    /// Sitzung zurück, und eine Sitzung über Mitternacht verteilt sich von
-    /// selbst auf beide Tage. Aufbewahrt werden nur die letzten
+    /// Sitzung zurück. Ein Erfassungsschritt über Mitternacht wird auf beide
+    /// Tage verteilt. Aufbewahrt werden nur die letzten
     /// <see cref="RetainedDays"/> Tage; die Gesamtspielzeit bleibt davon unberührt.
     /// </summary>
     internal static class PlayTimeHistory
@@ -37,8 +37,25 @@ namespace GameLauncher.Services
                 history[gameId] = days;
             }
 
-            string day = ToKey(playedAt);
-            days[day] = days.TryGetValue(day, out int existing) ? existing + seconds : seconds;
+            DateTime day = playedAt.Date;
+            int secondsOnDay = Math.Min(seconds, (int)playedAt.TimeOfDay.TotalSeconds);
+            for (int daysBack = 0; seconds > 0 && daysBack < RetainedDays; daysBack++)
+            {
+                if (secondsOnDay > 0)
+                {
+                    string key = ToKey(day);
+                    days[key] = days.TryGetValue(key, out int existing) ? existing + secondsOnDay : secondsOnDay;
+                    seconds -= secondsOnDay;
+                }
+
+                if (seconds == 0 || day == DateTime.MinValue)
+                {
+                    break;
+                }
+
+                day = day.AddDays(-1);
+                secondsOnDay = Math.Min(seconds, (int)TimeSpan.FromDays(1).TotalSeconds);
+            }
         }
 
         /// <summary>

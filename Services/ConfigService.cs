@@ -203,6 +203,37 @@ namespace GameLauncher.Services
             }
         }
 
+        internal bool TrySaveSettings(GameConfig settings)
+        {
+            lock (_saveSync)
+            {
+                if (_disposed || !_canOverwriteConfig)
+                {
+                    return false;
+                }
+
+                lock (_configSync)
+                {
+                    var candidate = _config.WithEditableSettings(settings);
+                    string? json = TrySerializeConfig(candidate);
+                    if (json == null || !TryWriteSerializedConfig(json))
+                    {
+                        return false;
+                    }
+
+                    _config.CopyEditableSettingsFrom(candidate);
+                }
+
+                // Ein bereits serialisierter Hintergrundstand darf die Datei
+                // nach dem Speichern nicht wieder mit alten Einstellungen ersetzen.
+                _saveVersion++;
+                _pendingSave = false;
+                _automaticSaveRetryCount = 0;
+                _saveTimer.Stop();
+                return true;
+            }
+        }
+
         private string? TrySerializeConfig(GameConfig config)
         {
             try

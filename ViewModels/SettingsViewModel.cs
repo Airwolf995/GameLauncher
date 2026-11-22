@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Reflection;
@@ -306,39 +306,38 @@ namespace GameLauncher.ViewModels
             };
         }
 
-        private void ApplySettings()
+        private GameConfig BuildSettings()
         {
             string languageCode = Appearance.SelectedLanguageCode;
-            _gameManager.UpdateConfig(config =>
+            var config = new GameConfig
             {
-                var ui = config.UISettings;
-                config.Theme = Appearance.SelectedTheme;
-                ui.CardSize = Appearance.CardSize;
-                ui.ViewMode = Appearance.ViewMode;
-                ui.LanguageCode = languageCode;
-                ui.AnimationsEnabled = Appearance.AnimationsEnabled;
-                ui.FontScale = Appearance.FontScale;
-                ui.BackgroundImage = Appearance.BackgroundImage;
-                ui.AutostartEnabled = Behavior.AutostartEnabled;
-                ui.MinimizeToTray = Behavior.MinimizeToTray;
-                ui.MinimizeOnGameStart = Behavior.MinimizeOnGameStart;
-                ui.CloseOnGameStart = Behavior.CloseOnGameStart;
-                ui.OverlayHotkeyCtrl = Behavior.OverlayHotkeyCtrl;
-                ui.OverlayHotkeyAlt = Behavior.OverlayHotkeyAlt;
-                ui.OverlayHotkeyShift = Behavior.OverlayHotkeyShift;
-                ui.OverlayHotkeyWin = Behavior.OverlayHotkeyWin;
-                ui.OverlayHotkeyKey = NormalizeHotkeyKey(Behavior.OverlayHotkeyKey);
-                ui.AutoCheckUpdates = Behavior.AutoCheckUpdates;
-                ui.SteamGridDbApiKey = Library.SteamGridDbApiKey;
+                UISettings = _gameManager.ReadConfig(current => current.UISettings.Clone()),
+                Theme = Appearance.SelectedTheme
+            };
+            var ui = config.UISettings;
+            ui.CardSize = Appearance.CardSize;
+            ui.ViewMode = Appearance.ViewMode;
+            ui.LanguageCode = languageCode;
+            ui.AnimationsEnabled = Appearance.AnimationsEnabled;
+            ui.FontScale = Appearance.FontScale;
+            ui.BackgroundImage = Appearance.BackgroundImage;
+            ui.AutostartEnabled = Behavior.AutostartEnabled;
+            ui.MinimizeToTray = Behavior.MinimizeToTray;
+            ui.MinimizeOnGameStart = Behavior.MinimizeOnGameStart;
+            ui.CloseOnGameStart = Behavior.CloseOnGameStart;
+            ui.OverlayHotkeyCtrl = Behavior.OverlayHotkeyCtrl;
+            ui.OverlayHotkeyAlt = Behavior.OverlayHotkeyAlt;
+            ui.OverlayHotkeyShift = Behavior.OverlayHotkeyShift;
+            ui.OverlayHotkeyWin = Behavior.OverlayHotkeyWin;
+            ui.OverlayHotkeyKey = NormalizeHotkeyKey(Behavior.OverlayHotkeyKey);
+            ui.AutoCheckUpdates = Behavior.AutoCheckUpdates;
+            ui.SteamGridDbApiKey = Library.SteamGridDbApiKey;
 
-                config.IgnoredProcesses = PathListFormatter.ParseLines(Library.IgnoredProcessesText);
-                config.SteamLibraryPaths = PathListFormatter.ParseLines(Library.SteamPathsText);
-                config.EpicLibraryPaths = PathListFormatter.ParseLines(Library.EpicPathsText);
-                config.XboxLibraryPaths = PathListFormatter.ParseLines(Library.XboxPathsText);
-            });
-
-            _localization.ApplyLanguageCode(languageCode);
-            _autostartService.SetEnabled(Behavior.AutostartEnabled);
+            config.IgnoredProcesses = PathListFormatter.ParseLines(Library.IgnoredProcessesText);
+            config.SteamLibraryPaths = PathListFormatter.ParseLines(Library.SteamPathsText);
+            config.EpicLibraryPaths = PathListFormatter.ParseLines(Library.EpicPathsText);
+            config.XboxLibraryPaths = PathListFormatter.ParseLines(Library.XboxPathsText);
+            return config;
         }
 
         private void CloseWindow(object? parameter)
@@ -348,10 +347,20 @@ namespace GameLauncher.ViewModels
                 return;
             }
 
-            ApplySettings();
-            _gameManager.SaveConfig();
+            var settings = BuildSettings();
+            if (!_gameManager.TrySaveSettings(settings))
+            {
+                ModernMessageWindow.Show(
+                    _localization.Get("Settings.SaveFailed"),
+                    _localization.Get("Common.Error"),
+                    ModernMessageWindow.ModernMessageButton.OK,
+                    window);
+                return;
+            }
+
+            _localization.ApplyLanguageCode(settings.UISettings.LanguageCode);
+            _autostartService.SetEnabled(settings.UISettings.AutostartEnabled);
             window.DialogResult = true;
-            window.Close();
         }
 
         private void SelectBackground()

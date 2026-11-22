@@ -70,6 +70,8 @@ namespace GameLauncher.Services.GameManagement
             _configService.SaveConfigImmediate(config);
         }
 
+        internal bool TrySaveSettings(GameConfig settings) => _configService.TrySaveSettings(settings);
+
         internal void UpdateConfig(Action<GameConfig> update)
         {
             _configService.UpdateConfig(update);
