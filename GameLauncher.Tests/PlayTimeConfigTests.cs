@@ -10,6 +10,39 @@ namespace GameLauncher.Tests
     public class PlayTimeConfigTests
     {
         [Fact]
+        public void Einstellungen_BleibenBeiSchreibfehlerUnverändertUndWerdenBeimErneutenVersuchGespeichert()
+        {
+            var tempRoot = CreateTempRoot();
+            var configPath = Path.Combine(tempRoot, "game_launcher_config.json");
+            string blockedPath = configPath + ".tmp";
+
+            try
+            {
+                using var service = new Services.ConfigService(configPath, saveDebounceMs: 60_000);
+                service.UpdateConfig(config => config.Favorites.Add("steam:123"));
+                service.SaveConfig();
+                var settings = new GameConfig { UISettings = new UISettings { FontScale = 1.2 } };
+                string original = File.ReadAllText(configPath);
+                Directory.CreateDirectory(blockedPath);
+
+                Assert.False(service.TrySaveSettings(settings));
+                Assert.Equal(1.0, service.Config.UISettings.FontScale);
+                Assert.Equal(original, File.ReadAllText(configPath));
+
+                Directory.Delete(blockedPath);
+                Assert.True(service.TrySaveSettings(settings));
+                Assert.Equal(1.2, service.Config.UISettings.FontScale);
+                using var reloaded = new Services.ConfigService(configPath);
+                Assert.Equal(1.2, reloaded.Config.UISettings.FontScale);
+                Assert.Contains("steam:123", reloaded.Config.Favorites);
+            }
+            finally
+            {
+                CleanupTempRoot(tempRoot);
+            }
+        }
+
+        [Fact]
         public async Task GespeicherterZustand_LädtAktuellesSpielzeitformat()
         {
             var tempRoot = CreateTempRoot();

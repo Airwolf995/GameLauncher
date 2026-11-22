@@ -60,5 +60,22 @@ namespace GameLauncher.Models
 
         [JsonPropertyName("ui_settings")]
         public UISettings UISettings { get; set; } = new UISettings();
+
+        internal GameConfig WithEditableSettings(GameConfig settings)
+        {
+            var candidate = (GameConfig)MemberwiseClone();
+            candidate.CopyEditableSettingsFrom(settings);
+            return candidate;
+        }
+
+        internal void CopyEditableSettingsFrom(GameConfig settings)
+        {
+            Theme = settings.Theme;
+            UISettings = settings.UISettings;
+            IgnoredProcesses = settings.IgnoredProcesses;
+            SteamLibraryPaths = settings.SteamLibraryPaths;
+            EpicLibraryPaths = settings.EpicLibraryPaths;
+            XboxLibraryPaths = settings.XboxLibraryPaths;
+        }
     }
 }
