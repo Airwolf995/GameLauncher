@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 using GameLauncher.Services.Scanners;
 
@@ -8,6 +9,29 @@ namespace GameLauncher.Tests;
 /// </summary>
 public sealed class EpicScannerTests
 {
+    [Fact]
+    public async Task ScanWithStatusAsync_MeldetLesefehlerUndBehältSpieleAusAnderenVerzeichnissen()
+    {
+        var directory = Directory.CreateTempSubdirectory();
+        try
+        {
+            string manifest = Path.Combine(directory.FullName, "game.item");
+            File.WriteAllText(manifest, """{"DisplayName":"Testspiel","AppName":"test"}""");
+            var scanner = new EpicScanner(["Fehler", directory.FullName]);
+
+            var (games, hasDirectoryErrors) = await scanner.ScanWithStatusAsync(
+                CancellationToken.None,
+                path => path == directory.FullName ? Directory.GetFiles(path, "*.item") : throw new IOException());
+
+            Assert.True(hasDirectoryErrors);
+            Assert.Equal("epic:test", Assert.Single(games).Id);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
     [Theory]
     [InlineData("games", "applications")]
     [InlineData("games")]

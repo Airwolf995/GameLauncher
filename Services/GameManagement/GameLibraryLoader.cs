@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using GameLauncher.Models;
@@ -23,37 +24,38 @@ namespace GameLauncher.Services.GameManagement
 
             var steamTask = ScanPlatformAsync(Constants.Platforms.Steam, () => new SteamScanner(config.SteamLibraryPaths), cancellationToken);
             var gogTask = ScanPlatformAsync(Constants.Platforms.GOG, () => new GogScanner(), cancellationToken);
-            var epicTask = ScanPlatformAsync(Constants.Platforms.Epic, () => new EpicScanner(config.EpicLibraryPaths), cancellationToken);
+            var epicTask = ScanPlatformAsync(Constants.Platforms.Epic, async token =>
+            {
+                var (games, hasDirectoryErrors) = await new EpicScanner(config.EpicLibraryPaths).ScanWithStatusAsync(token);
+                return new LibraryScanResult(games, hasDirectoryErrors ? [Constants.Platforms.Epic] : []);
+            }, cancellationToken);
             var eaTask = ScanPlatformAsync(Constants.Platforms.EAApp, () => new EaScanner(), cancellationToken);
             var xboxTask = ScanPlatformAsync(Constants.Platforms.Xbox, () => new XboxScanner(config.XboxLibraryPaths), cancellationToken);
             var battleNetTask = ScanPlatformAsync(Constants.Platforms.BattleNet, () => new BattleNetScanner(), cancellationToken);
 
-            await Task.WhenAll(steamTask, gogTask, epicTask, eaTask, xboxTask, battleNetTask);
-
-            var results = new[] { steamTask.Result, gogTask.Result, epicTask.Result, eaTask.Result, xboxTask.Result, battleNetTask.Result };
+            var ubisoftTask = ScanPlatformAsync(Constants.Platforms.UbisoftConnect, () => new UbisoftScanner(), cancellationToken);
+            var results = await Task.WhenAll(steamTask, gogTask, epicTask, eaTask, xboxTask, battleNetTask, ubisoftTask);
 
             Logger.Log(
                 $"Parallel scan finished. Steam: {steamTask.Result.Games.Count}, GOG: {gogTask.Result.Games.Count}, " +
                 $"Epic: {epicTask.Result.Games.Count}, EA: {eaTask.Result.Games.Count}, Xbox: {xboxTask.Result.Games.Count}, " +
-                $"Battle.net: {battleNetTask.Result.Games.Count}");
+                $"Battle.net: {battleNetTask.Result.Games.Count}, Ubisoft: {ubisoftTask.Result.Games.Count}");
 
             var games = new List<Game>();
-            var failedPlatforms = new List<string>();
-            foreach (var result in results)
+            // Ubisoft bleibt bei gleicher Spiel-ID hinter den bisherigen Einträgen.
+            foreach (var result in results.AsSpan(0, results.Length - 1))
             {
                 games.AddRange(result.Games);
-                failedPlatforms.AddRange(result.FailedPlatforms);
             }
 
             AddManualGames(config, games);
-            return new LibraryScanResult(games, failedPlatforms);
-        }
+            if (ubisoftTask.Result.Games.Count > 0)
+            {
+                games.AddRange(ubisoftTask.Result.Games);
+                games = games.DistinctBy(game => game.Id, StringComparer.OrdinalIgnoreCase).ToList();
+            }
 
-        public async Task<LibraryScanResult> LoadDeferredAsync(CancellationToken cancellationToken)
-        {
-            var result = await ScanPlatformAsync("Ubisoft", () => new UbisoftScanner(), cancellationToken);
-            Logger.Log($"Zeitversetzter Startup-Scan abgeschlossen. Ubisoft: {result.Games.Count}");
-            return result;
+            return new LibraryScanResult(games, results.SelectMany(result => result.FailedPlatforms).ToList());
         }
 
         private static void AddManualGames(GameConfig config, ICollection<Game> games)
@@ -80,9 +82,17 @@ namespace GameLauncher.Services.GameManagement
             Logger.Log($"Loaded {config.ManualGames.Count} manual games.");
         }
 
-        internal static async Task<LibraryScanResult> ScanPlatformAsync(
+        internal static Task<LibraryScanResult> ScanPlatformAsync(
             string platformName,
             Func<IPlatformScanner> createScanner,
+            CancellationToken cancellationToken,
+            TimeSpan? scanTimeout = null) =>
+            ScanPlatformAsync(platformName, async token => new LibraryScanResult(await createScanner().ScanAsync(token), []),
+                cancellationToken, scanTimeout);
+
+        private static async Task<LibraryScanResult> ScanPlatformAsync(
+            string platformName,
+            Func<CancellationToken, Task<LibraryScanResult>> scan,
             CancellationToken cancellationToken,
             TimeSpan? scanTimeout = null)
         {
@@ -96,9 +106,8 @@ namespace GameLauncher.Services.GameManagement
                 // Auch das Erzeugen im Hintergrund: Die Konstruktoren erkennen
                 // ohne eingetragene Pfade die Bibliotheken selbst, und der
                 // Aufrufer ist beim Start der Oberflächen-Thread.
-                var games = await Task.Run(() => createScanner().ScanAsync(scanToken), scanToken)
+                return await Task.Run(() => scan(scanToken), scanToken)
                     .WaitAsync(timeout, cancellationToken);
-                return new LibraryScanResult(games, []);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

@@ -160,9 +160,7 @@ namespace GameLauncher.ViewModels
             set => SetProperty(ref _statusText, value);
         }
 
-        public async Task LoadGamesAsync(
-            bool loadSteamMetadataInBackground = true,
-            bool includeDeferredStartupGames = false)
+        public async Task LoadGamesAsync(bool loadSteamMetadataInBackground = true)
         {
             if (_disposed) return;
             var token = _cts.Token;
@@ -171,20 +169,6 @@ namespace GameLauncher.ViewModels
             {
                 var games = await _gameManager.LoadAllGamesAsync(token);
                 token.ThrowIfCancellationRequested();
-                if (includeDeferredStartupGames)
-                {
-                    var deferredGames = await _gameManager.LoadDeferredStartupGamesAsync(token);
-                    token.ThrowIfCancellationRequested();
-                    if (deferredGames.Count > 0)
-                    {
-                        games = games
-                            .Concat(deferredGames)
-                            .GroupBy(game => game.Id, StringComparer.OrdinalIgnoreCase)
-                            .Select(group => group.First())
-                            .ToList();
-                    }
-                }
-
                 new Action(() =>
                 {
                     _games.Clear();

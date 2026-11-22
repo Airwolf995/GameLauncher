@@ -41,9 +41,7 @@ namespace GameLauncher.Services.MainWindow
                 window.ApplyUiSettings(settings, registerHotkey: false, writeLog: true);
 
                 window.IsInitialLoading = true;
-                await _viewModel.LoadGamesAsync(
-                    loadSteamMetadataInBackground: false,
-                    includeDeferredStartupGames: true);
+                await _viewModel.LoadGamesAsync(loadSteamMetadataInBackground: false);
 
                 window.InitializeRuntimeServices();
                 window.ApplyUiSettings(settings, registerHotkey: true, writeLog: false);

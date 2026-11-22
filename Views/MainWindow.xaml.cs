@@ -305,7 +305,7 @@ namespace GameLauncher
             try
             {
                 IsInitialLoading = true;
-                await _viewModel.LoadGamesAsync(includeDeferredStartupGames: true);
+                await _viewModel.LoadGamesAsync();
                 RefreshList(instant: false);
             }
             catch (Exception ex)
