@@ -126,18 +126,6 @@ namespace GameLauncher.Services.GameManagement
             return games;
         }
 
-        public async Task<List<Game>> LoadDeferredStartupGamesAsync(System.Threading.CancellationToken ct = default)
-        {
-            var scanResult = await _libraryLoader.LoadDeferredAsync(ct);
-            if (scanResult.FailedPlatforms.Count > 0)
-            {
-                LastScanFailures = LastScanFailures.Concat(scanResult.FailedPlatforms).Distinct().ToList();
-            }
-
-            ApplyStoredState(scanResult.Games);
-            return scanResult.Games;
-        }
-
         public async Task RefreshSteamMetadataAsync(IEnumerable<Game> games, System.Threading.CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();

@@ -125,28 +125,27 @@ namespace GameLauncher.Services.Scanners
             return true;
         }
 
-        public Task<List<Game>> ScanAsync(CancellationToken ct = default)
-        {
-            return Task.Run(() => Scan(ct), ct);
-        }
+        public async Task<List<Game>> ScanAsync(CancellationToken ct = default) =>
+            (await ScanWithStatusAsync(ct).ConfigureAwait(false)).Games;
 
-        private List<Game> Scan(CancellationToken ct)
+        internal Task<(List<Game> Games, bool HasDirectoryErrors)> ScanWithStatusAsync(
+            CancellationToken ct, Func<string, string[]>? readManifests = null) =>
+            Task.Run(() => Scan(ct, readManifests ?? (path => Directory.GetFiles(path, "*.item"))), ct);
+
+        private (List<Game> Games, bool HasDirectoryErrors) Scan(CancellationToken ct, Func<string, string[]> readManifests)
         {
             var games = new List<Game>();
+            bool hasDirectoryErrors = false;
 
             foreach (var libPath in _libraryPaths)
             {
-                if (!Directory.Exists(libPath))
-                {
-                    Logger.Log($"Skipping missing Epic path: {libPath}");
-                    continue;
-                }
+                ct.ThrowIfCancellationRequested();
 
                 Logger.Log($"Scanning Epic library: {libPath}");
 
                 try
                 {
-                    var itemFiles = Directory.GetFiles(libPath, "*.item");
+                    var itemFiles = readManifests(libPath);
                     foreach (var file in itemFiles)
                     {
                         ct.ThrowIfCancellationRequested();
@@ -213,13 +212,18 @@ namespace GameLauncher.Services.Scanners
                 {
                     throw;
                 }
+                catch (DirectoryNotFoundException)
+                {
+                    Logger.Log($"Skipping missing Epic path: {libPath}");
+                }
                 catch (Exception ex)
                 {
+                    hasDirectoryErrors = true;
                     Logger.Error($"Error scanning Epic dir {libPath}", ex);
                 }
             }
 
-            return games;
+            return (games, hasDirectoryErrors);
         }
     }
 }
