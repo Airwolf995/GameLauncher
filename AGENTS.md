@@ -72,18 +72,24 @@ dotnet build .\GameLauncher.csproj -c Release
 - Vor einer Korrektur benennen, wie groß der behobene Fehler tatsächlich ist. Steht die Auswirkung in keinem Verhältnis zum Aufwand, ist „nicht ändern“ das bessere Ergebnis und wird als solches begründet.
 - Zieht eine Korrektur weitere Sonderregeln nach sich, um selbst nicht zu schaden, ist das ein Hinweis auf ein schlechtes Verhältnis: dann die einfache bestehende Lösung behalten.
 
+## Prüfungen nach Änderungsart
+- Bei reinen Dokumentationsänderungen entfallen Build und Tests.
+- Bei XAML- oder Fensteränderungen einen Debug-Build ausführen und den betroffenen Bedienablauf prüfen.
+- Bei fachlichen Änderungen `dotnet test .\GameLauncher.Tests\GameLauncher.Tests.csproj` im Rahmen der lokalen Prüfung ausführen. Wenn ein Commit vorgesehen ist, erfolgt der Testlauf davor.
+- Für Releases den oben beschriebenen Publish-Workflow verwenden.
+
 ## Tests
 - Änderungen am Verhalten der Logik mit Tests in `GameLauncher.Tests/` absichern; reine Fenster- und Bedienlogik ist davon ausgenommen.
 - Tests gegen die fachliche Aussage schreiben, nicht gegen die Implementierung. Ändert sich ein Verhalten bewusst, den betroffenen Test ersetzen statt seine Erwartung abzuschwächen.
-- Vor dem Commit `dotnet test .\GameLauncher.Tests\GameLauncher.Tests.csproj` ausführen; der Testlauf gehört zur Änderung, nicht zum Release.
 - Tests dürfen keine Spuren im Benutzerprofil hinterlassen. Wo eine Funktion Dateien anlegt, entweder ein temporäres Verzeichnis verwenden oder die reine Berechnung prüfen.
 
 ## Annahmen prüfen
 - Undokumentierte Fremdformate wie Registry-Strukturen, Konfigurationsdateien der Spieleplattformen oder Binärformate vor der Umsetzung an einer echten Datei auf dem Zielsystem ansehen, statt sie aus dem Gedächtnis nachzubilden.
-- Aussagen zu Laufzeit und Aufwand messen statt schätzen; die Messwerte in der Commit-Message festhalten, damit die Entscheidung später nachvollziehbar bleibt.
+- Wer eine Änderung mit einer erwarteten Laufzeitverbesserung begründet, misst vorher und nachher unter vergleichbaren Bedingungen. Messszenario und Ergebnisse in der Commit-Message festhalten.
 - Steht keine echte Datenquelle zur Verfügung, die getroffene Annahme in der Änderung ausdrücklich benennen.
 
 ## Git-Workflow
+- Implementierungsaufträge enden standardmäßig mit der lokalen Prüfung. Commit, Push, Pull Request, Merge und Release erfolgen im jeweils beauftragten Umfang.
 - Änderungen thematisch getrennt committen, nicht blind alle geänderten Dateien in einen Sammel-Commit ziehen.
 - Neue Arbeiten zuerst lokal auf einem eigenen Branch beginnen, z. B. `codex/update-fix` oder `feature/xbox-scan`.
 - Mehrere parallele Branches sind in Ordnung, solange jeder Branch nur ein klares Thema oder Ticket behandelt.
