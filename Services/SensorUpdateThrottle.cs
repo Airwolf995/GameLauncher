@@ -3,17 +3,7 @@ using System;
 namespace GameLauncher.Services
 {
     /// <summary>
-    /// Begrenzt, wie oft die Hardwaresensoren tatsächlich neu eingelesen werden.
-    ///
-    /// Hintergrund: Ein Sensor-Update liest Werte über den Kernel-Treiber und die
-    /// Herstellerschnittstellen der Grafikkarte und ist entsprechend teuer. Ein
-    /// Overlay-Durchlauf fragt aber mehrere Einzelwerte nacheinander ab (CPU-Temperatur,
-    /// GPU-Temperatur, beim ersten Mal zusätzlich den GPU-Gesamtspeicher). Ohne
-    /// Begrenzung löst jeder dieser Werte ein vollständiges Update aus.
-    ///
-    /// Das Intervall ist deshalb bewusst kürzer als der Overlay-Takt: jeder Durchlauf
-    /// bekommt frische Werte, die Einzelabfragen innerhalb eines Durchlaufs teilen sich
-    /// aber ein Update.
+    /// Begrenzt Sensorabrufe und Wiederholungsversuche auf das vorgegebene Intervall.
     /// </summary>
     internal sealed class SensorUpdateThrottle
     {

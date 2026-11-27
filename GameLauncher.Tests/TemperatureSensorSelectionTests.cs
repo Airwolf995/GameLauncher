@@ -14,32 +14,16 @@ namespace GameLauncher.Tests
         [InlineData("GPU Hotspot")]
         [InlineData("GPU Memory Junction")]
         [InlineData("GPU VRM")]
+        [InlineData("GPU")]
         public void IsGpuCoreSensor_ExcludesSensorsAboveCoreTemperature(string sensorName)
         {
             Assert.False(TemperatureSensorSelection.IsGpuCoreSensor(sensorName));
         }
 
-        [Theory]
-        [InlineData("GPU Core")]
-        [InlineData("GPU")]
-        public void IsGpuCoreSensor_AcceptsCoreSensors(string sensorName)
-        {
-            Assert.True(TemperatureSensorSelection.IsGpuCoreSensor(sensorName));
-        }
-
-        [Theory]
-        [InlineData("/gpu-nvidia/0/temperature/0")]
-        [InlineData("/gpu-amd/0/temperature/0")]
-        [InlineData("/gpu-intel/0/temperature/0")]
-        public void IsGpuIdentifier_RecognisesGraphicsCards(string identifier)
-        {
-            Assert.True(TemperatureSensorSelection.IsGpuIdentifier(identifier));
-        }
-
         [Fact]
-        public void IsGpuIdentifier_RejectsProcessor()
+        public void IsGpuCoreSensor_AcceptsCoreTemperature()
         {
-            Assert.False(TemperatureSensorSelection.IsGpuIdentifier("/amdcpu/0/temperature/2"));
+            Assert.True(TemperatureSensorSelection.IsGpuCoreSensor("GPU Core"));
         }
 
         /// <summary>

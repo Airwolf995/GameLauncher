@@ -40,6 +40,7 @@ namespace GameLauncher.Services
             "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/tag/" + SupportedVersion;
 
         private static readonly TimeSpan CacheInterval = TimeSpan.FromSeconds(1);
+        private static readonly TimeSpan ConnectTimeout = TimeSpan.FromMilliseconds(500);
         private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(2);
 
         /// <summary>
@@ -50,7 +51,6 @@ namespace GameLauncher.Services
 
         private const string TemperatureType = "Temperature";
         private const string LoadType = "Load";
-        private const string SmallDataType = "SmallData";
 
         private readonly HttpClient _httpClient;
         private readonly SensorUpdateThrottle _cacheThrottle;
@@ -59,9 +59,7 @@ namespace GameLauncher.Services
         private readonly object _sync = new();
 
         private float? _cpuTemperature;
-        private float? _gpuTemperature;
-        private float? _gpuLoad;
-        private float? _gpuMemoryTotalGb;
+        private List<Reading> _readings = new();
         private DateTime? _skipUntilUtc;
         private bool _loggedUnavailable;
         private bool _disposed;
@@ -76,11 +74,19 @@ namespace GameLauncher.Services
             _requestUri = BuildRequestUri(port);
             _utcNow = utcNow ?? (() => DateTime.UtcNow);
             _cacheThrottle = new SensorUpdateThrottle(CacheInterval, _utcNow);
-            _httpClient = new HttpClient { Timeout = RequestTimeout };
+            _httpClient = CreateHttpClient();
         }
 
+        private static HttpClient CreateHttpClient() =>
+            new(new SocketsHttpHandler
+            {
+                UseProxy = false,
+                AllowAutoRedirect = false,
+                ConnectTimeout = ConnectTimeout
+            }) { Timeout = RequestTimeout };
+
         private static string BuildRequestUri(int port) =>
-            $"http://localhost:{port.ToString(CultureInfo.InvariantCulture)}/data.json";
+            $"http://127.0.0.1:{port.ToString(CultureInfo.InvariantCulture)}/data.json";
 
         /// <summary>
         /// Meldet, ob die Anwendung erreichbar ist. Dient dem Hinweis in den
@@ -90,7 +96,7 @@ namespace GameLauncher.Services
         {
             try
             {
-                using var probe = new HttpClient { Timeout = RequestTimeout };
+                using var probe = CreateHttpClient();
                 using HttpResponseMessage response = probe
                     .GetAsync(BuildRequestUri(DefaultPort), HttpCompletionOption.ResponseHeadersRead)
                     .ConfigureAwait(false)
@@ -105,25 +111,25 @@ namespace GameLauncher.Services
             }
         }
 
-        public float? TryReadCpuTemperature() => ReadCached(() => _cpuTemperature);
-
-        public float? TryReadGpuTemperature() => ReadCached(() => _gpuTemperature);
-
-        public float? TryReadGpuLoad() => ReadCached(() => _gpuLoad);
-
-        public float? TryReadGpuMemoryTotalGb() => ReadCached(() => _gpuMemoryTotalGb);
-
-        private float? ReadCached(Func<float?> selector)
+        public float? TryReadCpuTemperature()
         {
             lock (_sync)
             {
                 if (_disposed)
-                {
                     return null;
-                }
-
                 RefreshIfDue();
-                return selector();
+                return _cpuTemperature;
+            }
+        }
+
+        public (float? Temperature, float? Usage) TryReadGpu(uint vendorId)
+        {
+            lock (_sync)
+            {
+                if (_disposed)
+                    return default;
+                RefreshIfDue();
+                return SelectGpu(_readings, vendorId);
             }
         }
 
@@ -162,9 +168,7 @@ namespace GameLauncher.Services
         private void Clear()
         {
             _cpuTemperature = null;
-            _gpuTemperature = null;
-            _gpuLoad = null;
-            _gpuMemoryTotalGb = null;
+            _readings.Clear();
         }
 
         private void Refresh()
@@ -175,16 +179,16 @@ namespace GameLauncher.Services
                 .GetAwaiter()
                 .GetResult();
 
-            var readings = new List<Reading>();
-            using (JsonDocument document = JsonDocument.Parse(payload))
-            {
-                CollectReadings(document.RootElement, readings);
-            }
+            _readings = ParseReadings(payload);
+            _cpuTemperature = SelectCpuTemperature(_readings);
+        }
 
-            _cpuTemperature = SelectCpuTemperature(readings);
-            _gpuTemperature = SelectGpuTemperature(readings);
-            _gpuLoad = SelectGpuLoad(readings);
-            _gpuMemoryTotalGb = SelectGpuMemoryTotalGb(readings);
+        internal static List<Reading> ParseReadings(string payload)
+        {
+            using JsonDocument document = JsonDocument.Parse(payload);
+            var readings = new List<Reading>();
+            CollectReadings(document.RootElement, readings);
+            return readings;
         }
 
         /// <summary>
@@ -209,6 +213,7 @@ namespace GameLauncher.Services
                     ? typeElement.GetString() ?? string.Empty
                     : string.Empty;
                 string? rawValue = element.TryGetProperty("Value", out JsonElement value)
+                    && value.ValueKind == JsonValueKind.String
                     ? value.GetString()
                     : null;
 
@@ -264,7 +269,7 @@ namespace GameLauncher.Services
                 number.ToString(),
                 NumberStyles.Float,
                 CultureInfo.InvariantCulture,
-                out value);
+                out value) && float.IsFinite(value);
         }
 
         /// <summary>
@@ -301,77 +306,43 @@ namespace GameLauncher.Services
             return packageTemperature ?? maximumTemperature;
         }
 
-        private static float? SelectGpuTemperature(IReadOnlyList<Reading> readings)
+        internal static (float? Temperature, float? Usage) SelectGpu(IReadOnlyList<Reading> readings, uint vendorId)
         {
-            float? coreTemperature = null;
-            float? anyTemperature = null;
-
+            // Sensoren eines Geräts teilen sich das Präfix ihrer Web-ID.
+            // Die Gerätekennung darin hängt vom Hersteller ab.
+            string? device = null;
+            float? core = null;
+            float? load = null;
             foreach (Reading reading in readings)
             {
-                if (!reading.IsType(TemperatureType)
-                    || !TemperatureSensorSelection.IsPlausibleTemperature(reading.Value)
-                    || !TemperatureSensorSelection.IsGpuIdentifier(reading.Identifier))
-                {
+                var fields = reading.Identifier.Split('/');
+                if (fields.Length != 5 || fields[0].Length != 0 || fields[2].Length == 0)
                     continue;
-                }
 
-                if (reading.HasName(TemperatureSensorSelection.GpuCoreSensorName))
+                uint? vendor = fields[1].ToLowerInvariant() switch
                 {
-                    return reading.Value;
-                }
+                    "gpu-nvidia" or "nvidiagpu" => GpuAdapter.Nvidia,
+                    "gpu-amd" or "atigpu" => GpuAdapter.Amd,
+                    "gpu-intel" or "gpu-intel-integrated" => GpuAdapter.Intel,
+                    _ => null
+                };
+                if (vendor != vendorId)
+                    continue;
 
-                if (TemperatureSensorSelection.IsGpuCoreSensor(reading.Name)
-                    && (!coreTemperature.HasValue || reading.Value > coreTemperature.Value))
-                {
-                    coreTemperature = reading.Value;
-                }
+                string key = fields[1] + "/" + fields[2];
+                if (device != null && !string.Equals(key, device, StringComparison.OrdinalIgnoreCase))
+                    return default;
+                device = key;
 
-                if (!anyTemperature.HasValue || reading.Value > anyTemperature.Value)
-                {
-                    anyTemperature = reading.Value;
-                }
-            }
+                if (reading.IsType(TemperatureType) && TemperatureSensorSelection.IsPlausibleTemperature(reading.Value)
+                    && TemperatureSensorSelection.IsGpuCoreSensor(reading.Name))
+                    core ??= reading.Value;
 
-            return coreTemperature ?? anyTemperature;
-        }
-
-        /// <summary>
-        /// Der Wert 0 ist hier gueltig: im Leerlauf ist null Prozent die
-        /// richtige Antwort und darf nicht als "kein Messwert" gelten.
-        /// </summary>
-        private static float? SelectGpuLoad(IReadOnlyList<Reading> readings)
-        {
-            foreach (Reading reading in readings)
-            {
-                if (reading.IsType(LoadType)
-                    && reading.Value >= 0
-                    && TemperatureSensorSelection.IsGpuIdentifier(reading.Identifier)
+                if (reading.IsType(LoadType) && reading.Value is >= 0 and <= 100
                     && reading.HasName(TemperatureSensorSelection.GpuCoreSensorName))
-                {
-                    return reading.Value;
-                }
+                    load ??= reading.Value;
             }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Der Gesamtspeicher der Grafikkarte wird in Megabyte gemeldet.
-        /// </summary>
-        private static float? SelectGpuMemoryTotalGb(IReadOnlyList<Reading> readings)
-        {
-            foreach (Reading reading in readings)
-            {
-                if (reading.IsType(SmallDataType)
-                    && reading.Value > 0
-                    && TemperatureSensorSelection.IsGpuIdentifier(reading.Identifier)
-                    && reading.HasName("GPU Memory Total"))
-                {
-                    return reading.Value / 1024f;
-                }
-            }
-
-            return null;
+            return (core, load);
         }
 
         private void LogUnavailableOnce(Exception ex)
@@ -402,7 +373,7 @@ namespace GameLauncher.Services
             }
         }
 
-        private readonly record struct Reading(string Name, string Identifier, string SensorType, float Value)
+        internal readonly record struct Reading(string Name, string Identifier, string SensorType, float Value)
         {
             public bool IsType(string sensorType) =>
                 string.Equals(SensorType, sensorType, StringComparison.OrdinalIgnoreCase);

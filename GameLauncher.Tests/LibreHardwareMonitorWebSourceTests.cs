@@ -33,6 +33,34 @@ namespace GameLauncher.Tests
             Assert.False(LibreHardwareMonitorWebSource.TryParseValue(rawValue, out _));
         }
 
+        [Fact]
+        public void GpuCoreTemperature_IgnoresHotspotVramAndVrm()
+        {
+            var readings = LibreHardwareMonitorWebSource.ParseReadings("""
+                {"Children":[
+                    {"SensorId":"/gpu-amd/0/temperature/1","Text":"GPU Hot Spot","Type":"Temperature","Value":"87,0 °C"},
+                    {"SensorId":"/gpu-amd/0/temperature/2","Text":"GPU Memory Junction","Type":"Temperature","Value":"79,0 °C"},
+                    {"SensorId":"/gpu-amd/0/temperature/3","Text":"GPU VRM","Type":"Temperature","Value":"72,0 °C"},
+                    {"SensorId":"/gpu-amd/0/load/0","Text":"GPU Core","Type":"Load","Value":"0,0 %"}
+                ]}
+                """);
+
+            Assert.Equal(((float?)null, (float?)0f), LibreHardwareMonitorWebSource.SelectGpu(readings, GpuAdapter.Amd));
+        }
+
+        [Fact]
+        public void GpuSensorSelection_RejectsMultipleDeviceIndicesOfOneVendor()
+        {
+            var readings = LibreHardwareMonitorWebSource.ParseReadings("""
+                {"Children":[
+                    {"SensorId":"/gpu-nvidia/1/temperature/0","Text":"GPU Core","Type":"Temperature","Value":"41.0 °C"},
+                    {"SensorId":"/gpu-nvidia/0/load/0","Text":"GPU Core","Type":"Load","Value":"98.0 %"}
+                ]}
+                """);
+
+            Assert.Equal(default, LibreHardwareMonitorWebSource.SelectGpu(readings, GpuAdapter.Nvidia));
+        }
+
         /// <summary>
         /// Der Sensorbaum enthält neben dem Prozessor auch Mainboard-, Speicher-
         /// und Laufwerkssensoren. Die Auswahl darf deshalb nicht am Namen hängen.

@@ -51,7 +51,6 @@ namespace GameLauncher.Services
 
                 HardwareStatsSnapshot? usageSnapshot = null;
                 float? cpuTemp = null;
-                float? gpuTemp = null;
 
                 try
                 {
@@ -71,19 +70,10 @@ namespace GameLauncher.Services
                     LogReadErrorOnce("CpuTemperature", "HardwareMonitor: CPU-Temperatur konnte nicht gelesen werden", ex);
                 }
 
-                try
-                {
-                    gpuTemp = _temperatureReader.TryReadGpuTemperature();
-                }
-                catch (Exception ex)
-                {
-                    LogReadErrorOnce("GpuTemperature", "HardwareMonitor: GPU-Temperatur konnte nicht gelesen werden", ex);
-                }
-
                 return new HardwareStatsSnapshot(
                     CpuTemp: cpuTemp,
                     CpuUsage: usageSnapshot?.CpuUsage,
-                    GpuTemp: gpuTemp,
+                    GpuTemp: usageSnapshot?.GpuTemp,
                     GpuUsage: usageSnapshot?.GpuUsage,
                     RamUsedGb: usageSnapshot?.RamUsedGb,
                     RamTotalGb: usageSnapshot?.RamTotalGb,

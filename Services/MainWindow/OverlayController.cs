@@ -100,8 +100,9 @@ namespace GameLauncher.Services.MainWindow
 
             try
             {
-                _hardwareMonitorService = new HardwareMonitorService();
+                _hardwareMonitorService ??= new HardwareMonitorService();
                 _overlayWindow = new OverlayWindow(_hardwareMonitorService, _playTimeService);
+                _overlayWindow.Closed += (_, _) => _overlayWindow = null;
             }
             catch (Exception ex)
             {
