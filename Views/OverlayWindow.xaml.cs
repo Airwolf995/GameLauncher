@@ -48,7 +48,6 @@ namespace GameLauncher
             IsVisibleChanged += OnVisibilityChanged;
 
             UpdateClockAndGame(null, null);
-            _ = UpdateHardwareStatsAsync();
         }
 
         private async void UpdateHardwareStats(object? sender, EventArgs? e)
@@ -58,12 +57,13 @@ namespace GameLauncher
 
         private async Task UpdateHardwareStatsAsync()
         {
-            if (_isUpdating) return;
+            if (!IsVisible || _isUpdating) return;
             _isUpdating = true;
 
             try
             {
                 HardwareStatsSnapshot stats = await _hardwareMonitor.ReadSnapshotAsync();
+                if (!IsVisible) return;
 
                 string cpuTempStr = (stats.CpuTemp.HasValue && stats.CpuTemp.Value > 0) ? $"{Math.Round(stats.CpuTemp.Value)}°C" : "--°C";
                 string cpuLoadStr = stats.CpuUsage.HasValue ? $"{Math.Round(stats.CpuUsage.Value)}%" : "--%";

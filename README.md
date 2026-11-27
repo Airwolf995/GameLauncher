@@ -67,7 +67,9 @@ Windows gibt die Temperaturen von Prozessor und Grafikkarte nicht an gewöhnlich
 1. LibreHardwareMonitor **als Administrator** starten.
 2. Unter **Options → Remote Web Server → Run** den Webserver einschalten (Port `8085`).
 
-Ob die Verbindung steht, zeigen die Einstellungen unter **Overlay → Sensorwerte**. Auslastung und Speicher funktionieren auch ohne LibreHardwareMonitor, ebenso die GPU-Temperatur bei NVIDIA-Grafikkarten.
+Ob die Verbindung steht, zeigen die Einstellungen unter **Overlay → Sensorwerte**. Auslastung und Speicher kommen üblicherweise aus Windows. Für die Temperatur einer ausgewählten NVIDIA-Grafikkarte verwendet der Launcher direkt den NVIDIA-Treiber.
+
+Bei mehreren Grafikadaptern verwendet das Overlay die Karte mit dem größten dedizierten Videospeicher. Alle GPU-Werte beziehen sich auf diesen Adapter. Die [Anleitung zum Multi-GPU-Test](./docs/hardware-monitoring-multi-gpu.md) beschreibt, wie sich die Zuordnung prüfen lässt.
 
 ---
 

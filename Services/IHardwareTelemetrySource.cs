@@ -3,8 +3,6 @@
     internal interface IHardwareTelemetrySource : System.IDisposable
     {
         float? TryReadCpuTemperature();
-        float? TryReadGpuTemperature();
-        float? TryReadGpuLoad();
-        float? TryReadGpuMemoryTotalGb();
+        (float? Temperature, float? Usage) TryReadGpu(uint vendorId);
     }
 }

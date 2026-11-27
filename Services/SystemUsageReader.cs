@@ -1,95 +1,64 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace GameLauncher.Services
 {
     internal sealed class SystemUsageReader : ISystemUsageReader
     {
-        private const string GpuEngineCategoryName = "GPU Engine";
-        private const string GpuAdapterMemoryCategoryName = "GPU Adapter Memory";
-        private const string GpuUtilizationCounterName = "Utilization Percentage";
-        private const string GpuDedicatedUsageCounterName = "Dedicated Usage";
-
-        private readonly List<PerformanceCounter> _gpuEngineCounters = new();
-        private readonly List<PerformanceCounter> _gpuMemoryCounters = new();
-        private readonly IHardwareTelemetrySource _hardwareTelemetrySource;
-        private readonly string? _nvidiaSmiPath;
+        private readonly GpuTelemetryReader? _gpuReader;
         private readonly Func<float?> _readCpuUsage;
         private readonly Func<(float? usedGb, float? totalGb, float? loadPercent)> _readMemoryStats;
-        private readonly Func<float?> _readGpuUsage;
-        private readonly Func<(float? usedGb, float? totalGb, float? loadPercent)> _readVramStats;
+        private readonly Func<GpuReading> _readGpu;
         private readonly Action<string, Exception> _logError;
-        private readonly Func<float?> _readNvidiaSmiGpuMemoryTotalGb;
         private readonly HashSet<string> _loggedReadErrors = new(StringComparer.Ordinal);
-
-        private readonly SensorUpdateThrottle _gpuCounterRefresh =
-            new(TimeSpan.FromSeconds(30));
-
-        /// <summary>
-        /// Die Gesamtgröße des Grafikspeichers ändert sich im Betrieb nicht, ist
-        /// aber nicht zwingend beim ersten Versuch zu bekommen: die Sensorquelle
-        /// ist eine externe Anwendung und kann später starten als der Launcher.
-        /// Solange kein Wert vorliegt, wird deshalb gedrosselt erneut gefragt.
-        /// </summary>
-        private static readonly TimeSpan GpuMemoryTotalRetryInterval = TimeSpan.FromSeconds(30);
-
-        private readonly SensorUpdateThrottle _gpuMemoryTotalRetry;
-
-        private bool _gpuCountersInitialized;
-        private bool _gpuCountersAvailable = true;
-        private bool _gpuMemoryCountersAvailable = true;
-        private float? _cachedGpuMemoryTotalGb;
 
         private ulong? _lastCpuIdleTime;
         private ulong? _lastCpuKernelTime;
         private ulong? _lastCpuUserTime;
 
         public SystemUsageReader(IHardwareTelemetrySource hardwareTelemetrySource)
-            : this(hardwareTelemetrySource, null, null, null, null)
         {
+            _gpuReader = new GpuTelemetryReader(hardwareTelemetrySource);
+            _readGpu = _gpuReader.Read;
+            _readCpuUsage = ReadCpuUsage;
+            _readMemoryStats = ReadMemoryStats;
+            _logError = Models.Logger.Error;
         }
 
         internal SystemUsageReader(
-            IHardwareTelemetrySource hardwareTelemetrySource,
-            Func<float?>? readCpuUsage,
-            Func<(float? usedGb, float? totalGb, float? loadPercent)>? readMemoryStats,
-            Func<float?>? readGpuUsage,
-            Func<(float? usedGb, float? totalGb, float? loadPercent)>? readVramStats,
-            Action<string, Exception>? logError = null,
-            Func<DateTime>? utcNow = null,
-            Func<float?>? readNvidiaSmiGpuMemoryTotalGb = null)
+            Func<float?> readCpuUsage,
+            Func<(float? usedGb, float? totalGb, float? loadPercent)> readMemoryStats,
+            Func<GpuReading> readGpu,
+            Action<string, Exception> logError)
         {
-            _hardwareTelemetrySource = hardwareTelemetrySource ?? throw new ArgumentNullException(nameof(hardwareTelemetrySource));
-            _gpuMemoryTotalRetry = new SensorUpdateThrottle(GpuMemoryTotalRetryInterval, utcNow);
-            _nvidiaSmiPath = NvidiaSmiHelper.ResolvePath();
-            _readNvidiaSmiGpuMemoryTotalGb = readNvidiaSmiGpuMemoryTotalGb ?? ReadGpuMemoryTotalGbFromNvidiaSmi;
-            _readCpuUsage = readCpuUsage ?? ReadCpuUsage;
-            _readMemoryStats = readMemoryStats ?? ReadMemoryStats;
-            _readGpuUsage = readGpuUsage ?? ReadGpuUsage;
-            _readVramStats = readVramStats ?? ReadVramStats;
-            _logError = logError ?? Models.Logger.Error;
+            _readCpuUsage = readCpuUsage;
+            _readMemoryStats = readMemoryStats;
+            _readGpu = readGpu;
+            _logError = logError;
         }
 
         public HardwareStatsSnapshot ReadSnapshot()
         {
             float? cpuUsage = TryReadCpuUsage();
             var memory = TryReadMemoryStats();
-            float? gpuUsage = TryReadGpuUsage();
-            var vram = TryReadVramStats();
+            var gpu = TryReadGpu();
+            const double bytesPerGiB = 1024d * 1024 * 1024;
+            float? vramLoad = gpu.UsedBytes is ulong used && gpu.TotalBytes is > 0
+                ? (float)Math.Min(100, 100d * used / gpu.TotalBytes.Value)
+                : null;
 
             return new HardwareStatsSnapshot(
                 CpuTemp: null,
                 CpuUsage: cpuUsage,
-                GpuTemp: null,
-                GpuUsage: gpuUsage,
+                GpuTemp: gpu.Temperature,
+                GpuUsage: gpu.Usage,
                 RamUsedGb: memory.usedGb,
                 RamTotalGb: memory.totalGb,
                 RamLoad: memory.loadPercent,
-                VramUsedGb: vram.usedGb,
-                VramTotalGb: vram.totalGb,
-                VramLoad: vram.loadPercent);
+                VramUsedGb: (float?)(gpu.UsedBytes / bytesPerGiB),
+                VramTotalGb: (float?)(gpu.TotalBytes / bytesPerGiB),
+                VramLoad: vramLoad);
         }
 
         private float? TryReadCpuUsage()
@@ -118,29 +87,16 @@ namespace GameLauncher.Services
             }
         }
 
-        private float? TryReadGpuUsage()
+        private GpuReading TryReadGpu()
         {
             try
             {
-                return _readGpuUsage();
+                return _readGpu();
             }
             catch (Exception ex)
             {
-                LogReadErrorOnce("GpuUsage", "HardwareMonitor: GPU-Auslastung konnte nicht gelesen werden", ex);
-                return null;
-            }
-        }
-
-        private (float? usedGb, float? totalGb, float? loadPercent) TryReadVramStats()
-        {
-            try
-            {
-                return _readVramStats();
-            }
-            catch (Exception ex)
-            {
-                LogReadErrorOnce("Vram", "HardwareMonitor: VRAM-Auslastung konnte nicht gelesen werden", ex);
-                return (null, null, null);
+                LogReadErrorOnce("Gpu", "HardwareMonitor: GPU-Werte konnten nicht gelesen werden", ex);
+                return default;
             }
         }
 
@@ -210,342 +166,7 @@ namespace GameLauncher.Services
             return (usedGb, totalGb, loadPercent);
         }
 
-        private float? ReadGpuUsage()
-        {
-            // Bevorzugt die geraetebezogene Angabe des Treibers. Die
-            // Leistungsindikatoren darunter sind prozessbezogen und erfassen nur
-            // Prozesse, die beim Aufbau der Zaehlerliste schon liefen - ein spaeter
-            // gestartetes Spiel taucht dort nicht auf.
-            float? deviceLoad = _hardwareTelemetrySource.TryReadGpuLoad();
-            if (deviceLoad.HasValue)
-            {
-                return (float)Math.Clamp(deviceLoad.Value, 0.0, 100.0);
-            }
-
-            EnsureGpuCountersInitialized();
-            if (!_gpuCountersAvailable || _gpuEngineCounters.Count == 0)
-            {
-                return null;
-            }
-
-            double maxUsage = 0;
-            bool hasValue = false;
-
-            foreach (var counter in _gpuEngineCounters)
-            {
-                try
-                {
-                    float value = counter.NextValue();
-                    if (float.IsNaN(value) || float.IsInfinity(value) || value <= 0)
-                    {
-                        continue;
-                    }
-
-                    hasValue = true;
-                    if (value > maxUsage)
-                    {
-                        maxUsage = value;
-                    }
-                }
-                catch
-                {
-                }
-            }
-
-            return hasValue ? (float)Math.Clamp(maxUsage, 0.0, 100.0) : null;
-        }
-
-        private (float? usedGb, float? totalGb, float? loadPercent) ReadVramStats()
-        {
-            EnsureGpuCountersInitialized();
-            if (!_gpuMemoryCountersAvailable || _gpuMemoryCounters.Count == 0)
-            {
-                return (null, null, null);
-            }
-
-            double dedicatedBytes = 0;
-            bool hasValue = false;
-
-            foreach (var counter in _gpuMemoryCounters)
-            {
-                try
-                {
-                    float value = counter.NextValue();
-                    if (float.IsNaN(value) || float.IsInfinity(value) || value < 0)
-                    {
-                        continue;
-                    }
-
-                    dedicatedBytes += value;
-                    hasValue = true;
-                }
-                catch
-                {
-                }
-            }
-
-            if (!hasValue)
-            {
-                return (null, null, null);
-            }
-
-            float usedGb = (float)(dedicatedBytes / (1024d * 1024d * 1024d));
-            float? totalGb = ReadGpuMemoryTotalGb();
-            float? loadPercent = null;
-            if (totalGb.HasValue && totalGb.Value > 0)
-            {
-                loadPercent = (float)Math.Clamp((usedGb / totalGb.Value) * 100f, 0f, 100f);
-            }
-
-            return (usedGb, totalGb, loadPercent);
-        }
-
-        private void EnsureGpuCountersInitialized()
-        {
-            if (!_gpuCountersInitialized)
-            {
-                // Verbraucht zugleich das erste Zeitfenster, damit der direkt
-                // folgende Zugriff nicht sofort neu einliest.
-                _gpuCounterRefresh.ShouldUpdate();
-                _gpuCountersInitialized = true;
-                InitializeGpuUsageCounters();
-                InitializeGpuMemoryCounters();
-                return;
-            }
-
-            // Die Instanzen der Kategorie "GPU Engine" sind prozessbezogen und
-            // entstehen erst mit dem jeweiligen Prozess. Ohne regelmaessiges
-            // Neueinlesen bliebe die Liste auf dem Stand des ersten Aufrufs -
-            // ein spaeter gestartetes Spiel taucht dann nie auf.
-            if (!_gpuCounterRefresh.ShouldUpdate())
-            {
-                return;
-            }
-
-            DisposeGpuCounters();
-            InitializeGpuUsageCounters();
-            InitializeGpuMemoryCounters();
-        }
-
-        private void DisposeGpuCounters()
-        {
-            foreach (var counter in _gpuEngineCounters)
-            {
-                try { counter.Dispose(); } catch { }
-            }
-
-            foreach (var counter in _gpuMemoryCounters)
-            {
-                try { counter.Dispose(); } catch { }
-            }
-
-            _gpuEngineCounters.Clear();
-            _gpuMemoryCounters.Clear();
-        }
-
-        private void InitializeGpuUsageCounters()
-        {
-            _gpuCountersAvailable = InitializeCounters(
-                target: _gpuEngineCounters,
-                categoryName: GpuEngineCategoryName,
-                counterName: GpuUtilizationCounterName,
-                instanceFilter: ShouldUseGpuEngineInstance,
-                unavailableMessage: "HardwareMonitor: GPU-Engine-Counter sind auf diesem System nicht verfügbar.",
-                emptyMessage: "HardwareMonitor: keine geeigneten GPU-Engine-Counter gefunden.",
-                errorMessage: "GPU-Engine-Counter konnten nicht initialisiert werden");
-        }
-
-        private void InitializeGpuMemoryCounters()
-        {
-            _gpuMemoryCountersAvailable = InitializeCounters(
-                target: _gpuMemoryCounters,
-                categoryName: GpuAdapterMemoryCategoryName,
-                counterName: GpuDedicatedUsageCounterName,
-                instanceFilter: ShouldUseGpuMemoryInstance,
-                unavailableMessage: "HardwareMonitor: GPU-Speicher-Counter sind auf diesem System nicht verfügbar.",
-                emptyMessage: "HardwareMonitor: keine geeigneten GPU-Speicher-Counter gefunden.",
-                errorMessage: "GPU-Speicher-Counter konnten nicht initialisiert werden");
-        }
-
-        private static bool InitializeCounters(
-            List<PerformanceCounter> target,
-            string categoryName,
-            string counterName,
-            Func<string, bool> instanceFilter,
-            string unavailableMessage,
-            string emptyMessage,
-            string errorMessage)
-        {
-            try
-            {
-                if (!PerformanceCounterCategory.Exists(categoryName))
-                {
-                    Models.Logger.Log(unavailableMessage);
-                    return false;
-                }
-
-                var category = new PerformanceCounterCategory(categoryName);
-                foreach (var instanceName in category.GetInstanceNames())
-                {
-                    if (!instanceFilter(instanceName))
-                    {
-                        continue;
-                    }
-
-                    TryAddCounter(target, categoryName, counterName, instanceName);
-                }
-
-                if (target.Count > 0)
-                {
-                    return true;
-                }
-
-                Models.Logger.Log(emptyMessage);
-                return false;
-            }
-            catch (Exception ex)
-            {
-                Models.Logger.Error(errorMessage, ex);
-                return false;
-            }
-        }
-
-        private static void TryAddCounter(
-            List<PerformanceCounter> target,
-            string categoryName,
-            string counterName,
-            string instanceName)
-        {
-            PerformanceCounter? counter = null;
-            try
-            {
-                counter = new PerformanceCounter(categoryName, counterName, instanceName, readOnly: true);
-                counter.NextValue();
-                target.Add(counter);
-                counter = null;
-            }
-            catch
-            {
-            }
-            finally
-            {
-                counter?.Dispose();
-            }
-        }
-
-        private static bool ShouldUseGpuEngineInstance(string instanceName)
-        {
-            if (string.IsNullOrWhiteSpace(instanceName))
-            {
-                return false;
-            }
-
-            string normalized = instanceName.ToLowerInvariant();
-            if (!normalized.Contains("engtype"))
-            {
-                return false;
-            }
-
-            return normalized.Contains("engtype_3d")
-                || normalized.Contains("engtype_compute")
-                || normalized.Contains("engtype_cuda")
-                || normalized.Contains("engtype_copy")
-                || normalized.Contains("engtype_video");
-        }
-
-        private static bool ShouldUseGpuMemoryInstance(string instanceName)
-        {
-            if (string.IsNullOrWhiteSpace(instanceName))
-            {
-                return false;
-            }
-
-            string normalized = instanceName.ToLowerInvariant();
-            return normalized.Contains("luid");
-        }
-
-        /// <summary>
-        /// Die Gesamtgröße des Grafikspeichers. Gefragt werden nur Quellen, die
-        /// den echten Wert liefern können: nvidia-smi und die Sensorquelle.
-        ///
-        /// Win32_VideoController.AdapterRAM aus WMI wird bewusst nicht mehr
-        /// herangezogen. Das Feld ist 32 Bit breit und meldet für jede Karte über
-        /// 4 GB denselben gedeckelten Wert - gemessen auf einer RTX 4080 SUPER
-        /// mit 16 GB: 4293918720 Byte. Da daraus die VRAM-Auslastung berechnet
-        /// wird, ergab das eine dauerhaft zu hohe, aber glaubwürdig aussehende
-        /// Anzeige. Ohne Gesamtgröße entfällt der Prozentwert stattdessen ganz.
-        /// </summary>
-        internal float? ReadGpuMemoryTotalGb()
-        {
-            if (_cachedGpuMemoryTotalGb.HasValue)
-            {
-                return _cachedGpuMemoryTotalGb;
-            }
-
-            if (!_gpuMemoryTotalRetry.ShouldUpdate())
-            {
-                return null;
-            }
-
-            float? nvidiaSmiTotal = _readNvidiaSmiGpuMemoryTotalGb();
-            if (nvidiaSmiTotal.HasValue && nvidiaSmiTotal.Value > 0)
-            {
-                _cachedGpuMemoryTotalGb = nvidiaSmiTotal;
-                return _cachedGpuMemoryTotalGb;
-            }
-
-            float? hardwareMonitorTotal = _hardwareTelemetrySource.TryReadGpuMemoryTotalGb();
-            if (hardwareMonitorTotal.HasValue && hardwareMonitorTotal.Value > 0)
-            {
-                _cachedGpuMemoryTotalGb = hardwareMonitorTotal;
-                return _cachedGpuMemoryTotalGb;
-            }
-
-            return null;
-        }
-
-        private float? ReadGpuMemoryTotalGbFromNvidiaSmi()
-        {
-            if (string.IsNullOrWhiteSpace(_nvidiaSmiPath))
-            {
-                return null;
-            }
-
-            try
-            {
-                string? firstLine = NvidiaSmiHelper.TryQueryFirstLine(_nvidiaSmiPath, "--query-gpu=memory.total");
-                if (string.IsNullOrWhiteSpace(firstLine))
-                {
-                    return null;
-                }
-
-                if (!float.TryParse(firstLine, out float totalMiB) || totalMiB <= 0)
-                {
-                    return null;
-                }
-
-                return totalMiB / 1024f;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        public void Dispose()
-        {
-            foreach (var counter in _gpuEngineCounters)
-            {
-                counter.Dispose();
-            }
-            _gpuEngineCounters.Clear();
-
-            foreach (var counter in _gpuMemoryCounters)
-            {
-                counter.Dispose();
-            }
-            _gpuMemoryCounters.Clear();
-        }
+        public void Dispose() => _gpuReader?.Dispose();
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool GetSystemTimes(

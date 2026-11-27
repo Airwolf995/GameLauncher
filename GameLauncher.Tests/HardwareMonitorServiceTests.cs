@@ -8,16 +8,16 @@ namespace GameLauncher.Tests
     public sealed class HardwareMonitorServiceTests
     {
         [Fact]
-        public void ReadSnapshot_WhenSystemUsageReaderFails_ReturnsTemperatures()
+        public void ReadSnapshot_WhenSystemUsageReaderFails_ReturnsCpuTemperature()
         {
             using var service = CreateService(
                 new TestSystemUsageReader(() => throw new InvalidOperationException("Systemwerte nicht verfügbar")),
-                new TestTemperatureReader(cpuTemperature: 61f, gpuTemperature: 72f));
+                new TestTemperatureReader(cpuTemperature: 61f));
 
             HardwareStatsSnapshot snapshot = service.ReadSnapshot();
 
             Assert.Equal(61f, snapshot.CpuTemp);
-            Assert.Equal(72f, snapshot.GpuTemp);
+            Assert.Null(snapshot.GpuTemp);
             Assert.Null(snapshot.CpuUsage);
             Assert.Null(snapshot.RamUsedGb);
             Assert.Null(snapshot.GpuUsage);
@@ -25,13 +25,11 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
-        public void ReadSnapshot_WhenCpuTemperatureFails_ReturnsSystemValuesAndGpuTemperature()
+        public void ReadSnapshot_WhenCpuTemperatureFails_PreservesUsageAndGpuTemperature()
         {
             using var service = CreateService(
                 new TestSystemUsageReader(CreateUsageSnapshot),
-                new TestTemperatureReader(
-                    cpuException: new InvalidOperationException("CPU-Sensor nicht verfügbar"),
-                    gpuTemperature: 72f));
+                new TestTemperatureReader(cpuException: new InvalidOperationException("CPU-Sensor nicht verfügbar")));
 
             HardwareStatsSnapshot snapshot = service.ReadSnapshot();
 
@@ -41,30 +39,13 @@ namespace GameLauncher.Tests
         }
 
         [Fact]
-        public void ReadSnapshot_WhenGpuTemperatureFails_ReturnsSystemValuesAndCpuTemperature()
-        {
-            using var service = CreateService(
-                new TestSystemUsageReader(CreateUsageSnapshot),
-                new TestTemperatureReader(
-                    cpuTemperature: 61f,
-                    gpuException: new InvalidOperationException("GPU-Sensor nicht verfügbar")));
-
-            HardwareStatsSnapshot snapshot = service.ReadSnapshot();
-
-            Assert.Equal(61f, snapshot.CpuTemp);
-            Assert.Null(snapshot.GpuTemp);
-            AssertUsageValues(snapshot);
-        }
-
-        [Fact]
-        public void SystemUsageReader_WhenGpuUsageFails_PreservesCpuAndRamValues()
+        public void SystemUsageReader_WhenGpuFails_PreservesCpuAndRamValues()
         {
             using var reader = new SystemUsageReader(
-                new NullHardwareTelemetrySource(),
                 readCpuUsage: () => 42f,
                 readMemoryStats: () => (6f, 16f, 38f),
-                readGpuUsage: () => throw new InvalidOperationException("GPU-Counter nicht verfügbar"),
-                readVramStats: () => (2f, 8f, 25f));
+                readGpu: () => throw new InvalidOperationException("GPU-Counter nicht verfügbar"),
+                logError: (_, _) => { });
 
             HardwareStatsSnapshot snapshot = reader.ReadSnapshot();
 
@@ -72,28 +53,31 @@ namespace GameLauncher.Tests
             Assert.Equal(6f, snapshot.RamUsedGb);
             Assert.Equal(16f, snapshot.RamTotalGb);
             Assert.Equal(38f, snapshot.RamLoad);
+            Assert.Null(snapshot.GpuTemp);
             Assert.Null(snapshot.GpuUsage);
-            Assert.Equal(2f, snapshot.VramUsedGb);
-        }
-
-        [Fact]
-        public void SystemUsageReader_WhenVramFails_PreservesCpuRamAndGpuValues()
-        {
-            using var reader = new SystemUsageReader(
-                new NullHardwareTelemetrySource(),
-                readCpuUsage: () => 42f,
-                readMemoryStats: () => (6f, 16f, 38f),
-                readGpuUsage: () => 75f,
-                readVramStats: () => throw new InvalidOperationException("VRAM-Counter nicht verfügbar"));
-
-            HardwareStatsSnapshot snapshot = reader.ReadSnapshot();
-
-            Assert.Equal(42f, snapshot.CpuUsage);
-            Assert.Equal(6f, snapshot.RamUsedGb);
-            Assert.Equal(75f, snapshot.GpuUsage);
             Assert.Null(snapshot.VramUsedGb);
             Assert.Null(snapshot.VramTotalGb);
             Assert.Null(snapshot.VramLoad);
+        }
+
+        [Theory]
+        [InlineData(0, 8, 0)]
+        [InlineData(3, 16, 18.75)]
+        public void SystemUsageReader_ReportsVramFromOneReading(int used, int total, float percent)
+        {
+            using var reader = new SystemUsageReader(
+                readCpuUsage: () => null,
+                readMemoryStats: () => default,
+                readGpu: () => new GpuReading(53f, 0f, (ulong)used << 30, (ulong)total << 30),
+                logError: (_, _) => { });
+
+            HardwareStatsSnapshot snapshot = reader.ReadSnapshot();
+
+            Assert.Equal(53f, snapshot.GpuTemp);
+            Assert.Equal(0f, snapshot.GpuUsage);
+            Assert.Equal(used, snapshot.VramUsedGb);
+            Assert.Equal(total, snapshot.VramTotalGb);
+            Assert.Equal(percent, snapshot.VramLoad);
         }
 
         [Fact]
@@ -117,7 +101,7 @@ namespace GameLauncher.Tests
         public void ReadSnapshot_AfterDispose_ReturnsEmptySnapshotWithoutReadingHardware()
         {
             var usageReader = new TestSystemUsageReader(CreateUsageSnapshot);
-            using var service = CreateService(usageReader, new TestTemperatureReader(cpuTemperature: 61f, gpuTemperature: 72f));
+            using var service = CreateService(usageReader, new TestTemperatureReader(cpuTemperature: 61f));
             service.Dispose();
 
             HardwareStatsSnapshot snapshot = service.ReadSnapshot();
@@ -205,99 +189,15 @@ namespace GameLauncher.Tests
         {
             int errorCount = 0;
             using var reader = new SystemUsageReader(
-                new NullHardwareTelemetrySource(),
-                readCpuUsage: () => 42f,
-                readMemoryStats: () => (6f, 16f, 38f),
-                readGpuUsage: () => throw new InvalidOperationException("GPU-Counter nicht verfügbar"),
-                readVramStats: () => (2f, 8f, 25f),
+                readCpuUsage: () => null,
+                readMemoryStats: () => default,
+                readGpu: () => throw new InvalidOperationException("GPU-Counter nicht verfügbar"),
                 logError: (_, _) => errorCount++);
 
             reader.ReadSnapshot();
             reader.ReadSnapshot();
 
             Assert.Equal(1, errorCount);
-        }
-
-        /// <summary>
-        /// Die Sensorquelle ist eine externe Anwendung und kann später starten
-        /// als der Launcher. Früher wurde der erste Fehlversuch dauerhaft
-        /// festgeschrieben, sodass die Gesamtgröße bis zum Neustart fehlte.
-        /// </summary>
-        [Fact]
-        public void ReadGpuMemoryTotalGb_HoltWertNachSobaldSensorquelleAntwortet()
-        {
-            var clock = new TestClock();
-            var telemetrySource = new DelayedVramTotalTelemetrySource(availableFromCall: 2, totalGb: 16f);
-            using var reader = CreateVramTotalReader(telemetrySource, clock);
-
-            Assert.Null(reader.ReadGpuMemoryTotalGb());
-
-            clock.Advance(TimeSpan.FromSeconds(31));
-
-            Assert.Equal(16f, reader.ReadGpuMemoryTotalGb());
-        }
-
-        /// <summary>
-        /// Der ermittelte Wert ändert sich im Betrieb nicht und wird deshalb
-        /// nur einmal abgefragt.
-        /// </summary>
-        [Fact]
-        public void ReadGpuMemoryTotalGb_FragtNachErfolgNichtErneutAb()
-        {
-            var clock = new TestClock();
-            var telemetrySource = new DelayedVramTotalTelemetrySource(availableFromCall: 1, totalGb: 16f);
-            using var reader = CreateVramTotalReader(telemetrySource, clock);
-
-            Assert.Equal(16f, reader.ReadGpuMemoryTotalGb());
-            clock.Advance(TimeSpan.FromSeconds(31));
-            Assert.Equal(16f, reader.ReadGpuMemoryTotalGb());
-
-            Assert.Equal(1, telemetrySource.TotalReadCalls);
-        }
-
-        /// <summary>
-        /// Ohne Antwort einer Quelle bleibt der Wert leer. Ein gedeckelter
-        /// Ersatzwert wäre schlimmer als keiner: aus ihm wurde die
-        /// VRAM-Auslastung berechnet und dauerhaft zu hoch angezeigt.
-        /// </summary>
-        [Fact]
-        public void ReadGpuMemoryTotalGb_MeldetOhneQuelleKeinenWert()
-        {
-            var clock = new TestClock();
-            var telemetrySource = new DelayedVramTotalTelemetrySource(availableFromCall: int.MaxValue, totalGb: 16f);
-            using var reader = CreateVramTotalReader(telemetrySource, clock);
-
-            Assert.Null(reader.ReadGpuMemoryTotalGb());
-            clock.Advance(TimeSpan.FromSeconds(31));
-            Assert.Null(reader.ReadGpuMemoryTotalGb());
-        }
-
-        /// <summary>
-        /// nvidia-smi wird bewusst gestellt: sonst hinge das Ergebnis davon ab,
-        /// ob auf dem Rechner des Testlaufs eine NVIDIA-Karte steckt.
-        /// </summary>
-        private static SystemUsageReader CreateVramTotalReader(
-            IHardwareTelemetrySource telemetrySource,
-            TestClock clock)
-        {
-            return new SystemUsageReader(
-                telemetrySource,
-                readCpuUsage: () => null,
-                readMemoryStats: () => (null, null, null),
-                readGpuUsage: () => null,
-                readVramStats: () => (null, null, null),
-                logError: (_, _) => { },
-                utcNow: clock.UtcNow,
-                readNvidiaSmiGpuMemoryTotalGb: () => null);
-        }
-
-        private sealed class TestClock
-        {
-            private DateTime _utcNow = new(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
-
-            public DateTime UtcNow() => _utcNow;
-
-            public void Advance(TimeSpan amount) => _utcNow += amount;
         }
 
         private static HardwareMonitorService CreateService(
@@ -315,7 +215,7 @@ namespace GameLauncher.Tests
         private static HardwareStatsSnapshot CreateUsageSnapshot() => new(
             CpuTemp: null,
             CpuUsage: 42f,
-            GpuTemp: null,
+            GpuTemp: 72f,
             GpuUsage: 75f,
             RamUsedGb: 6f,
             RamTotalGb: 16f,
@@ -334,61 +234,6 @@ namespace GameLauncher.Tests
             Assert.Equal(2f, snapshot.VramUsedGb);
             Assert.Equal(8f, snapshot.VramTotalGb);
             Assert.Equal(25f, snapshot.VramLoad);
-        }
-
-        /// <summary>
-        /// Die geraetebezogene Angabe des Treibers hat Vorrang vor den
-        /// Leistungsindikatoren. Diese sind prozessbezogen und erfassen nur
-        /// Prozesse, die beim Aufbau der Zaehlerliste schon liefen - ein spaeter
-        /// gestartetes Spiel blieb dort unsichtbar, die Anzeige stand bei 1 %.
-        /// </summary>
-        [Fact]
-        public void SystemUsageReader_PrefersDeviceGpuLoadOverPerformanceCounters()
-        {
-            using var reader = new SystemUsageReader(
-                new TestHardwareTelemetrySource(gpuLoad: 87f),
-                readCpuUsage: () => 12f,
-                readMemoryStats: () => (8f, 32f, 25f),
-                readGpuUsage: null,
-                readVramStats: () => (2f, 8f, 25f));
-
-            HardwareStatsSnapshot snapshot = reader.ReadSnapshot();
-
-            Assert.Equal(87f, snapshot.GpuUsage);
-        }
-
-        /// <summary>
-        /// Leerlauf sind null Prozent - das ist ein gueltiger Messwert und darf
-        /// nicht als "kein Wert" behandelt werden.
-        /// </summary>
-        [Fact]
-        public void SystemUsageReader_AcceptsZeroPercentAsAValidGpuLoad()
-        {
-            using var reader = new SystemUsageReader(
-                new TestHardwareTelemetrySource(gpuLoad: 0f),
-                readCpuUsage: () => 12f,
-                readMemoryStats: () => (8f, 32f, 25f),
-                readGpuUsage: null,
-                readVramStats: () => (2f, 8f, 25f));
-
-            HardwareStatsSnapshot snapshot = reader.ReadSnapshot();
-
-            Assert.Equal(0f, snapshot.GpuUsage);
-        }
-
-        [Fact]
-        public void SystemUsageReader_ClampsImplausibleDeviceGpuLoad()
-        {
-            using var reader = new SystemUsageReader(
-                new TestHardwareTelemetrySource(gpuLoad: 140f),
-                readCpuUsage: () => 12f,
-                readMemoryStats: () => (8f, 32f, 25f),
-                readGpuUsage: null,
-                readVramStats: () => (2f, 8f, 25f));
-
-            HardwareStatsSnapshot snapshot = reader.ReadSnapshot();
-
-            Assert.Equal(100f, snapshot.GpuUsage);
         }
 
         private sealed class TestSystemUsageReader : ISystemUsageReader
@@ -415,96 +260,21 @@ namespace GameLauncher.Tests
             }
         }
 
-        private sealed class TestTemperatureReader : IOptionalTemperatureReader
+        private sealed class TestTemperatureReader(
+            float? cpuTemperature = null, Exception? cpuException = null) : IOptionalTemperatureReader
         {
-            private readonly Exception? _cpuException;
-            private readonly float? _cpuTemperature;
-            private readonly Exception? _gpuException;
-            private readonly float? _gpuTemperature;
-
-            public TestTemperatureReader(
-                float? cpuTemperature = null,
-                float? gpuTemperature = null,
-                Exception? cpuException = null,
-                Exception? gpuException = null)
-            {
-                _cpuTemperature = cpuTemperature;
-                _gpuTemperature = gpuTemperature;
-                _cpuException = cpuException;
-                _gpuException = gpuException;
-            }
-
-            public float? TryReadCpuTemperature()
-            {
-                if (_cpuException != null)
-                {
-                    throw _cpuException;
-                }
-
-                return _cpuTemperature;
-            }
-
-            public float? TryReadGpuTemperature()
-            {
-                if (_gpuException != null)
-                {
-                    throw _gpuException;
-                }
-
-                return _gpuTemperature;
-            }
+            public float? TryReadCpuTemperature() =>
+                cpuException == null ? cpuTemperature : throw cpuException;
         }
 
         private sealed class TestHardwareTelemetrySource : IHardwareTelemetrySource
         {
-            private readonly float? _gpuLoad;
-
-            public TestHardwareTelemetrySource(float? gpuLoad = null) => _gpuLoad = gpuLoad;
-
             public int DisposeCalls { get; private set; }
 
             public float? TryReadCpuTemperature() => null;
-            public float? TryReadGpuTemperature() => null;
-            public float? TryReadGpuLoad() => _gpuLoad;
-            public float? TryReadGpuMemoryTotalGb() => null;
+            public (float? Temperature, float? Usage) TryReadGpu(uint vendorId) => default;
 
-            public void Dispose()
-            {
-                DisposeCalls++;
-            }
-        }
-
-        /// <summary>
-        /// Sensorquelle, die die Gesamtgröße des Grafikspeichers erst ab einem
-        /// bestimmten Abruf meldet. Damit lässt sich eine externe Anwendung
-        /// nachbilden, die später startet als der Launcher.
-        /// </summary>
-        private sealed class DelayedVramTotalTelemetrySource : IHardwareTelemetrySource
-        {
-            private readonly int _availableFromCall;
-            private readonly float _totalGb;
-
-            public DelayedVramTotalTelemetrySource(int availableFromCall, float totalGb)
-            {
-                _availableFromCall = availableFromCall;
-                _totalGb = totalGb;
-            }
-
-            public int TotalReadCalls { get; private set; }
-
-            public float? TryReadCpuTemperature() => null;
-            public float? TryReadGpuTemperature() => null;
-            public float? TryReadGpuLoad() => null;
-
-            public float? TryReadGpuMemoryTotalGb()
-            {
-                TotalReadCalls++;
-                return TotalReadCalls >= _availableFromCall ? _totalGb : null;
-            }
-
-            public void Dispose()
-            {
-            }
+            public void Dispose() => DisposeCalls++;
         }
     }
 }
